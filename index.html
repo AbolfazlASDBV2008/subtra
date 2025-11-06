@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مترجم زیرنویس انیمه  </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    
+    <style>
+        /* اعمال فونت وزیرمتن به کل صفحه */
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+        }
+        
+        input[type="file"] { display: none; }
+        .file-upload-label { cursor: pointer; transition: all 0.3s ease; }
+        #dropZone { border-style: dashed; transition: all 0.3s ease; }
+        #dropZone.drag-over { background-color: #374151; border-color: #60a5fa; }
+        .progress-bar-inner { transition: width 0.4s ease; }
+        
+        details summary { list-style: none; cursor: pointer; }
+        details summary::-webkit-details-marker { display: none; }
+        details summary::before { content: '◀'; display: inline-block; transition: transform 0.2s; margin-left: 0.5rem; }
+        details[open] summary::before { transform: rotate(-90deg); }
+        
+        .safety-settings-content {
+            margin-top: 1rem;
+            padding: 1rem 1.5rem;
+            border: 1px solid #4b5563; /* gray-600 */
+            border-radius: 0.5rem;
+            background-color: #1f2937; /* gray-800 */
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .proxy-setting-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            border: 1px dashed #4b5563; /* gray-600 */
+            border-radius: 0.5rem;
+        }
+
+        .status-message {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status-complete { background-color: #166534; border: 1px solid #22c55e; color: #dcfce7; } /* green */
+        .status-incomplete { background-color: #854d0e; border: 1px solid #f59e0b; color: #fefce8; } /* amber */
+        .status-aborted { background-color: #991b1b; border: 1px solid #ef4444; color: #fee2e2; } /* red */
+
+        /* *** جدید: استایل برای خروجی زنده *** */
+        #liveOutput {
+            background-color: #111827; /* gray-900 */
+            border: 1px solid #4b5563; /* gray-600 */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            height: 200px; /* ارتفاع ثابت */
+            max-height: 40vh; /* حداکثر ارتفاع */
+            overflow-y: auto; /* اسکرول عمودی */
+            white-space: pre-wrap; /* شکستن خطوط */
+            word-break: break-word; /* شکستن کلمات */
+            font-size: 0.9rem; /* کمی کوچکتر */
+            line-height: 1.7;
+            color: #d1d5db; /* gray-300 */
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white p-4 md:p-8 min-h-screen">
+
+    <div class="max-w-5xl mx-auto">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+                مترجم زیرنویس انیمه
+            </h1>
+            <p class="text-gray-400 mt-2">
+                فایل‌های VTT, SRT, یا ASS خود را به فارسی روان ترجمه کنید و با فرمت ASS تحویل بگیرید.
+            </p>
+        </header>
+
+        <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
+            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">تنظیمات</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div class="mb-4">
+                        <label for="apiKey" class="block mb-2 text-sm font-medium text-gray-300">
+                            کلید API گوگل (Gemini)
+                        </label>
+                        <input type="password" id="apiKey" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" placeholder="کلید API خود را اینجا وارد کنید...">
+                    </div>
+
+                    <div class="mb-4">
+    <label for="modelSelect" class="block mb-2 text-sm font-medium text-gray-300">انتخاب مدل هوش مصنوعی</label>
+    <select id="modelSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
+        <option value="gemini-2.5-pro">Gemini 2.5 Pro (جدیدترین و دقیق‌ترین)</option>
+        <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (سریع‌ترین)</option>
+    </select>
+</div>
+
+                    <div class="proxy-setting-container">
+                        <input type="checkbox" id="proxy-toggle" class="w-5 h-5 cursor-pointer">
+                        <label for="proxy-toggle" class="font-medium text-gray-300 cursor-pointer">
+                            استفاده از پراکسی (برای دور زدن تحریم)
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <details class="safety-settings-details">
+                        <summary class="font-medium text-gray-300">
+                            تنظیمات ایمنی (Safety Settings)
+                        </summary>
+                        <div class="safety-settings-content">
+                            <p class="text-xs text-gray-400">فعال کردن این گزینه‌ها فیلترهای محتوای Gemini را غیرفعال می‌کند. (ممکن است زمان ترجمه را افزایش دهد)</p>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="safety-harassment-toggle" class="w-4 h-4">
+                                آزار و اذیت (Harassment)
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="safety-hate-speech-toggle" class="w-4 h-4">
+                                سخنان نفرت‌پراکن (Hate Speech)
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="safety-sexually-explicit-toggle" class="w-4 h-4">
+                                محتوای جنسی (Sexually Explicit)
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="safety-dangerous-content-toggle" class="w-4 h-4">
+                                محتوای خطرناک (Dangerous)
+                            </label>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+
+            <div class="mt-6">
+                <label for="systemPrompt" class="block mb-2 text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
+                <textarea id="systemPrompt" rows="8" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="text-align: right; direction: rtl;"></textarea>
+            </div>
+            
+            <button id="saveSettings" class="mt-4 w-full md:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition duration-300">
+                ذخیره تنظیمات
+            </button>
+            <span id="settingsSaved" class="text-green-400 mr-4 hidden">تنظیمات ذخیره شد!</span>
+        </div>
+
+        <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
+            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">۱. انتخاب فایل‌ها</h2>
+            <div id="dropZone" class="border-2 border-gray-600 rounded-lg p-10 text-center text-gray-400">
+                <p class="mb-4">فایل‌های زیرنویس خود را اینجا بکشید و رها کنید</p>
+                <p class="mb-4 text-sm">(فرمت‌های .vtt, .srt, .ass)</p>
+                <label for="fileInput" class="file-upload-label px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium">
+                    یا برای انتخاب فایل کلیک کنید
+                </label>
+                <input type="file" id="fileInput" multiple accept=".vtt,.srt,.ass">
+            </div>
+            <div id="fileList" class="mt-6 space-y-3">
+                </div>
+            <button id="clearFileList" class="mt-4 w-full md:w-auto px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-xs font-medium transition duration-300 disabled:opacity-50" style="display: none;">
+                پاک کردن لیست فایل‌ها
+            </button>
+        </div>
+
+        <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
+            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">۲. شروع عملیات</h2>
+            
+            <div class="flex flex-col md:flex-row gap-4">
+                <button id="startTranslation" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    شروع ترجمه
+                </button>
+                <button id="stopTranslation" class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition duration-300" style="display: none;">
+                    ⛔ توقف عملیات
+                </button>
+                <button id="downloadFiles" class="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    دانلود فایل(ها)
+                </button>
+            </div>
+
+            <div class="mt-6" id="overallProgressSection" style="display: none;">
+                <label class="block mb-2 text-sm font-medium text-gray-300" id="overallProgressLabel">پیشرفت کلی</label>
+                <div class="w-full bg-gray-700 rounded-full h-4">
+                    <div id="overallProgressBar" class="bg-blue-500 h-4 rounded-full progress-bar-inner" style="width: 0%"></div>
+                </div>
+                <pre id="liveOutput" style="display: none;"></pre>
+                
+                <p id="translationStatusMessage" class="status-message hidden"></p>
+            </div>
+            
+            <div id="statusLog" class="mt-4 p-4 bg-gray-900 rounded-lg max-h-48 overflow-y-auto text-sm text-gray-300" style="display: none;">
+                </div>
+        </div>
+        
+    </div> <footer class="text-center mt-12 pb-8">
+        <p class="text-gray-400 text-sm mb-2">
+            توسعه دهنده : Abolfazl_ASDBV
+        </p>
+        <div class="flex justify-center gap-4">
+            <a href="https://t.me/anime_sub_Persian" target="_blank" rel="noopener noreferrer" title="Telegram"
+               class="text-gray-400 hover:text-blue-400 transition-colors">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Telegram icon">
+                    <path d="M11.999 0C5.372 0 0 5.373 0 12s5.372 12 11.999 12C18.626 24 24 18.627 24 12S18.626 0 11.999 0zM18.26 8.13l-2.73 12.04c-.15.66-.54 1.25-1.1 1.25-.3 0-.58-.12-.82-.36l-3.37-3.11-1.63 1.57c-.18.17-.4.29-.63.29-.3 0-.58-.12-.8-.34l-.45-.43c-.4-.38-.63-1.12-.2-1.6l2.9-4.3 6.03-5.52c.26-.24.06-.39-.22-.25l-7.3 4.54-3.5-1.09c-.6-.18-.9-.45-.9-.94 0-.4.2-.68.6-.85l14.28-5.57c.5-.2 1.02.1 1.2.63z"/>
+                </svg>
+            </a>
+            <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" title="Instagram"
+               class="text-gray-400 hover:text-purple-400 transition-colors">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Instagram icon">
+                    <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.784.297-1.459.717-2.126 1.384S.927 3.356.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.297.784.717 1.459 1.384 2.126.667.666 1.342 1.086 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.784-.297 1.459-.718 2.126-1.384.666-.667 1.086-1.342 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.277.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.148-.558-2.913-.297-.784-.718-1.459-1.384-2.126C20.644.927 19.969.507 19.185.21c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.163c3.203 0 3.585.012 4.85.07 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.265.07 1.646.07 4.85s-.012 3.585-.07 4.85c-.055 1.17-.249 1.805-.413 2.227-.217.562-.477.96-.896 1.382-.42.419-.819.679-1.381.896-.422.164-1.057.36-2.227.413-1.265.057-1.646.07-4.85.07s-3.585-.012-4.85-.07c-1.17-.055-1.805-.249-2.227-.413-.562-.217-.96-.477-1.382-.896-.419-.42-.679-.819-.896-1.381-.164-.422-.36-1.057-.413-2.227-.057-1.265-.07-1.646-.07-4.85s.012-3.585.07-4.85c.055-1.17.249 1.805.413 2.227.217.562.477.96.896-1.382.42-.419.819.679 1.381-.896.422.164 1.057.36 2.227.413 1.265.057 1.646.07 4.85.07zM12 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z"/>
+                </svg>
+            </a>
+        </div>
+    </footer>
+    <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4" style="display: none; z-index: 50;">
+        <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6">
+            <h3 class="text-2xl font-bold text-red-500 mb-4">خطا در عملیات</h3>
+            <div id="errorMessageContainer" class="text-gray-300 mb-6 text-right max-h-96 overflow-y-auto">
+                </div>
+            <button id="closeModal" class="w-full px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition duration-300">
+                بستن
+            </button>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- 1. انتخاب عناصر HTML ---
+        const apiKeyInput = document.getElementById('apiKey');
+        const modelSelect = document.getElementById('modelSelect');
+        const systemPrompt = document.getElementById('systemPrompt');
+        const saveSettings = document.getElementById('saveSettings');
+        const settingsSaved = document.getElementById('settingsSaved');
+        
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const clearFileList = document.getElementById('clearFileList'); // *** جدید ***
+        
+        const startTranslation = document.getElementById('startTranslation');
+        const stopTranslation = document.getElementById('stopTranslation');
+        const downloadFiles = document.getElementById('downloadFiles');
+        
+        const overallProgressSection = document.getElementById('overallProgressSection');
+        const overallProgressBar = document.getElementById('overallProgressBar');
+        const overallProgressLabel = document.getElementById('overallProgressLabel');
+        const statusLog = document.getElementById('statusLog');
+        
+        const liveOutput = document.getElementById('liveOutput'); // *** جدید ***
+        const translationStatusMessage = document.getElementById('translationStatusMessage'); 
+        const proxyToggle = document.getElementById('proxy-toggle'); 
+        const safetyHarassmentToggle = document.getElementById('safety-harassment-toggle'); 
+        const safetyHateSpeechToggle = document.getElementById('safety-hate-speech-toggle'); 
+        const safetySexuallyExplicitToggle = document.getElementById('safety-sexually-explicit-toggle'); 
+        const safetyDangerousContentToggle = document.getElementById('safety-dangerous-content-toggle'); 
+
+        const errorModal = document.getElementById('errorModal');
+        const errorMessageContainer = document.getElementById('errorMessageContainer');
+        const closeModal = document.getElementById('closeModal');
+
+        // --- 2. متغیرهای وضعیت ---
+        let uploadedFiles = []; 
+        let processedFiles = []; 
+        let isTranslating = false;
+        let abortController = null; 
+
+        // *** پرامپت پیش‌فرض به‌روزرسانی شده (متعادل) ***
+        const defaultPrompt = `
+## مأموریت اصلی
+شما یک دستیار هوش مصنوعی متخصص در بومی‌سازی زیرنویس انیمه به زبان فارسی هستید. وظیفه شما ارائه یک خروجی روان، جذاب و عامیانه است که در عین حال به شدت به مفهوم و محتوای متن اصلی وفادار باشد.
+
+## اصول و قوانین قاطع ترجمه
+1.  **ترجمه عامیانه و روان (ضد-رباتیک):** ترجمه باید کاملاً طبیعی و به دور از حس ماشینی یا خشک باشد. از زبان فارسی امروزی، پویا و در مواقع لزوم، عامیانه و گفتاری استفاده کنید.
+2.  **وفاداری به مفهوم، نه کلمات:** برگرداندن *معنی* و *لحن* دیالوگ اولویت دارد. از ترجمه کلمه به کلمه که منجر به عبارات نامأنوس فارسی می‌شود، پرهیز کنید.
+3.  **قانون عدم افزودن یا حذف:** در حین روان‌سازی، به هیچ وجه اطلاعات، مفاهیم یا دیالوگ‌هایی که در متن اصلی وجود ندارند را **اضافه نکنید**. همچنین هیچ بخشی از متن اصلی را حذف یا سانسور نکنید. ترجمه باید کامل و بی پرده باشد.
+4.  **انسجام و شخصیت:** لحن هر کاراکتر (رسمی، دوستانه، طنزآمیز) و اصطلاحات کلیدی باید در سرتاسر متن یکسان و با انسجام ترجمه شوند.
+5.  **حفظ کامل ساختار فنی:** کاراکترهای پایپ‌لاین (\`|\`) برای شکستن خطوط و آکولادها (\`{\` و \`}\`) باید **بدون هیچ تغییری و دقیقاً در همان موقعیت** در متن ترجمه‌شده نیز حفظ شوند.
+
+## فرمت ورودی و خروجی
+شما یک فایل متنی حاوی دیالوگ‌ها (با فرمت microdvd) دریافت خواهید کرد. شما باید *دقیقا* همان فایل را با حفظ کامل زمان‌بندی (فریم‌ها) و جایگزینی متن انگلیسی با ترجمه فارسی روان و وفادار برگردانید.
+        `.trim();
+
+        // --- 3. مدیریت تنظیمات (شامل پراکسی و ایمنی) ---
+
+        function loadSettings() {
+            apiKeyInput.value = localStorage.getItem('geminiApiKey') || '';
+            modelSelect.value = localStorage.getItem('geminiModel') || 'gemini-2.5-pro-latest';
+            systemPrompt.value = localStorage.getItem('geminiPrompt') || defaultPrompt;
+            proxyToggle.checked = localStorage.getItem('proxyEnabled') === 'true';
+            
+            const savedSafety = localStorage.getItem('safetySettings');
+            if (savedSafety) {
+                const settings = JSON.parse(savedSafety);
+                safetyHarassmentToggle.checked = settings.harassment || false;
+                safetyHateSpeechToggle.checked = settings.hateSpeech || false;
+                safetySexuallyExplicitToggle.checked = settings.sexuallyExplicit || false;
+                safetyDangerousContentToggle.checked = settings.dangerousContent || false;
+            }
+        }
+
+        function saveSafetySettings() {
+            const settings = {
+                harassment: safetyHarassmentToggle.checked,
+                hateSpeech: safetyHateSpeechToggle.checked,
+                sexuallyExplicit: safetySexuallyExplicitToggle.checked,
+                dangerousContent: safetyDangerousContentToggle.checked
+            };
+            localStorage.setItem('safetySettings', JSON.stringify(settings));
+        }
+
+        saveSettings.addEventListener('click', () => {
+            localStorage.setItem('geminiApiKey', apiKeyInput.value);
+            localStorage.setItem('geminiModel', modelSelect.value);
+            localStorage.setItem('geminiPrompt', systemPrompt.value);
+            localStorage.setItem('proxyEnabled', proxyToggle.checked);
+            saveSafetySettings();
+            
+            settingsSaved.classList.remove('hidden');
+            setTimeout(() => settingsSaved.classList.add('hidden'), 3000);
+        });
+        
+        // --- 4. مدیریت آپلود فایل (شامل دکمه پاکسازی) ---
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+        fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); });
+
+        function handleFiles(files) {
+            uploadedFiles = Array.from(files).filter(file => 
+                file.name.endsWith('.srt') || file.name.endsWith('.vtt') || file.name.endsWith('.ass')
+            );
+            if (uploadedFiles.length > 0) {
+                startTranslation.disabled = false;
+                downloadFiles.disabled = true;
+                processedFiles = [];
+                updateFileListUI();
+                clearFileList.style.display = 'block'; // *** جدید ***
+            }
+        }
+        function updateFileListUI() {
+            fileList.innerHTML = ''; 
+            uploadedFiles.forEach((file, index) => {
+                const fileElement = document.createElement('div');
+                fileElement.id = `file-${index}`;
+                fileElement.className = 'bg-gray-700 p-3 rounded-lg flex items-center justify-between';
+                fileElement.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-white truncate">${file.name}</p>
+                        <p class="text-xs text-gray-400" id="file-status-${index}">در صف</p>
+                    </div>
+                    <div class="w-24 ml-4">
+                        <div class="w-full bg-gray-600 rounded-full h-2.5">
+                            <div id="file-progress-${index}" class="bg-blue-500 h-2.5 rounded-full progress-bar-inner" style="width: 0%"></div>
+                        </div>
+                    </div>
+                `;
+                fileList.appendChild(fileElement);
+            });
+        }
+        function updateFileStatus(index, status, progress = -1) {
+            const statusEl = document.getElementById(`file-status-${index}`);
+            const progressEl = document.getElementById(`file-progress-${index}`);
+            if (statusEl) statusEl.textContent = status;
+            if (progressEl && progress !== -1) progressEl.style.width = `${progress}%`;
+            
+            // به‌روزرسانی نوار پیشرفت کلی بر اساس فایل فعلی
+            const totalFiles = uploadedFiles.length;
+            const fileProgress = progress < 0 ? 0 : (progress / 100); // پیشرفت فایل فعلی (0 تا 1)
+            const filesDone = processedFiles.length;
+            const overallProgress = ((filesDone + fileProgress) / totalFiles) * 100;
+            
+            overallProgressBar.style.width = `${overallProgress}%`;
+            overallProgressLabel.textContent = `پیشرفت کلی: ${filesDone} از ${totalFiles} کامل شده (فایل فعلی: ${status})`;
+        }
+        
+        // *** جدید: رویداد دکمه پاک کردن لیست ***
+        clearFileList.addEventListener('click', () => {
+            uploadedFiles = [];
+            processedFiles = [];
+            fileList.innerHTML = '';
+            fileInput.value = ''; // ریست کردن اینپوت فایل
+            
+            startTranslation.disabled = true;
+            downloadFiles.disabled = true;
+            clearFileList.style.display = 'none';
+            
+            // ریست کردن بخش پیشرفت
+            overallProgressSection.style.display = 'none';
+            overallProgressBar.style.width = '0%';
+            overallProgressLabel.textContent = 'پیشرفت کلی';
+            statusLog.innerHTML = '';
+            statusLog.style.display = 'none';
+            liveOutput.textContent = '';
+            liveOutput.style.display = 'none';
+            translationStatusMessage.classList.add('hidden');
+        });
+
+
+        // --- 5. توابع پارسر ---
+        // (parseSRT, parseVTT, parseASS, timeToASSFormat)
+        function parseSRT(data) {
+            const blocks = [];
+            const lines = data.split(/\r?\n/);
+            let i = 0;
+            while (i < lines.length) {
+                if (lines[i] && /^\d+$/.test(lines[i].trim())) {
+                    const index = parseInt(lines[i].trim());
+                    i++;
+                    if (lines[i] && lines[i].includes('-->')) {
+                        const [start, end] = lines[i].split(' --> ').map(timeToASSFormat);
+                        i++;
+                        let text = [];
+                        while (lines[i] && lines[i].trim() !== '') {
+                            text.push(lines[i].trim());
+                            i++;
+                        }
+                        blocks.push({ index, start, end, style: "Default", text: text.join('\n') });
+                    }
+                }
+                i++;
+            }
+            return blocks;
+        }
+        
+        // *** اصلاحیه باگ VTT ***
+        function parseVTT(data) {
+            const blocks = [];
+            const lines = data.replace(/WEBVTT[^\n]*\n(\n)*/, '').split(/\r?\n/);
+            let i = 0;
+            let index = 1;
+            while (i < lines.length) {
+                if (lines[i] && lines[i].includes('-->')) {
+                    const timeParts = lines[i].split(' --> ');
+                    const startStr = timeParts[0].trim();
+                    const endStr = timeParts[1].trim().split(' ')[0]; // این خط زمان پایان را به درستی استخراج می‌کند
+                    const start = timeToASSFormat(startStr);
+                    const end = timeToASSFormat(endStr);
+                    i++;
+                    let text = [];
+                    while (lines[i] && lines[i].trim() !== '') {
+                        text.push(lines[i].trim().replace(/<[^>]+>/g, ''));
+                        i++;
+                    }
+                    blocks.push({ index, start, end, style: "Default", text: text.join('\n') });
+                    index++;
+                }
+                i++;
+            }
+            return blocks;
+        }
+        function parseASS(data) {
+            const blocks = [];
+            const lines = data.split(/\r?\n/);
+            let eventsSection = false, formatFields = [];
+            for (const line of lines) {
+                if (line.trim() === '[Events]') { eventsSection = true; continue; }
+                if (!eventsSection) continue;
+                if (line.startsWith('Format:')) { formatFields = line.substring(7).trim().split(',').map(f => f.trim()); continue; }
+                if (line.startsWith('Dialogue:')) {
+                    const parts = line.substring(9).trim().split(',');
+                    const dialogueObj = {};
+                    if (parts.length > formatFields.length) {
+                        const textStartIndex = formatFields.indexOf('Text');
+                        const textParts = parts.slice(textStartIndex);
+                        parts.splice(textStartIndex, parts.length - textStartIndex, textParts.join(','));
+                    }
+                    formatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
+                    blocks.push({
+                        index: blocks.length + 1,
+                        start: dialogueObj.Start, end: dialogueObj.End, style: dialogueObj.Style || "Default",
+                        layer: dialogueObj.Layer || '0', name: dialogueObj.Name || '',
+                        marginL: dialogueObj.MarginL || '0', marginR: dialogueObj.MarginR || '0',
+                        marginV: dialogueObj.MarginV || '0', effect: dialogueObj.Effect || '',
+                        text: dialogueObj.Text
+                    });
+                }
+            }
+            return blocks;
+        }
+        function timeToASSFormat(timeStr) {
+            if (!timeStr) return "0:00:00.00";
+            let [hms, ms] = timeStr.split(timeStr.includes(',') ? ',' : '.');
+            let [h, m, s] = hms.split(':');
+            if (s === undefined) { s = m; m = h; h = '0'; }
+            h = parseInt(h, 10).toString(); 
+            m = (m || '0').padStart(2, '0');
+            s = (s || '0').padStart(2, '0');
+            ms = (ms || "000").substring(0, 2).padEnd(2, '0'); 
+            return `${h}:${m}:${s}.${ms}`;
+        }
+        
+        // --- 6. توابع جدید API و مدیریت خطا ---
+
+        function timeToFrames(time, fps) {
+            const parts = time.match(/(\d+):(\d{2}):(\d{2})\.(\d{2})/);
+            if (!parts) return 0;
+            const hours = parseInt(parts[1], 10);
+            const minutes = parseInt(parts[2], 10);
+            const seconds = parseInt(parts[3], 10);
+            const centiseconds = parseInt(parts[4], 10);
+            const totalSeconds = (hours * 3600) + (minutes * 60) + seconds + (centiseconds / 100);
+            return Math.floor(totalSeconds * fps);
+        }
+
+        // *** اصلاحیه: تابع ادغام برای تلاش مجدد (گام ۱ از ۳) ***
+        function mergeTrustedFramesWithAiText(originalMicroDVD, aiOutputMicroDVD) {
+            if (!originalMicroDVD) return { mergedTextLines: [], untranslatedCount: 0, untranslatedLinesData: [] };
+            const originalLines = originalMicroDVD.trim().split('\n');
+            if (!aiOutputMicroDVD) return { mergedTextLines: originalLines, untranslatedCount: originalLines.length, untranslatedLinesData: [] }; // Return original as lines
+
+            const aiLines = aiOutputMicroDVD.trim().split('\n');
+            const translatedTextMap = new Map();
+            const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
+
+            for (const line of aiLines) {
+                const match = line.trim().match(microDVDLineRegex);
+                if (match) {
+                    const timeBlockKey = `{${match[1]}}{${match[2]}}`;
+                    translatedTextMap.set(timeBlockKey, match[3]);
+                }
+            }
+
+            const mergedLines = [];
+            let untranslatedLinesData = []; // جدید: ذخیره اطلاعات خطوط جا افتاده
+            
+            for (let i = 0; i < originalLines.length; i++) { // نیاز به ایندکس داریم
+                const originalLine = originalLines[i];
+                const originalMatch = originalLine.match(microDVDLineRegex);
+                
+                if (originalMatch) {
+                    const timeBlockKey = `{${originalMatch[1]}}{${originalMatch[2]}}`;
+                    if (translatedTextMap.has(timeBlockKey)) {
+                        const translatedText = translatedTextMap.get(timeBlockKey);
+                        mergedLines.push(`${timeBlockKey}${translatedText}`);
+                    } else {
+                        // این خط جا افتاده است
+                        mergedLines.push(originalLine); // فعلاً متن اصلی را نگه دار
+                        untranslatedLinesData.push({
+                            indexInMerged: i, // ایندکس خط در آرایه mergedLines
+                            originalText: originalMatch[3] // فقط متن انگلیسی
+                        });
+                    }
+                } else {
+                     mergedLines.push(originalLine); // برای خطوط غیر دیالوگ (اگر وجود داشته باشد)
+                }
+            }
+            
+            return { 
+                mergedTextLines: mergedLines, // خروجی به عنوان آرایه
+                untranslatedCount: untranslatedLinesData.length,
+                untranslatedLinesData: untranslatedLinesData // لیست خطوط جا افتاده
+            };
+        }
+        
+        function checkTranslationCompleteness(translatedMicroDVD, originalLastEndFrame) {
+            const lines = translatedMicroDVD.split('\n');
+            const lineRegex = /\{(\d+)\}\{(\d+)\}(.*)/;
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const line = lines[i].trim();
+                const match = line.match(lineRegex);
+                if (match) {
+                    const translatedEndFrame = parseInt(match[2], 10);
+                    return translatedEndFrame === originalLastEndFrame;
+                }
+            }
+            return false; 
+        }
+
+        async function handleFetchError(response) {
+            const errorText = await response.text();
+            if (errorText.trim().startsWith('<!DOCTYPE html>') || errorText.includes('</head>')) {
+                if (errorText.includes('Error 524')) return 'خطای Timeout از پراکسی (Error 524): پاسخ از سرور گوگل بیش از حد طول کشیده است.';
+                if (errorText.includes('Error 522')) return 'خطای Connection Timeout از پراکسی (Error 522): پراکسی نتوانست به سرور گوگل متصل شود.';
+                if (errorText.includes('Error 520')) return 'خطای ناشناخته از پراکسی (Error 520): پراکسی یک پاسخ نامعتبر دریافت کرده است.';
+                return 'یک خطای ناشناخته HTML از سمت پراکسی دریافت شد.';
+            }
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.error && errorJson.error.message) {
+                    return errorJson.error.message;
+                }
+                return `پاسخ JSON نامعتبر از سرور: ${JSON.stringify(errorJson, null, 2)}`;
+            } catch (e) {
+                return `یک پاسخ غیرمنتظره از سرور دریافت شد: "${errorText.substring(0, 100)}..."`;
+            }
+        }
+        
+        function uploadFileToGemini(processedText, originalFilename, apiKey, onProgress, signal) {
+            return new Promise((resolve, reject) => {
+                const proxyEnabled = proxyToggle.checked;
+                const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+                const url = `${GEMINI_BASE_URL}/upload/v1beta/files?key=${apiKey}`;
+                
+                const formData = new FormData();
+                const fileToUpload = new File([processedText], originalFilename, { type: 'text/plain' });
+                formData.append('file', fileToUpload);
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable && typeof onProgress === 'function') {
+                        const percentage = (event.loaded / event.total) * 100;
+                        onProgress(percentage);
+                    }
+                };
+                
+                xhr.onload = async () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        if(typeof onProgress === 'function') onProgress(100);
+                        resolve(JSON.parse(xhr.responseText).file.uri);
+                    } else {
+                        const errorMsg = await handleFetchError({ text: () => Promise.resolve(xhr.responseText) });
+                        reject(new Error(`خطا در آپلود فایل: ${errorMsg}`));
+                    }
+                };
+                
+                xhr.onerror = () => reject(new Error('خطای شبکه هنگام آپلود فایل رخ داد.'));
+                signal.addEventListener('abort', () => xhr.abort());
+                xhr.send(formData);
+            });
+        }
+        
+        async function getTranslationStream(fileUri, onChunk, onEnd, onError, signal) {
+            const apiKey = apiKeyInput.value.trim();
+            const model = modelSelect.value;
+            
+            const proxyEnabled = proxyToggle.checked;
+            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+            const url = `${GEMINI_BASE_URL}/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+            try {
+                const activePrompt = systemPrompt.value;
+                const safetySettings = [];
+                if (safetyHarassmentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" });
+                if (safetyHateSpeechToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" });
+                if (safetySexuallyExplicitToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" });
+                if (safetyDangerousContentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" });
+
+                const requestBody = {
+                    contents: [{
+                        parts: [
+                            { text: activePrompt },
+                            { fileData: { mime_type: "text/plain", file_uri: fileUri } }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.3, 
+                        topP: 0.9,      
+                    }
+                };
+                if (safetySettings.length > 0) requestBody.safetySettings = safetySettings;
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                    signal: signal 
+                });
+                
+                if (!response.ok) throw new Error(await handleFetchError(response));
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = '';
+                let buffer = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        if (buffer.startsWith('data: ')) {
+                            try {
+                                const jsonStr = buffer.substring(5);
+                                const parsed = JSON.parse(jsonStr);
+                                const textPart = parsed.candidates[0]?.content?.parts[0]?.text;
+                                if (textPart) fullText += textPart;
+                            } catch (e) { console.warn("Could not parse final buffer chunk:", buffer); }
+                        }
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); 
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.substring(5);
+                            try {
+                                const parsed = JSON.parse(jsonStr);
+                                const textPart = parsed.candidates[0]?.content?.parts[0]?.text;
+                                if (textPart) {
+                                    fullText += textPart;
+                                    onChunk(fullText); 
+                                 }
+                            } catch (e) { console.warn("Could not parse a JSON chunk:", jsonStr); }
+                        }
+                    }
+                }
+                onEnd(fullText);
+            } catch(error) { 
+                if (error.name === 'AbortError') {
+                    console.log('Fetch aborted by user.');
+                }
+                onError(error); 
+            }
+        }
+        
+               // --- 7. منطق خود-اصلاح‌گری (بازنویسی شده) ---
+        async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt) {
+            
+            const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/;
+            const persianRegex = /[\u0600-\u06FF]/;
+            const englishRegex = /[a-zA-Z]/;
+            
+            // *** جدید: Regex برای شناسایی کاراکترهای خراب و کنترلی ***
+            // این شامل کاراکتر Bell ( \u0007 یا  ) و Arabic Mark ( \u061C یا ؜ ) که در اسکرین‌شات شما بود
+            const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
+
+            let linesToRetry = [];
+            for (let i = 0; i < texts.length; i++) {
+                // اطمینان حاصل کنید که texts[i] یک رشته معتبر است
+                if (typeof texts[i] !== 'string') continue; 
+                
+                const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
+                const textWithoutTags = textPart.replace(/\{[^}]+\}/g, ' ');
+                
+                const hasForeign = foreignScriptRegex.test(textWithoutTags);
+                const hasPersian = persianRegex.test(textWithoutTags);
+                const hasEnglish = englishRegex.test(textWithoutTags);
+                const hasBadChars = badCharacterRegex.test(textWithoutTags); // *** جدید: بررسی کاراکتر خراب ***
+
+                if (hasForeign) {
+                    linesToRetry.push({ index: i, text: textPart });
+                } 
+                else if (hasPersian && hasEnglish) {
+                    linesToRetry.push({ index: i, text: textPart });
+                }
+                else if (hasBadChars) { // *** جدید: اگر خط کاراکتر خراب داشت، آن را برای اصلاح بفرست ***
+                    linesToRetry.push({ index: i, text: textPart });
+                }
+            }
+            
+            if (linesToRetry.length === 0) {
+                addLog("بررسی کامل شد. خطای ترجمه ناقص یا خراب یافت نشد."); // لاگ اصلاح شد
+                return texts; 
+            }
+
+            addLog(`تعداد ${linesToRetry.length} خطای ترجمه (ترکیبی، خارجی یا خراب) یافت شد. در حال تلاش برای اصلاح...`, false, "yellow"); // لاگ اصلاح شد
+            updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
+            
+            const RETRY_CHUNK_SIZE = 10;
+            const totalChunks = Math.ceil(linesToRetry.length / RETRY_CHUNK_SIZE);
+            let correctedCount = 0;
+
+            for (let i = 0; i < totalChunks; i++) {
+                if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+                
+                const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
+                const originalChunkTexts = chunk.map(l => l.text);
+                
+                // *** جدید: پرامپت اصلاحی به‌روزرسانی شد ***
+                const promptText = "خطوط زیر شامل کلمات ترجمه نشده (انگلیسی در کنار فارسی)، اسکریپت‌های خارجی، یا کاراکترهای خراب/آرتیفکت هستند. لطفاً این خطوط را به فارسی روان، صحیح و کامل بازنویسی کن. ساختار کلی خط (مانند تگ‌های |) را حفظ نما. هر خط را با '|||' جدا کن:\n\n" + originalChunkTexts.join('|||');
+                
+                try {
+                    const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
+                    const correctedChunk = response.split('|||').map(t => t.trim());
+
+                    if (correctedChunk.length === chunk.length) {
+                        for (let j = 0; j < chunk.length; j++) {
+                            const originalIndex = chunk[j].index;
+                            const timePart = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/)[0];
+                            texts[originalIndex] = `${timePart}${correctedChunk[j]}`; // بازسازی خط MicroDVD
+                            correctedCount++;
+                        }
+                    } else { addLog(`خطا در اصلاح بخش ${i + 1}.`, true); }
+                } catch (error) { addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); }
+            }
+            addLog(`اصلاح ${correctedCount} خط کامل شد.`);
+            return texts;
+        }
+        
+        async function callSimpleGeminiAPI(systemInstruction, userPrompt, model, apiKey) {
+            if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+            
+            const proxyEnabled = proxyToggle.checked;
+            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+            const API_URL = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+            const payload = {
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                contents: [{ parts: [{ text: userPrompt }] }],
+                generationConfig: { temperature: 0.2, topP: 1, }
+            };
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: abortController.signal
+            });
+
+            if (!response.ok) throw new Error(await handleFetchError(response));
+            const result = await response.json();
+            if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                throw new Error("پاسخ دریافتی از API نامعتبر است (SelfCorrection).");
+            }
+        }
+        
+        // *** اصلاحیه: تابع تلاش مجدد برای خطوط جا افتاده (گام ۲ از ۳) ***
+        async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt) {
+            if (untranslatedData.length === 0) {
+                // addLog("بررسی کامل شد. خط جا افتاده‌ای یافت نشد."); // این لاگ دیگر لازم نیست
+                return mergedLinesArray; // Return the array of lines
+            }
+
+            addLog(`تعداد ${untranslatedData.length} خط جا افتاده (ترجمه نشده) یافت شد. در حال تلاش برای ترجمه...`, false, "yellow");
+            updateFileStatus(fileIndex, `در حال ترجمه ${untranslatedData.length} خط جا افتاده...`, 82); // یک مرحله وضعیت جدید
+
+            const RETRY_CHUNK_SIZE = 10;
+            const totalChunks = Math.ceil(untranslatedData.length / RETRY_CHUNK_SIZE);
+            let correctedCount = 0;
+
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+
+                const chunk = untranslatedData.slice(chunkIndex * RETRY_CHUNK_SIZE, (chunkIndex + 1) * RETRY_CHUNK_SIZE);
+                const originalChunkTexts = chunk.map(l => l.originalText);
+                
+                // پرامپت مخصوص برای ترجمه خطوط جا افتاده
+                const promptText = "خطوط انگلیسی زیر در ترجمه اولیه جا افتاده‌اند. لطفاً *فقط* این خطوط را به فارسی روان ترجمه کن و هر خط ترجمه شده را با '|||' جدا کن:\n\n" + originalChunkTexts.join('|||');
+                
+                try {
+                    const response = await callSimpleGeminiAPI(systemPrompt, promptText, model, apiKey);
+                   const correctedChunk = response.split('|||').map(t => t.trim()).filter(t => t.length > 0);
+
+                    if (correctedChunk.length === chunk.length) {
+                        for (let j = 0; j < chunk.length; j++) {
+                            const originalData = chunk[j];
+                            const originalLineIndex = originalData.indexInMerged;
+                            
+                            // بازسازی خط MicroDVD
+                            const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                            if (timePartMatch) {
+                                const timePart = timePartMatch[0];
+                                mergedLinesArray[originalLineIndex] = `${timePart}${correctedChunk[j]}`; // جایگزینی خط در آرایه
+                                correctedCount++;
+                            }
+                        }
+                                   } else {
+                    // *** لاگ خطای دقیق‌تر ***
+                    addLog(`خطا در ترجمه خطوط جا افتاده (بخش ${chunkIndex + 1}). تعداد خطوط ارسالی: ${chunk.length}, تعداد خطوط دریافتی: ${correctedChunk.length}.`, true);
+                    addLog(`متن ارسالی: ${originalChunkTexts.join('|||')}`, true);
+                    addLog(`پاسخ دریافتی: ${response}`, true);
+                }
+                } catch (error) {
+                    addLog(`خطا در API هنگام ترجمه خطوط جا افتاده بخش ${chunkIndex + 1}: ${error.message}`, true);
+                }
+            }
+            addLog(`ترجمه ${correctedCount} خط جا افتاده کامل شد.`);
+            return mergedLinesArray;
+        }
+
+
+        // --- 8. منطق اصلی ترجمه (بازنویسی شده) ---
+        
+        startTranslation.addEventListener('click', async () => {
+            if (isTranslating) return;
+            if (!apiKeyInput.value) {
+                showError("لطفاً ابتدا کلید API خود را در تنظیمات وارد کنید.");
+                return;
+            }
+
+            isTranslating = true;
+            abortController = new AbortController(); 
+            startTranslation.style.display = 'none';
+            stopTranslation.style.display = 'block';
+            downloadFiles.disabled = true;
+            clearFileList.style.display = 'none'; // *** جدید: مخفی کردن پاکسازی ***
+            processedFiles = [];
+            statusLog.innerHTML = '';
+            statusLog.style.display = 'block';
+            overallProgressSection.style.display = 'block';
+            translationStatusMessage.classList.add('hidden');
+            translationStatusMessage.className = 'status-message hidden';
+            liveOutput.textContent = ''; 
+            liveOutput.style.display = 'none'; 
+            
+            const totalFiles = uploadedFiles.length;
+            addLog("شروع عملیات ترجمه...");
+
+            for (let i = 0; i < totalFiles; i++) {
+                const file = uploadedFiles[i];
+                const apiKey = apiKeyInput.value.trim();
+                const model = modelSelect.value;
+                const prompt = systemPrompt.value;
+                
+                let originalDialogueBlocks = [];
+                let microDVDContent = '';
+                let originalMicroDVDForMerge = '';
+                let originalLastEndFrame = 0;
+                let thinkingTimer = null; 
+
+                try {
+                    if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+                    
+                    addLog(`--- شروع پردازش فایل: ${file.name} ---`);
+                    updateFileStatus(i, "در حال خواندن و پارس کردن...", 0);
+                    const content = await file.text();
+
+                    if (file.name.endsWith('.srt')) originalDialogueBlocks = parseSRT(content);
+                    else if (file.name.endsWith('.ass')) originalDialogueBlocks = parseASS(content);
+                    else if (file.name.endsWith('.vtt')) originalDialogueBlocks = parseVTT(content);
+                    
+                    if (originalDialogueBlocks.length === 0) throw new Error("هیچ دیالوگی برای ترجمه یافت نشد.");
+                    
+                    addLog(`تعداد ${originalDialogueBlocks.length} دیالوگ یافت شد.`);
+                    
+                    const fps = 23.976; 
+                    microDVDContent = originalDialogueBlocks.map(b => {
+                        const startFrame = timeToFrames(b.start, fps);
+                        const endFrame = timeToFrames(b.end, fps);
+                        const cleanText = b.text.replace(/\{[^}]+\}/g, ' ').replace(/<[^>]+>/g, ' ');
+                        return `{${startFrame}}{${endFrame}}${cleanText.replace(/\n/g, '|')}`;
+                    }).join('\n');
+                    
+                    originalMicroDVDForMerge = microDVDContent;
+                    originalLastEndFrame = timeToFrames(originalDialogueBlocks[originalDialogueBlocks.length-1].end, fps);
+
+                    updateFileStatus(i, "در حال آپلود به سرور...", 10);
+                    const fileUri = await uploadFileToGemini(
+                        microDVDContent, file.name, apiKey,
+                        (p) => updateFileStatus(i, `در حال آپلود... ${Math.round(p)}%`, 10 + (p * 0.1)), // 10% -> 20%
+                        abortController.signal
+                    );
+                    
+                    addLog("آپلود کامل شد. در انتظار پاسخ API...");
+                                       updateFileStatus(i, "هوش مصنوعی درحال تفکر است...", 20);
+                                       liveOutput.textContent = 'هوش مصنوعی درحال تفکر است... این مرحله ممکن است بسته به حجم فایل طول بکشد.';
+                    liveOutput.style.display = 'block'; 
+                    
+                    const thinkingStartTime = Date.now();
+                                        const baseThinkingText = 'هوش مصنوعی درحال تفکر است... ';
+                    thinkingTimer = setInterval(() => {
+                        const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
+                        updateFileStatus(i, baseThinkingText + `${elapsedTime} ثانیه`, 20);
+                    }, 100);
+
+                    // 3. دریافت جریان ترجمه
+                    let translatedMicroDVD = await new Promise((resolve, reject) => {
+                        let isFirstChunk = true; 
+                        getTranslationStream(
+                            fileUri,
+                            (currentFullText) => { // onChunk
+                                if (thinkingTimer) {
+                                    clearInterval(thinkingTimer);
+                                    thinkingTimer = null;
+                                }
+                                
+                                if (isFirstChunk) {
+                                    liveOutput.textContent = ''; // پاک کردن پیام "در حال تفکر"
+                                    isFirstChunk = false;
+                                }
+                                const translatedLines = currentFullText.split('\n');
+                                // نمایش متن ترجمه شده (بدون زمان‌بندی)
+                                liveOutput.textContent = translatedLines.map(line => (line.match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '').join('\n').replace(/\|/g, '\n');
+                                liveOutput.scrollTop = liveOutput.scrollHeight; // اسکرول به پایین
+
+                                const percentage = Math.min(79, (translatedLines.length / originalDialogueBlocks.length) * 100);
+                                updateFileStatus(i, `در حال دریافت ترجمه... ${translatedLines.length} خط`, 20 + (percentage * 0.6)); // 20% -> 80%
+                            },
+                            (finalText) => resolve(finalText), // onEnd
+                            (error) => reject(error), // onError
+                            abortController.signal
+                        );
+                    });
+                    
+                    if (thinkingTimer) clearInterval(thinkingTimer);
+                    addLog("ترجمه دریافت شد. در حال ادغام...");
+                    updateFileStatus(i, "در حال ادغام نتایج...", 80);
+
+                    // *** اصلاحیه: منطق ادغام و تلاش مجدد (گام ۳ از ۳) ***
+                    
+                    // فراخوانی تابع ادغام اصلاح شده
+                    const mergeResult = mergeTrustedFramesWithAiText(originalMicroDVDForMerge, translatedMicroDVD);
+                    let microDVDSplitted = mergeResult.mergedTextLines; // این متغیر اکنون یک آرایه است
+                    
+                    const isComplete = checkTranslationCompleteness(microDVDSplitted.join('\n'), originalLastEndFrame);
+                    if (!isComplete) addLog("هشدار: ترجمه ممکن است ناقص باشد (خط پایانی مطابقت ندارد).", false, "yellow");
+
+                    // *** گام جدید: تلاش مجدد برای خطوط جا افتاده ***
+                    if (mergeResult.untranslatedCount > 0) {
+                        addLog(`هشدار: ${mergeResult.untranslatedCount} خط در ترجمه اولیه جا افتاده بود.`, false, "yellow");
+                        // فراخوانی تابع اصلاحی جدید
+                        microDVDSplitted = await performMissingLineCorrection(
+                            microDVDSplitted, 
+                            mergeResult.untranslatedLinesData, 
+                            i, 
+                            model, 
+                            apiKey, 
+                            prompt
+                        );
+                    }
+                    
+                    // *** گام موجود: اصلاح خطوطی که ناقص ترجمه شده‌اند ***
+                    updateFileStatus(i, "در حال اصلاح ترجمه...", 85);
+                    microDVDSplitted = await performSelfCorrection(microDVDSplitted, i, model, apiKey, prompt); // آرایه را مستقیماً پاس می‌دهیم
+                    
+                    translatedMicroDVD = microDVDSplitted.join('\n'); // در انتها دوباره به متن تبدیل می‌کنیم
+                    
+                    updateFileStatus(i, "در حال ساخت فایل .ass...", 95);
+                    
+                    const translatedMap = new Map();
+                    const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
+                    let lineIndex = 0;
+                    for (const line of translatedMicroDVD.split('\n')) {
+                        const match = line.match(microDVDLineRegex);
+                        if (match && lineIndex < originalDialogueBlocks.length) {
+                            translatedMap.set(lineIndex, match[3].replace(/\|/g, '\n'));
+                            lineIndex++;
+                        }
+                    }
+                    
+                    const correctedTexts = originalDialogueBlocks.map((block, index) => 
+                        translatedMap.get(index) || block.text 
+                    );
+
+                    const finalAssContent = buildASS(originalDialogueBlocks, correctedTexts, file.name);
+                    
+                    processedFiles.push({
+                        name: file.name.replace(/\.(srt|vtt|ass)$/i, '_FA.ass'),
+                        content: finalAssContent
+                    });
+                    
+                    updateFileStatus(i, "کامل شد", 100);
+                    addLog(`--- پردازش فایل ${file.name} کامل شد. ---`);
+
+                } catch (error) {
+                    if (thinkingTimer) clearInterval(thinkingTimer);
+                    liveOutput.style.display = 'none'; 
+                    
+                    let userFriendlyMessage = '';
+                    const errorMessageText = error.message || 'خطایی نامشخص رخ داد.';
+                    if (error.name === 'AbortError') {
+                        userFriendlyMessage = '<p>عملیات ترجمه توسط کاربر متوقف شد.</p>';
+                        translationStatusMessage.innerHTML = '❌ ترجمه توسط کاربر متوقف شد.';
+                        translationStatusMessage.className = 'status-message status-aborted';
+                    } else if (errorMessageText.toLowerCase().includes('location') || errorMessageText.toLowerCase().includes('permission denied')) {
+                        userFriendlyMessage = `<p class="font-bold">خطا در دسترسی (مشکل تحریم یا فیلترشکن).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre><p class="mt-2">سرور گوگل به دلیل موقعیت جغرافیایی شما اجازه دسترسی نمی‌دهد.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>گزینه "استفاده از پراکسی" را در تنظیمات فعال کنید.</li><li>یا، از یک فیلترشکن قوی استفاده کنید.</li></ol>`;
+                        translationStatusMessage.innerHTML = '❌ خطای دسترسی/فیلترشکن.';
+                        translationStatusMessage.className = 'status-message status-aborted';
+                    } else if (errorMessageText.toLowerCase().includes('networkerror') || errorMessageText.includes('522') || errorMessageText.includes('524')) {
+                        userFriendlyMessage = `<p class="font-bold">خطای شبکه (NetworkError یا خطای پراکسی).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre><p class="mt-2">اتصال به سرور (یا پراکسی) ناپایدار است یا قطع شده.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>از پایداری اینترنت خود مطمئن شوید.</li><li>اگر از پراکسی استفاده نمی‌کنید، فیلترشکن را بررسی کنید.</li><li>اگر از پراکسی استفاده می‌کنید، اتصال اینترنت خود را بررسی کنید.</li></ol>`;
+                        translationStatusMessage.innerHTML = '❌ خطای شبکه.';
+                        translationStatusMessage.className = 'status-message status-aborted';
+                    } else if (errorMessageText.toLowerCase().includes('api key not valid')) {
+                        userFriendlyMessage = `<p class="font-bold">کلید API نامعتبر است.</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre><p class="mt-2">کلید وارد شده صحیح نیست یا منقضی شده است.</p>`;
+                        translationStatusMessage.innerHTML = '❌ کلید API نامعتبر.';
+                        translationStatusMessage.className = 'status-message status-aborted';
+                    } else {
+                        userFriendlyMessage = `<b>یک خطای پیش‌بینی‌نشده رخ داد:</b><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre>`;
+                        translationStatusMessage.innerHTML = '❌ خطایی در ترجمه رخ داد.';
+                        translationStatusMessage.className = 'status-message status-aborted';
+                    }
+                    
+                    showError(userFriendlyMessage, true); 
+                    const errorMsg = `خطا در پردازش فایل ${file.name}: ${error.message}`;
+                    addLog(errorMsg, true);
+                    updateFileStatus(i, "خطا", -1); 
+                    console.error(error);
+                    
+                    if (error.name !== 'AbortError') {
+                        addLog("عملیات به دلیل خطا متوقف شد.", true);
+                    }
+                    break; 
+                }
+            } // end for loop
+
+            isTranslating = false;
+            startTranslation.style.display = 'block';
+            stopTranslation.style.display = 'none';
+            if (uploadedFiles.length > 0) { // *** جدید: نمایش مجدد پاکسازی ***
+                 clearFileList.style.display = 'block';
+            }
+            
+            if (processedFiles.length > 0) {
+                downloadFiles.disabled = false;
+                addLog("عملیات کامل شد. می‌توانید فایل‌ها را دانلود کنید.", false, "green");
+                if (!translationStatusMessage.classList.contains('status-aborted')) {
+                     translationStatusMessage.innerHTML = `✔️ عملیات با موفقیت کامل شد. (${processedFiles.length} فایل آماده دانلود)`;
+                     translationStatusMessage.className = 'status-message status-complete';
+                }
+            } else {
+                if (!translationStatusMessage.classList.contains('status-aborted')) {
+                    addLog("هیچ فایلی با موفقیت پردازش نشد.", true);
+                    translationStatusMessage.innerHTML = '⚠️ عملیات کامل شد، اما هیچ فایلی پردازش نشد.';
+                    translationStatusMessage.className = 'status-message status-incomplete';
+                }
+            }
+            translationStatusMessage.classList.remove('hidden');
+            
+            const filesDone = processedFiles.length;
+            overallProgressBar.style.width = `${(filesDone / totalFiles) * 100}%`;
+            overallProgressLabel.textContent = `عملیات کامل شد. ${filesDone} از ${totalFiles} فایل پردازش شد.`;
+
+        });
+        
+        stopTranslation.addEventListener('click', () => {
+            if (abortController) {
+                addLog("درخواست توقف عملیات...", false, "yellow");
+                abortController.abort();
+            }
+        });
+
+        // --- 9. ساخت فایل .ASS و دانلود ---
+
+        function buildASS(originalBlocks, translatedTexts, originalFileName) {
+            const header = `
+[Script Info]
+Title: ${originalFileName.replace(/\.(srt|vtt|ass)$/i, '')}_FA_Translated
+ScriptType: v4.00+
+WrapStyle: 0
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Vazirmatn Medium,55,&H00FFFFFF,&H0000FFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,2,1,2,30,30,30,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+            `.trim();
+
+            let events = [];
+            let lastEndTime = "0:00:00.00";
+
+            for (let i = 0; i < originalBlocks.length; i++) {
+                const block = originalBlocks[i];
+                const translatedText = translatedTexts[i] || ""; 
+                let positionOverride = "";
+                
+                // *** اصلاحیه: باگ همپوشانی (حذف =) ***
+                if (compareTimestamps(block.start, lastEndTime) < 0) {
+                    positionOverride = "{\\an8}"; 
+                }
+                lastEndTime = block.end;
+                
+                const layer = block.layer || '0';
+                const style = block.style || 'Default';
+                const name = block.name || '';
+                const marginL = block.marginL || '0';
+                const marginR = block.marginR || '0';
+                const marginV = block.marginV || '0';
+                const effect = block.effect || '';
+
+                let assText;
+                if (block.text && (block.text.includes('{') || block.text.includes('}'))) {
+                    // این یک تقریب ساده است: تگ‌های ابتدایی را حفظ می‌کند
+                    const tagMatch = block.text.match(/^(\{[^}]+\})[^{}]*$/);
+                    if (tagMatch) {
+                        assText = `${tagMatch[1]}${translatedText.replace(/\r?\n/g, '\\N')}`;
+                    } else {
+                        assText = translatedText.replace(/\r?\n/g, '\\N');
+                    }
+                } else {
+                     assText = translatedText.replace(/\r?\n/g, '\\N');
+                }
+                
+                if (positionOverride) {
+                    if (assText.startsWith('{') && assText.includes('}')) {
+                        assText = `{\\an8${assText.substring(1)}`;
+                    } else {
+                        assText = `{\\an8}${assText}`;
+                    }
+                }
+
+                events.push(
+                    `Dialogue: ${layer},${block.start},${block.end},${style},${name},${marginL},${marginR},${marginV},${effect},${assText}`
+                );
+            }
+            return header + '\n' + events.join('\n');
+        }
+        
+        function compareTimestamps(t1, t2) {
+            const timeToSeconds = (t) => {
+                if (!t) return 0;
+                const [hms, cs] = t.split('.');
+                const [h, m, s] = hms.split(':').map(Number);
+                return (h * 3600) + (m * 60) + s + (Number(cs || 0) / 100);
+            };
+            return timeToSeconds(t1) - timeToSeconds(t2);
+        }
+        
+        // *** اصلاحیه: دانلود جداگانه فایل‌ها ***
+        downloadFiles.addEventListener('click', () => {
+            if (processedFiles.length === 0) return;
+
+            // این حلقه باعث می‌شود هر فایل به صورت جداگانه دانلود شود
+            for (const file of processedFiles) {
+                downloadSingleFile(file.name, file.content);
+            }
+        });
+        
+        // *** اصلاحیه: دانلود بدون .txt ***
+        function downloadSingleFile(filename, content) {
+            // \uFEFF همان BOM (Byte Order Mark) است که به پلیرها کمک می‌کند انکودینگ UTF-8 را تشخیص دهند
+            const blob = new Blob(['\uFEFF' + content], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // تابع زیپ دیگر فراخوانی نمی‌شود اما آن را نگه می‌داریم
+        async function downloadZipFile() {
+            addLog("در حال ساخت فایل .zip...");
+            const zip = new JSZip();
+            for (const file of processedFiles) {
+                zip.file(file.name, file.content);
+            }
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            downloadSingleFile('Translated_Subtitles.zip', zipBlob);
+            addLog("فایل .zip آماده دانلود شد.");
+        }
+        
+        // --- 10. توابع کمکی UI (لاگ و خطا) ---
+        
+        function addLog(message, isError = false, color = "gray") {
+            const logEntry = document.createElement('p');
+            if (isError) logEntry.className = 'text-red-400';
+            else if (color === 'green') logEntry.className = 'text-green-400';
+            else if (color === 'yellow') logEntry.className = 'text-yellow-400';
+            else logEntry.className = 'text-gray-300';
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            statusLog.appendChild(logEntry);
+            statusLog.scrollTop = statusLog.scrollHeight;
+        }
+        
+        function showError(message, isHtml = false) {
+            if (isHtml) {
+                errorMessageContainer.innerHTML = message;
+            } else {
+                errorMessageContainer.textContent = message;
+            }
+            errorModal.style.display = 'flex';
+        }
+        
+        closeModal.addEventListener('click', () => {
+            errorModal.style.display = 'none';
+        });
+
+        // --- اجرای اولیه ---
+        loadSettings();
+
+    </script>
+</body>
+</html>
