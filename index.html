@@ -157,10 +157,16 @@
                 <textarea id="systemPrompt" rows="8" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="text-align: right; direction: rtl;"></textarea>
             </div>
             
-            <button id="saveSettings" class="mt-4 w-full md:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition duration-300">
-                ذخیره تنظیمات
-            </button>
-            <span id="settingsSaved" class="text-green-400 mr-4 hidden">تنظیمات ذخیره شد!</span>
+            <div class="flex items-center gap-4 mt-4">
+                <button id="saveSettings" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition duration-300">
+                    ذخیره تنظیمات
+                </button>
+                <button id="resetSettings" class="px-5 py-2.5 bg-gray-600 hover:bg-gray-500 rounded-lg font-medium transition duration-300">
+                    بازگردانی به پیش‌فرض
+                </button>
+                <span id="settingsSaved" class="text-green-400 mr-4 hidden">تنظیمات ذخیره شد!</span>
+                <span id="settingsReset" class="text-amber-400 mr-4 hidden">تنظیمات به پیش‌فرض بازگردانی شد!</span>
+            </div>
         </div>
 
         <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
@@ -215,7 +221,7 @@
                 <div class="w-full bg-gray-700 rounded-full h-4">
                     <div id="overallProgressBar" class="bg-blue-500 h-4 rounded-full progress-bar-inner" style="width: 0%"></div>
                 </div>
-                <pre id="liveOutput" style="display: none;"></pre>
+                <pre id="liveOutput" style="display: none; direction: rtl; text-align: right;"></pre>
                 
                 <p id="translationStatusMessage" class="status-message hidden"></p>
             </div>
@@ -260,6 +266,56 @@
     <script type="module">
         document.addEventListener('DOMContentLoaded', () => {
 
+        // --- 0. توابع کمکی ---
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m]));
+        }
+
+        function isRomajiOrKanji(text) {
+            if (!text) return false;
+            
+            // --- مرحله ۱: گسترش کاراکترهای مجاز ---
+            // اضافه شدن: ♪, (), *, …, ♡, :, /
+            const allowedCharsRegex = /^[a-zA-Z\s\.,!\?'"\-\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF♪\(\)\*…♡:\/]+$/;
+            
+            if (!allowedCharsRegex.test(text)) {
+                // اگر کاراکترهای غیرمجاز داشته باشد (مثلاً ایموجی‌های دیگر)، به عنوان دیالوگ در نظر بگیر
+                return false; 
+            }
+
+            // --- مرحله ۲: بررسی وجود حروف ژاپنی ---
+            const hiragana = /[\u3040-\u309F]/;
+            const katakana = /[\u30A0-\u30FF]/;
+            const kanji = /[\u4E00-\u9FFF]/;
+            const hasJapanese = hiragana.test(text) || katakana.test(text) || kanji.test(text);
+
+            if (hasJapanese) {
+                // منطق اصلی: ژاپنی دارد و فقط کاراکترهای مجاز دارد = آهنگ است
+                return true; 
+            }
+
+            // --- مرحله ۳: مدیریت آهنگ‌های تماماً روماجی (بدون ژاپنی) ---
+            // اگر ژاپنی ندارد، شاید آهنگ روماجی یا دیالوگ انگلیسی باشد
+            // ما به یک عامل تعیین‌کننده نیاز داریم: نشانگرهای آهنگ
+            
+            // [!!!] اصلاحیه نهایی: ستاره (*) یک نشانگر آهنگ قابل اعتماد نیست و حذف شد.
+            const songMarkerRegex = /[♪♡]/; // فقط نت موسیقی یا قلب
+            
+            if (songMarkerRegex.test(text)) {
+                // تماماً روماجی است اما نشانگر آهنگ (واقعی) دارد
+                // مثال: "♪ Let's sing this song! ♪"
+                return true;
+            }
+
+            // --- مرحله ۴: پیش‌فرض ---
+            // فقط حروف لاتین و نقطه‌گذاری ساده (و شاید *) دارد
+            // نه ژاپنی دارد و نه نشانگر آهنگ (♪ یا ♡)
+            // این به احتمال زیاد یک دیالوگ انگلیسی یا تایتل مثل مورد شما است
+            return false;
+        }
+
+
         // --- 1. انتخاب عناصر HTML ---
         const apiKeyInput = document.getElementById('apiKey');
         const modelSelect = document.getElementById('modelSelect');
@@ -267,6 +323,8 @@
         const systemPrompt = document.getElementById('systemPrompt');
         const saveSettings = document.getElementById('saveSettings');
         const settingsSaved = document.getElementById('settingsSaved');
+        const resetSettings = document.getElementById('resetSettings'); // [جدید]
+        const settingsReset = document.getElementById('settingsReset'); // [جدید]
         
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -305,12 +363,14 @@
         let assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
         let styleFormatFields = ['Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'OutlineColour', 'BackColour', 'Bold', 'Italic', 'Underline', 'StrikeOut', 'ScaleX', 'ScaleY', 'Spacing', 'Angle', 'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL', 'MarginR', 'MarginV', 'Encoding'];
 
+        // [!!!] Regex برای فیلتر کردن دستورات رسم ASS [!!!]
+        const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
 
         const defaultPrompt = `
 پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (فرمت 'میکرو دی وی دی') 
 
 مأموریت شما:
-شما یک دستیار هوش مصنوعی متخصص در ترجمه حرفه‌ای و بومی‌سازی زیرنویس انیمه هستید. وظیفه شما دریافت یک فایل زیرنویس انگلیسی با فرمت 'میکرو دی وی دی' و ارائه ترجمه‌ای بی‌نقص، روان، جذاب و وفادار به زبان فارسی است، به گونه‌ای که تجربه تماشای انیمه برای مخاطب فارسی‌زبان، غنی و لذت‌bخش باشد.
+شما یک دستیار هوش مصنوعی متخصص در ترجمه حرفه‌ای و بومی‌سازی زیرنویس انیمه هستید. وظیفه شما دریافت یک فایل زیرنویس انگلیسی با فرمت 'میکرو دی وی دی' و ارائه ترجمه‌ای بی‌نقص، روان، جذاب و وفادار به زبان فارسی است، به گونه‌ای که تجربه تماشای انیمه برای مخاطب فارسی‌زبان، غنی و لذت‌بخش باشد.
 
 فایل ورودی:
 یک فایل متنی حاوی زیرنویس انگلیسی یک انیمه در فرمت 'میکرو دی وی دی'.
@@ -340,7 +400,7 @@
 اصول کلیدی ترجمه (قوانین حاکم بر گام‌های بالا):
 
 1.  وفاداری به معنا و مفهوم، نه ترجمه تحت‌اللفظی: هدف اصلی، انتقال دقیق پیام و حس دیالوگ اصلی است. از ترجمه کلمه به کلمه که منجر به عبارات نامأنوس یا بی‌معنی در فارسی می‌شود، اکیداً پرهیز کنید.
-2.  روانی، سلیس بودن و جذابیت کلام: ترجمه باید به زبان فارسی امروزی، طبیعی و پویا باشد. متن نهایی باید به‌راحتی خوانده شود و برای مخاطب عام فارسی‌زبان کاملاً قابل فهم و گیرا باشد.
+2.  اولویت با زبان فارسی محاوره‌ای و انسان‌گونه: ترجمه باید به زبان فارسی امروزی، طبیعی، روان و «انسان‌گونه» باشد، نه یک ترجمه ماشینی و خشک. **اگر بین وفاداری کلمه به کلمه و یک عبارت روان و طبیعی فارسی تضاد وجود داشت، همواره عبارت روان و طبیعی را انتخاب کن**، به شرطی که مفهوم اصلی دیالوگ حفظ شود. متن نهایی باید به‌راحتی خوانده شود و برای مخاطب عام فارسی‌زبان کاملاً قابل فهم و گیرا باشد.
 3.  حفظ لحن و سبک شخصیت‌ها: لحن هر کاراکتر (رسمی، دوستانه، طنزآمیز، جدی، خشن، معصومانه و...) و سبک گفتاری او باید با دقت در ترجمه فارسی بازتاب داده شود.
 4.  بومی‌سازی هوشمندانه اصطلاحات و ارجاعات فرهنگی:
     * اصطلاحات، ضرب‌المثل‌ها، شوخی‌ها و عبارات خاص فرهنگی انیمه را شناسایی کنید.
@@ -348,7 +408,7 @@
     * در صورتی که معادل مستقیمی وجود ندارد، یا استفاده از آن به اصالت اثر لطمه می‌زند، سعی کنید مفهوم را با خلاقیت و به شکلی که برای مخاطب فارسی‌زبان قابل درک باشد، منتقل کنید. (مثلاً گاهی یک توضیح کوتاه درون پرانتز در خود زیرنویس لازم است، اما این مورد را تنها در صورت ضرورت انجام دهید و اولویت با معادل‌یابی است).
 5.  دقت و صحت کامل:
     * ترجمه باید عاری از هرگونه اشتباه گرامری, املایی و معنایی باشد.
-    * تمامی جزئیات موجود در زیرنویس اصلی، از جمله اعداد، اسامی خاص (شخصیت‌ها، مکان‌ها، تکنیک‌ها و...) و علائم نگارشی باید با دقت و به درستی به فارسی برگردانده شوند.
+    * تمامی جزئیات موجود در زیرنویس اصلی، از جمله اعداد، اسامی خاص (شخصیت‌ها، مکان‌ها، تکنیک‌ها و...) و علائم نگarشی باید با دقت و به درستی به فارسی برگردانده شوند.
 6.  یکپارچگی و ثبات: در طول ترجمه کل فایل، برای اسامی، اصطلاحات و عبارات تکرارشونده، از معادل‌های یکسان استفاده کنید تا انسجام متن حفظ شود.
 
 ---
@@ -359,8 +419,6 @@
 * استفاده از واژگان انگلیسی: از به‌کار بردن کلمات غیرفارسی پرهیز کنید. تنها در صورتی مجاز به استفاده از واژه انگلیسی هستید که آن واژه یک نام خاص، برند، یا اصطلاح فنی شناخته‌شده باشد که معادل فارسی رایج و جاافتاده‌ای ندارد و استفاده از اصل کلمه به درک بهتر کمک می‌کند. اولویت مطلق با واژگان فارسی است.
 * حفظ کاراکتر : در صورت وجود کاراکتر پایپ‌لاین (\`|\`) و کاراکترهای آکولاد (\`{\`) و (\`}\`) در متن اصلی، این کاراکتر باید بدون هیچ تغییری در متن ترجمه‌شده نیز حفظ شود.
 * نکته آکولاد: تعداد آکولاد خروجی باید برابر با ورودی باشه، و وجود آن در ترجمه نباید تاثیر منفی بگذارد و قرار دادن آن در خروجی فقط یک استایل نمایشی می‌باشد.
-* نکته روماجی ژاپنی: خطوط روماجی ژاپنی که مربوط به آواز آغازین و پایانی انیمه را بدون ترجمه در زیرنویس قرار داده شود.
-
 
 ---
 
@@ -372,7 +430,7 @@
 
 تأکید نهایی:
 شما باید تمامی این دستورالعمل‌ها را با دقت مرور کرده و اطمینان حاصل کنید که خروجی شما دقیقاً مطابق با موارد ذکر شده است. هدف، ارائه یک ترجمه حرفه‌ای و بی‌نقص است که نیازی به ویرایش مجدد نداشته باشد.
-        `.trim();
+        `.trim().replace('لذت‌bخش', 'لذت‌بخش');
 
         // --- 3. مدیریت تنظیمات (شامل پراکسی و ایمنی) ---
 
@@ -383,13 +441,18 @@
             systemPrompt.value = localStorage.getItem('geminiPrompt') || defaultPrompt;
             proxyToggle.checked = localStorage.getItem('proxyEnabled') === 'true';
             
-            const savedSafety = localStorage.getItem('safetySettings');
-            if (savedSafety) {
-                const settings = JSON.parse(savedSafety);
-                safetyHarassmentToggle.checked = settings.harassment || false;
-                safetyHateSpeechToggle.checked = settings.hateSpeech || false;
-                safetySexuallyExplicitToggle.checked = settings.sexuallyExplicit || false;
-                safetyDangerousContentToggle.checked = settings.dangerousContent || false;
+            try {
+                const savedSafety = localStorage.getItem('safetySettings');
+                if (savedSafety) {
+                    const settings = JSON.parse(savedSafety);
+                    safetyHarassmentToggle.checked = settings.harassment || false;
+                    safetyHateSpeechToggle.checked = settings.hateSpeech || false;
+                    safetySexuallyExplicitToggle.checked = settings.sexuallyExplicit || false;
+                    safetyDangerousContentToggle.checked = settings.dangerousContent || false;
+                }
+            } catch (e) {
+                console.error("Failed to load safety settings:", e);
+                localStorage.removeItem('safetySettings');
             }
         }
 
@@ -412,7 +475,31 @@
             saveSafetySettings();
             
             settingsSaved.classList.remove('hidden');
+            settingsReset.classList.add('hidden'); // [جدید]
             setTimeout(() => settingsSaved.classList.add('hidden'), 3000);
+        });
+        
+              // [!!!] دکمه بازنشانی تنظیمات [!!!]
+        resetSettings.addEventListener('click', () => {
+            // 1. بازنشانی پرامپت
+            systemPrompt.value = defaultPrompt;
+            
+            // 2. بازنشانی پراکسی
+            proxyToggle.checked = false; // پیش‌فرض خاموش است
+            
+            // 3. بازنشانی تنظیمات ایمنی
+            safetyHarassmentToggle.checked = false;
+            safetyHateSpeechToggle.checked = false;
+            safetySexuallyExplicitToggle.checked = false;
+            safetyDangerousContentToggle.checked = false;
+            
+            // [!!!] 4. بازنشانی FPS (جدید) [!!!]
+            fpsInput.value = '23.976'; // بازگشت به مقدار پیش‌فرض
+
+            // 5. نمایش پیام تایید
+            settingsReset.classList.remove('hidden');
+            settingsSaved.classList.add('hidden'); // مخفی کردن پیام دیگر
+            setTimeout(() => settingsReset.classList.add('hidden'), 3000);
         });
         
         // --- 4. مدیریت آپلود فایل (اصلاح شده) ---
@@ -422,9 +509,24 @@
         fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); });
 
         function handleFiles(files) {
-            uploadedFiles = Array.from(files).filter(file => 
-                file.name.endsWith('.srt') || file.name.endsWith('.vtt') || file.name.endsWith('.ass')
-            );
+            const newFiles = Array.from(files).filter(file => {
+                if (!/\.(srt|vtt|ass)$/i.test(file.name)) {
+                    showError(`فایل "${escapeHTML(file.name)}" فرمت پشتیبانی نشده دارد.`);
+                    return false;
+                }
+                if (file.size === 0) {
+                    showError(`فایل "${escapeHTML(file.name)}" خالی است و نادیده گرفته شد.`);
+                    return false;
+                }
+                if (file.size > 50 * 1024 * 1024) { // 50MB limit
+                    showError(`فایل "${escapeHTML(file.name)}" (${(file.size / 1024 / 1024).toFixed(1)}MB) از حد مجاز 50MB حجیم‌تر است و نادیده گرفته شد.`);
+                    return false;
+                }
+                return true;
+            });
+            
+            uploadedFiles = newFiles;
+            
             if (uploadedFiles.length > 0) {
                 startTranslation.disabled = false;
                 downloadFiles.disabled = true;
@@ -444,7 +546,7 @@
                 fileElement.className = 'bg-gray-700 p-3 rounded-lg flex items-center justify-between';
                 fileElement.innerHTML = `
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-white truncate">${file.name}</p>
+                        <p class="text-sm font-medium text-white truncate">${escapeHTML(file.name)}</p>
                         <p class="text-xs text-gray-400" id="file-status-${index}">در صف</p>
                     </div>
                     <div class="w-24 ml-4">
@@ -460,7 +562,7 @@
             const statusEl = document.getElementById(`file-status-${index}`);
             const progressEl = document.getElementById(`file-progress-${index}`);
             if (statusEl) statusEl.textContent = status;
-            if (progressEl && progress !== -1) progressEl.style.width = `${progress}%`;
+            if (progressEl && progress >= 0) progressEl.style.width = `${progress}%`;
             
             const totalFiles = uploadedFiles.length;
             const fileProgress = progress < 0 ? 0 : (progress / 100); 
@@ -481,6 +583,8 @@
             downloadFiles.disabled = true;
             clearFileList.style.display = 'none';
             
+            const outputFormatRadio = document.querySelector('input[name="output-format"][value="ass"]');
+            if (outputFormatRadio) outputFormatRadio.checked = true;
             outputFormatSelector.style.display = 'none';
 
             overallProgressSection.style.display = 'none';
@@ -496,32 +600,19 @@
 
         // --- 5. توابع پارسر (اصلاح شده و ایمن‌شده) ---
         
-        const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s+\d/i; 
-
         function parseTimeToMS(timeStr) {
           if (!timeStr) return 0;
-          timeStr = timeStr.trim().replace(',', '.');
-          const parts = timeStr.split(':').map(p => p.trim());
-          let ms = 0;
           try {
-              if (parts.length === 1) {
-                const s = parseFloat(parts[0]) || 0;
-                ms = s * 1000;
-              } else if (parts.length === 2) {
-                const m = parseInt(parts[0],10)||0;
-                const s = parseFloat(parts[1])||0;
-                ms = (m*60 + s) * 1000;
-              } else {
-                const h = parseInt(parts[0],10)||0;
-                const m = parseInt(parts[1],10)||0;
-                const s = parseFloat(parts[2])||0;
-                ms = (h*3600 + m*60 + s) * 1000;
-              }
+              const parts = timeStr.trim().replace(',', '.').split(':').reverse();
+              const s = parseFloat(parts[0]) || 0;
+              const m = parseInt(parts[1], 10) || 0;
+              const h = parseInt(parts[2], 10) || 0;
+              if (isNaN(s) || isNaN(m) || isNaN(h)) return 0;
+              return Math.round((h * 3600 + m * 60 + s) * 1000);
           } catch(e) {
               console.error("Error parsing time:", timeStr, e);
               return 0;
           }
-          return Math.round(ms);
         }
 
         function msToASS(ms) {
@@ -589,6 +680,12 @@
                         }
                         
                         const joinedText = text.join('\n');
+
+                        // [!!!] فیلتر کردن دستورات رسم [!!!]
+                        if (drawingCommandRegex.test(joinedText)) {
+                            continue;
+                        }
+
                         if (joinedText.trim()) {
                             blocks.push({ index, start, end, style: "Default", text: joinedText });
                         }
@@ -619,6 +716,12 @@
                     }
                     
                     const joinedText = text.join('\n');
+
+                    // [!!!] فیلتر کردن دستورات رسم [!!!]
+                    if (drawingCommandRegex.test(joinedText)) {
+                        continue;
+                    }
+                    
                     if (joinedText.trim()) {
                         blocks.push({ index, start, end, style: "Default", text: joinedText });
                         index++;
@@ -658,7 +761,7 @@
 
                     if (!textWithoutTags) continue;
                     if (rawText.trim().endsWith('{\\p0}')) continue;
-                    if (drawingCommandRegex.test(textWithoutTags)) continue;
+                    if (drawingCommandRegex.test(textWithoutTags)) continue; // فیلتر موجود
                     if (rawText.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) {
                         continue;
                     }
@@ -709,7 +812,7 @@
 
                     if (!textWithoutTags) continue;
                     if (rawText.trim().endsWith('{\\p0}')) continue;
-                    if (drawingCommandRegex.test(textWithoutTags)) continue;
+                    if (drawingCommandRegex.test(textWithoutTags)) continue; // فیلتر موجود
                     if (rawText.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) {
                         continue;
                     }
@@ -774,7 +877,7 @@
 
                     if (!textWithoutTags) return;
                     if (dialoguePart.trim().endsWith('{\\p0}')) return;
-                    if (drawingCommandRegex.test(textWithoutTags)) return;
+                    if (drawingCommandRegex.test(textWithoutTags)) return; // فیلتر موجود
                     if (dialoguePart.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) return;
 
                     let textForAI = '';
@@ -895,7 +998,7 @@
 
                     let newDialoguePart = '';
 
-                    if (isComplex) {
+                    if (isComplex && segments) {
                         const translatedSegments = translatedText.replace(/^\{|\}$/g, '').split('}{');
                         let translatedIndex = 0;
                         
@@ -1148,7 +1251,223 @@
             });
         }
         
-        async function getTranslationStream(fileUri, onChunk, onEnd, onError, signal) {
+               // --- 7. منطق خود-اصلاح‌گری ---
+               async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt) {
+            
+            const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
+            const persianRegex = /[\u0600-\u06FF]/; // We might not need this anymore
+            const englishRegex = /[a-zA-Z]/;
+            const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
+
+            let linesToRetry = [];
+            for (let i = 0; i < texts.length; i++) {
+                if (typeof texts[i] !== 'string') continue; 
+                
+                const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
+                const textWithoutTags = textPart.replace(/\{[^}]+\}/g, ' ').trim();
+                
+                if (!textWithoutTags) continue; // Skip empty lines
+
+                const isSong = isRomajiOrKanji(textWithoutTags);
+                
+                // If it's a song, we trust it (it was handled by the romaji prompt)
+                if (isSong) continue; 
+
+                // If it's NOT a song, check for problems:
+                const hasForeign = foreignScriptRegex.test(textWithoutTags);
+                const hasEnglish = englishRegex.test(textWithoutTags);
+                const hasBadChars = badCharacterRegex.test(textWithoutTags);
+                // const hasPersian = persianRegex.test(textWithoutTags); // This is not needed for the check
+
+                if (hasForeign || hasBadChars || hasEnglish) {
+                    // This will catch:
+                    // 1. Foreign script (e.g., Cyrillic) -> hasForeign = true
+                    // 2. Bad characters -> hasBadChars = true
+                    // 3. English-only lines (e.g., "Episode 8") -> hasEnglish = true
+                    // 4. Mixed lines (e.g., "سلام friend") -> hasEnglish = true
+                    linesToRetry.push({ index: i, text: textPart });
+                } 
+            }
+            
+            if (linesToRetry.length === 0) {
+                addLog("بررسی کامل شد. خطای ترجمه ناقص یا خراب یافت نشد."); 
+                return texts; 
+            }
+
+            addLog(`تعداد ${linesToRetry.length} خطای ترجمه (انگلیسی، ترکیبی، خارجی یا خراب) یافت شد. در حال تلاش برای اصلاح...`, false, "yellow"); 
+            updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
+            
+            const RETRY_CHUNK_SIZE = 10;
+            const totalChunks = Math.ceil(linesToRetry.length / RETRY_CHUNK_SIZE);
+            let correctedCount = 0;
+
+            for (let i = 0; i < totalChunks; i++) {
+                if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+                
+                const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
+                const originalChunkTexts = chunk.map(l => l.text);
+                
+                const promptText = "خطوط زیر شامل کلمات ترجمه نشده (انگلیسی در کنار فارسی)، اسکریپت‌های خارجی، یا کاراکترهای خراب/آرتیفکت هستند. لطفاً این خطوط را به فارسی روان، صحیح و کامل بازنویسی کن. ساختار کلی خط (مانند تگ‌های |) را حفظ نما. هر خط را با '|||' جدا کن:\n\n" + originalChunkTexts.join('|||');
+                
+                try {
+                    const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
+                    const correctedChunk = response.split('|||').map(t => t.trim());
+
+                    if (correctedChunk.length === chunk.length) {
+                        for (let j = 0; j < chunk.length; j++) {
+                            const originalIndex = chunk[j].index;
+                            const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                            if (timePartMatch) {
+                                texts[originalIndex] = `${timePartMatch[0]}${correctedChunk[j]}`; 
+                                correctedCount++;
+                            }
+                        }
+                    } else { addLog(`خطا در اصلاح بخش ${i + 1}.`, true); }
+                } catch (error) { addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); }
+            }
+            addLog(`اصلاح ${correctedCount} خط کامل شد.`);
+            return texts;
+        }
+        
+        async function callSimpleGeminiAPI(systemInstruction, userPrompt, model, apiKey) {
+            if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
+            
+            const proxyEnabled = proxyToggle.checked;
+            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+            const API_URL = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+            const safetySettings = [];
+            if (safetyHarassmentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" });
+            if (safetyHateSpeechToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" });
+            if (safetySexuallyExplicitToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" });
+            if (safetyDangerousContentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" });
+
+            const payload = {
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                contents: [{ parts: [{ text: userPrompt }] }],
+                generationConfig: { temperature: 0.2, topP: 1, }
+            };
+            if (safetySettings.length > 0) payload.safetySettings = safetySettings;
+
+
+            const MAX_ATTEMPTS = 4; // 1 initial + 3 retries
+            const RETRY_DELAYS = [5000, 5000, 10000]; // Delays before retries 1, 2, 3
+
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
+                
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                        signal: abortController?.signal
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts) {
+                            return result.candidates[0].content.parts[0].text;
+                        } else {
+                            throw new Error("پاسخ دریافتی از API نامعتبر است (SelfCorrection).");
+                        }
+                    }
+                    throw new Error(await handleFetchError(response));
+
+                } catch (error) {
+                    if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
+
+                    const errorMessage = error.message.toLowerCase();
+                    const isRetryable = errorMessage.includes('overloaded') || 
+                                      errorMessage.includes('503') || 
+                                      errorMessage.includes('524') ||
+                                      errorMessage.includes('resource exhausted') ||
+                                      errorMessage.includes('quota exceeded') || // Quota error is also retryable (after delay)
+                                      errorMessage.includes('networkerror');
+
+                    if (isRetryable && attempt < MAX_ATTEMPTS) {
+                        const delay = RETRY_DELAYS[attempt - 1];
+                        addLog(`خطای "Overloaded" یا "Rate Limit" در تلاش ${attempt} از ${MAX_ATTEMPTS} رخ داد. ${delay / 1000} ثانیه صبر می‌کنیم...`, false, "yellow");
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw error; // پرتاب خطای نهایی
+                    }
+                }
+            }
+            throw new Error("Self-correction failed after all attempts.");
+        }
+        
+        async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt) {
+            if (untranslatedData.length === 0) {
+                return mergedLinesArray; 
+            }
+
+            addLog(`تعداد ${untranslatedData.length} خط جا افتاده (ترجمه نشده) یافت شد. در حال تلاش برای ترجمه...`, false, "yellow");
+            updateFileStatus(fileIndex, `در حال ترجمه ${untranslatedData.length} خط جا افتاده...`, 82); 
+
+            const RETRY_CHUNK_SIZE = 10;
+            const totalChunks = Math.ceil(untranslatedData.length / RETRY_CHUNK_SIZE);
+            let correctedCount = 0;
+
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+
+                const chunk = untranslatedData.slice(chunkIndex * RETRY_CHUNK_SIZE, (chunkIndex + 1) * RETRY_CHUNK_SIZE);
+                const originalChunkTexts = chunk.map(l => l.originalText);
+                
+                // [!!!] اصلاح پرامپت برای مدیریت بهتر کردیت‌ها [!!!]
+                const promptText = "خطوط انگلیسی زیر در ترجمه اولیه جا افتاده‌اند. لطفاً *فقط* این خطوط را به فارسی روان ترجمه کن. اگر هر خط شامل چند بخش جداگانه است (مثل اسامی)، آن‌ها را با '|||' جدا کن. اگر یک خط است، فقط همان را ترجمه کن:\n\n" + originalChunkTexts.join('|||');
+                
+                try {
+                    const response = await callSimpleGeminiAPI(systemPrompt, promptText, model, apiKey);
+                   const correctedChunk = response.split('|||').map(t => t.trim()).filter(t => t.length > 0);
+
+                    // --- [!!!] منطق اصلاح شده برای مدیریت کردیت‌ها [!!!] ---
+                    if (correctedChunk.length === chunk.length) {
+                        // حالت عادی: 1 به 1 (یا 10 به 10)
+                        for (let j = 0; j < chunk.length; j++) {
+                            const originalData = chunk[j];
+                            const originalLineIndex = originalData.indexInMerged;
+                            
+                            const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                            if (timePartMatch) {
+                                const timePart = timePartMatch[0];
+                                mergedLinesArray[originalLineIndex] = `${timePart}${correctedChunk[j]}`; 
+                                correctedCount++;
+                            }
+                        }
+                    } else if (chunk.length === 1 && correctedChunk.length > 1) {
+                        // حالت ویژه: 1 خط ارسالی، چند خط دریافتی (مثل مورد کردیت‌ها)
+                        addLog(`اصلاح ویژه: 1 خط به ${correctedChunk.length} خط تبدیل شد (مورد کردیت‌ها).`);
+                        const originalData = chunk[0];
+                        const originalLineIndex = originalData.indexInMerged;
+                        const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                        
+                        if (timePartMatch) {
+                            const timePart = timePartMatch[0];
+                            const newText = correctedChunk.join('|'); 
+                            mergedLinesArray[originalLineIndex] = `${timePart}${newText}`;
+                            correctedCount++;
+                        }
+                    } else {
+                        // --- پایان اصلاحیه ---
+                        addLog(`خطا در ترجمه خطوط جا افتاده (بخش ${chunkIndex + 1}). تعداد خطوط ارسالی: ${chunk.length}, تعداد خطوط دریافتی: ${correctedChunk.length}.`, true);
+                        addLog(`متن ارسالی: ${originalChunkTexts.join('|||')}`, true);
+                        addLog(`پاسخ دریافتی: ${response}`, true);
+                    }
+                } catch (error) {
+                    addLog(`خطا در API هنگام ترجمه خطوط جا افتاده بخش ${chunkIndex + 1}: ${error.message}`, true);
+                }
+            }
+            addLog(`ترجمه ${correctedCount} خط جا افتاده کامل شد.`);
+            return mergedLinesArray;
+        }
+
+
+        // --- 8. منطق اصلی ترجمه (بازنویسی و ارتقا یافته) ---
+        
+        // [!!!] تابع getTranslationStream اصلاح شده برای پذیرش پرامپت سیستم و محتوای جداگانه [!!!]
+        async function getTranslationStream(systemInstruction, modelContents, onChunk, onEnd, onError, signal) {
             const apiKey = apiKeyInput.value.trim();
             const model = modelSelect.value;
             
@@ -1157,7 +1476,6 @@
             const url = `${GEMINI_BASE_URL}/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
             try {
-                const activePrompt = systemPrompt.value;
                 const safetySettings = [];
                 if (safetyHarassmentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" });
                 if (safetyHateSpeechToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" });
@@ -1165,12 +1483,8 @@
                 if (safetyDangerousContentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" });
 
                 const requestBody = {
-                    contents: [{
-                        parts: [
-                            { text: activePrompt },
-                            { fileData: { mime_type: "text/plain", file_uri: fileUri } }
-                        ]
-                    }],
+                    systemInstruction: { parts: [{ text: systemInstruction }] },
+                    contents: modelContents, // استفاده از محتوای ارسال شده
                     generationConfig: {
                         temperature: 0.3, 
                         topP: 0.9,      
@@ -1233,190 +1547,6 @@
             }
         }
         
-               // --- 7. منطق خود-اصلاح‌گری ---
-        async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt) {
-            
-            const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/;
-            const persianRegex = /[\u0600-\u06FF]/;
-            const englishRegex = /[a-zA-Z]/;
-            const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
-
-            let linesToRetry = [];
-            for (let i = 0; i < texts.length; i++) {
-                if (typeof texts[i] !== 'string') continue; 
-                
-                const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
-                const textWithoutTags = textPart.replace(/\{[^}]+\}/g, ' ');
-                
-                const hasForeign = foreignScriptRegex.test(textWithoutTags);
-                const hasPersian = persianRegex.test(textWithoutTags);
-                const hasEnglish = englishRegex.test(textWithoutTags);
-                const hasBadChars = badCharacterRegex.test(textWithoutTags); 
-
-                if (hasForeign) {
-                    linesToRetry.push({ index: i, text: textPart });
-                } 
-                else if (hasPersian && hasEnglish) {
-                    linesToRetry.push({ index: i, text: textPart });
-                }
-                else if (hasBadChars) { 
-                    linesToRetry.push({ index: i, text: textPart });
-                }
-            }
-            
-            if (linesToRetry.length === 0) {
-                addLog("بررسی کامل شد. خطای ترجمه ناقص یا خراب یافت نشد."); 
-                return texts; 
-            }
-
-            addLog(`تعداد ${linesToRetry.length} خطای ترجمه (ترکیبی، خارجی یا خراب) یافت شد. در حال تلاش برای اصلاح...`, false, "yellow"); 
-            updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
-            
-            const RETRY_CHUNK_SIZE = 10;
-            const totalChunks = Math.ceil(linesToRetry.length / RETRY_CHUNK_SIZE);
-            let correctedCount = 0;
-
-            for (let i = 0; i < totalChunks; i++) {
-                if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
-                
-                const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
-                const originalChunkTexts = chunk.map(l => l.text);
-                
-                const promptText = "خطوط زیر شامل کلمات ترجمه نشده (انگلیسی در کنار فارسی)، اسکریپت‌های خارجی، یا کاراکترهای خراب/آرتیفکت هستند. لطفاً این خطوط را به فارسی روان، صحیح و کامل بازنویسی کن. ساختار کلی خط (مانند تگ‌های |) را حفظ نما. هر خط را با '|||' جدا کن:\n\n" + originalChunkTexts.join('|||');
-                
-                try {
-                    // ** اصلاحیه: استفاده از callSimpleGeminiAPI با منطق تلاش مجدد **
-                    const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
-                    const correctedChunk = response.split('|||').map(t => t.trim());
-
-                    if (correctedChunk.length === chunk.length) {
-                        for (let j = 0; j < chunk.length; j++) {
-                            const originalIndex = chunk[j].index;
-                            const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                            if (timePartMatch) {
-                                texts[originalIndex] = `${timePartMatch[0]}${correctedChunk[j]}`; 
-                                correctedCount++;
-                            }
-                        }
-                    } else { addLog(`خطا در اصلاح بخش ${i + 1}.`, true); }
-                } catch (error) { addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); }
-            }
-            addLog(`اصلاح ${correctedCount} خط کامل شد.`);
-            return texts;
-        }
-        
-        // ** START: تابع callSimpleGeminiAPI با منطق تلاش مجدد (Retry) **
-        async function callSimpleGeminiAPI(systemInstruction, userPrompt, model, apiKey) {
-            if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
-            
-            const proxyEnabled = proxyToggle.checked;
-            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
-            const API_URL = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-            const payload = {
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                contents: [{ parts: [{ text: userPrompt }] }],
-                generationConfig: { temperature: 0.2, topP: 1, }
-            };
-
-            const MAX_RETRIES = 3;
-            const RETRY_DELAY = 3000; // 3 ثانیه
-
-            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
-                
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                        signal: abortController?.signal
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts) {
-                            return result.candidates[0].content.parts[0].text;
-                        } else {
-                            throw new Error("پاسخ دریافتی از API نامعتبر است (SelfCorrection).");
-                        }
-                    }
-                    throw new Error(await handleFetchError(response));
-
-                } catch (error) {
-                    if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
-
-                    const errorMessage = error.message.toLowerCase();
-                    const isRetryable = errorMessage.includes('overloaded') || 
-                                      errorMessage.includes('503') || 
-                                      errorMessage.includes('524') ||
-                                      errorMessage.includes('networkerror');
-
-                    if (isRetryable && attempt < MAX_RETRIES) {
-                        addLog(`خطای "Overloaded" در تلاش ${attempt} از ${MAX_RETRIES} رخ داد. ${RETRY_DELAY / 1000} ثانیه صبر می‌کنیم...`, false, "yellow");
-                        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-                    } else {
-                        throw error; // پرتاب خطای نهایی
-                    }
-                }
-            }
-            throw new Error("Self-correction failed after all retries.");
-        }
-        // ** END: تابع callSimpleGeminiAPI با منطق تلاش مجدد **
-        
-        async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt) {
-            if (untranslatedData.length === 0) {
-                return mergedLinesArray; 
-            }
-
-            addLog(`تعداد ${untranslatedData.length} خط جا افتاده (ترجمه نشده) یافت شد. در حال تلاش برای ترجمه...`, false, "yellow");
-            updateFileStatus(fileIndex, `در حال ترجمه ${untranslatedData.length} خط جا افتاده...`, 82); 
-
-            const RETRY_CHUNK_SIZE = 10;
-            const totalChunks = Math.ceil(untranslatedData.length / RETRY_CHUNK_SIZE);
-            let correctedCount = 0;
-
-            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-                if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
-
-                const chunk = untranslatedData.slice(chunkIndex * RETRY_CHUNK_SIZE, (chunkIndex + 1) * RETRY_CHUNK_SIZE);
-                const originalChunkTexts = chunk.map(l => l.originalText);
-                
-                const promptText = "خطوط انگلیسی زیر در ترجمه اولیه جا افتاده‌اند. لطفاً *فقط* این خطوط را به فارسی روان ترجمه کن و هر خط ترجمه شده را با '|||' جدا کن:\n\n" + originalChunkTexts.join('|||');
-                
-                try {
-                    // ** اصلاحیه: استفاده از callSimpleGeminiAPI با منطق تلاش مجدد **
-                    const response = await callSimpleGeminiAPI(systemPrompt, promptText, model, apiKey);
-                   const correctedChunk = response.split('|||').map(t => t.trim()).filter(t => t.length > 0);
-
-                    if (correctedChunk.length === chunk.length) {
-                        for (let j = 0; j < chunk.length; j++) {
-                            const originalData = chunk[j];
-                            const originalLineIndex = originalData.indexInMerged;
-                            
-                            const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                            if (timePartMatch) {
-                                const timePart = timePartMatch[0];
-                                mergedLinesArray[originalLineIndex] = `${timePart}${correctedChunk[j]}`; 
-                                correctedCount++;
-                            }
-                        }
-                                   } else {
-                    addLog(`خطا در ترجمه خطوط جا افتاده (بخش ${chunkIndex + 1}). تعداد خطوط ارسالی: ${chunk.length}, تعداد خطوط دریافتی: ${correctedChunk.length}.`, true);
-                    addLog(`متن ارسالی: ${originalChunkTexts.join('|||')}`, true);
-                    addLog(`پاسخ دریافتی: ${response}`, true);
-                }
-                } catch (error) {
-                    addLog(`خطا در API هنگام ترجمه خطوط جا افتاده بخش ${chunkIndex + 1}: ${error.message}`, true);
-                }
-            }
-            addLog(`ترجمه ${correctedCount} خط جا افتاده کامل شد.`);
-            return mergedLinesArray;
-        }
-
-
-        // --- 8. منطق اصلی ترجمه (بازنویسی و ارتقا یافته) ---
-        
         startTranslation.addEventListener('click', async () => {
             if (isTranslating) return;
             if (!apiKeyInput.value) {
@@ -1424,8 +1554,8 @@
                 return;
             }
 
-            isTranslating = true;
             abortController = new AbortController(); 
+            isTranslating = true;
             startTranslation.style.display = 'none';
             stopTranslation.style.display = 'block';
             downloadFiles.disabled = true;
@@ -1439,10 +1569,94 @@
             liveOutput.textContent = ''; 
             liveOutput.style.display = 'none'; 
             
-            const fps = parseFloat(fpsInput.value) || 23.976;
+            let fps = parseFloat(fpsInput.value);
+            if (isNaN(fps) || fps <= 0) {
+                fps = 23.976;
+                addLog('FPS نامعتبر یا خالی بود. از مقدار پیش‌فرض 23.976 استفاده شد.', false, 'yellow');
+            }
             
             const totalFiles = uploadedFiles.length;
             addLog("شروع عملیات ترجمه...");
+
+            // --- Helper Function for separate translation calls ---
+            async function translateChunk(content, customPrompt, fileName, progressStart, progressEnd, fileIndex) {
+                if (!content.trim()) return '';
+                updateFileStatus(fileIndex, `در حال آپلود (${fileName})...`, progressStart);
+                
+                const apiKey = apiKeyInput.value.trim();
+                const model = modelSelect.value;
+                const systemInstruction = systemPrompt.value; // پرامپت اصلی
+
+                const fileUri = await uploadFileToGemini(
+                    content, fileName, apiKey,
+                    (p) => updateFileStatus(fileIndex, `در حال آپلود... ${Math.round(p)}%`, progressStart + (p * 0.05)), // 5% of range
+                    abortController.signal
+                );
+                
+                updateFileStatus(fileIndex, "هوش مصنوعی درحال تفکر است...", progressStart + 5);
+                liveOutput.textContent = 'هوش مصنوعی درحال تفکر است...'; 
+                liveOutput.style.display = 'block'; 
+                liveOutput.style.direction = 'rtl';
+                liveOutput.style.textAlign = 'right';
+                
+                const thinkingStartTime = Date.now();
+                const baseThinkingText = 'هوش مصنوعی درحال تفکر است... ';
+                let thinkingTimer = setInterval(() => {
+                    const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
+                    updateFileStatus(fileIndex, baseThinkingText + `${elapsedTime} ثانیه`, progressStart + 5);
+                }, 100);
+                
+                const modelContents = [
+                    { parts: [ { text: customPrompt } ] }, // دستورالعمل سفارشی
+                    { parts: [ { fileData: { mime_type: "text/plain", file_uri: fileUri } } ] } // فایل
+                ];
+
+                const translatedText = await new Promise((resolve, reject) => {
+                    let isFirstChunk = true;
+                    
+                    const TIMEOUT_DURATION = 250 * 1000; // 250 seconds
+                    const timeoutController = new AbortController();
+                    const timeoutId = setTimeout(() => {
+                        timeoutController.abort(new Error(`ترجمه بیش از ${TIMEOUT_DURATION / 1000} ثانیه طول کشید (Timeout).`));
+                    }, TIMEOUT_DURATION);
+                    
+                    const onMainAbort = () => {
+                        timeoutController.abort(new Error("عملیات لغو شد"));
+                    };
+                    abortController.signal.addEventListener('abort', onMainAbort, { once: true });
+
+
+                    getTranslationStream(
+                        systemInstruction, // پرامپت سیستم اصلی
+                        modelContents,     // محتوا (شامل دستورالعمل و فایل)
+                        (currentFullText) => { // onChunk
+                            if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+                            if (isFirstChunk) { liveOutput.textContent = ''; isFirstChunk = false; }
+                            const lines = currentFullText.split('\n');
+                            liveOutput.textContent = lines.map(line => (line.match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '').join('\n').replace(/\|/g, '\n');
+                            liveOutput.scrollTop = liveOutput.scrollHeight;
+                            const percentage = (lines.length / (content.match(/\n/g) || []).length);
+                            updateFileStatus(fileIndex, `در حال دریافت ترجمه... ${lines.length} خط`, progressStart + 5 + (percentage * (progressEnd - (progressStart + 5)) * 0.9)); // 90% of remaining range
+                        },
+                        (finalText) => { // onEnd
+                            if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+                            clearTimeout(timeoutId); 
+                            abortController.signal.removeEventListener('abort', onMainAbort); 
+                            resolve(finalText);
+                        },
+                        (error) => { // onError
+                            if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+                            clearTimeout(timeoutId); 
+                            abortController.signal.removeEventListener('abort', onMainAbort); 
+                            reject(error); 
+                        }, 
+                        timeoutController.signal // Pass the new signal
+                    );
+                });
+                return translatedText;
+            }
+            // --- End Helper Function ---
+
 
             for (let i = 0; i < totalFiles; i++) {
                 const file = uploadedFiles[i];
@@ -1451,10 +1665,7 @@
                 const prompt = systemPrompt.value;
                 
                 let originalDialogueBlocks = [];
-                let microDVDContent = '';
-                let originalMicroDVDForMerge = '';
                 let originalLastEndFrame = 0;
-                let thinkingTimer = null; 
 
                 let useAssPath = false;
                 let originalAssContentForFile = '';
@@ -1467,17 +1678,16 @@
                     updateFileStatus(i, "در حال خواندن و پارس کردن...", 0);
                     const content = await file.text();
 
-                    const outputFormatChoice = document.querySelector('input[name="output-format"]:checked').value;
+                    const outputFormatRadio = document.querySelector('input[name="output-format"]:checked');
+                    const outputFormatChoice = outputFormatRadio ? outputFormatRadio.value : 'ass';
                     useAssPath = file.name.endsWith('.ass') && outputFormatChoice === 'ass';
 
                     if (useAssPath) {
                         addLog(`فایل ${file.name} به عنوان ASS (با حفظ استایل) پردازش می‌شود.`);
                         originalAssContentForFile = content; 
+                        originalDialogueBlocks = parseASS(content);
                         const processResult = processAssForTranslationAndMapping(content, fps);
-                        microDVDContent = processResult.microdvdForAI;
                         assMapping = processResult.map;
-                        
-                        originalDialogueBlocks = parseASS(content); 
                     } else {
                         if (file.name.endsWith('.srt')) {
                             originalDialogueBlocks = parseSRT(content);
@@ -1488,76 +1698,72 @@
                         } else if (file.name.endsWith('.vtt')) {
                             originalDialogueBlocks = parseVTT(content);
                         }
-                        
-                        if (originalDialogueBlocks.length > 0) {
-                            microDVDContent = originalDialogueBlocks.map(b => {
-                                const startFrame = timeToFrames(b.start, fps);
-                                const endFrame = timeToFrames(b.end, fps);
-                                const cleanText = b.text.replace(/\{[^}]+\}/g, ' ').replace(/<[^>]+>/g, ' ');
-                                return `{${startFrame}}{${endFrame}}${cleanText.replace(/\n/g, '|')}`;
-                            }).join('\n');
-                        }
                     }
 
                     if (originalDialogueBlocks.length === 0) throw new Error("هیچ دیالوگی برای ترجمه یافت نشد. (فایل خالی است یا تمام خطوط فیلتر شدند)");
-                    if (!microDVDContent) throw new Error("محتوای MicroDVD پس از پردازش خالی است.");
                     
                     addLog(`تعداد ${originalDialogueBlocks.length} دیالوگ (پس از فیلتر شدن) یافت شد.`);
-                    
-                    originalMicroDVDForMerge = microDVDContent;
                     originalLastEndFrame = timeToFrames(originalDialogueBlocks[originalDialogueBlocks.length-1].end, fps);
 
-                    updateFileStatus(i, "در حال آپلود به سرور...", 10);
-                    const fileUri = await uploadFileToGemini(
-                        microDVDContent, file.name, apiKey,
-                        (p) => updateFileStatus(i, `در حال آپلود... ${Math.round(p)}%`, 10 + (p * 0.1)), 
-                        abortController.signal
-                    );
-                    
-                    addLog("آپلود کامل شد. در انتظار پاسخ API...");
-                    updateFileStatus(i, "هوش مصنوعی درحال تفکر است...", 20);
-                    liveOutput.textContent = 'هوش مصنوعی درحال تفکر است... این مرحله ممکن است بسته به حجم فایل طول بکشد.';
-                    liveOutput.style.display = 'block'; 
-                    
-                    const thinkingStartTime = Date.now();
-                    const baseThinkingText = 'هوش مصنوعی درحال تفکر است... ';
-                    thinkingTimer = setInterval(() => {
-                        const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
-                        updateFileStatus(i, baseThinkingText + `${elapsedTime} ثانیه`, 20);
-                    }, 100);
+                    // --- New Logic (Prompt 2): Split Dialogues and Romaji ---
+                    const dialogueData = originalDialogueBlocks.map((block, i) => {
+                        const startFrame = timeToFrames(block.start, fps);
+                        const endFrame = timeToFrames(block.end, fps);
+                        // [!!!] اصلاح: حذف تگ‌های b و i از vtt [!!!]
+                        const cleanText = block.text.replace(/\{[^}]+\}/g, ' ').replace(/<[^>]+>/g, ' ').replace(/[\r\n]+/g, ' ').trim();
+                        const microLine = `{${startFrame}}{${endFrame}}${cleanText.replace(/\n/g, '|')}`;
+                        return { i, microLine, cleanText, startFrame, endFrame, block };
+                    });
 
-                    let translatedMicroDVD = await new Promise((resolve, reject) => {
-                        let isFirstChunk = true; 
-                        getTranslationStream(
-                            fileUri,
-                            (currentFullText) => { // onChunk
-                                if (thinkingTimer) {
-                                    clearInterval(thinkingTimer);
-                                    thinkingTimer = null;
-                                }
-                                
-                                if (isFirstChunk) {
-                                    liveOutput.textContent = ''; 
-                                    isFirstChunk = false;
-                                }
-                                const translatedLines = currentFullText.split('\n');
-                                liveOutput.textContent = translatedLines.map(line => (line.match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '').join('\n').replace(/\|/g, '\n');
-                                liveOutput.scrollTop = liveOutput.scrollHeight; 
+                    const mainLines = dialogueData.filter(d => !isRomajiOrKanji(d.cleanText));
+                    const romajiLines = dialogueData.filter(d => isRomajiOrKanji(d.cleanText));
 
-                                const percentage = Math.min(79, (translatedLines.length / originalDialogueBlocks.length) * 100);
-                                updateFileStatus(i, `در حال دریافت ترجمه... ${translatedLines.length} خط`, 20 + (percentage * 0.6)); 
-                            },
-                            (finalText) => resolve(finalText), // onEnd
-                            (error) => reject(error), // onError
-                            abortController.signal
-                        );
+                    const mainMicroDVD = mainLines.map(d => d.microLine).join('\n');
+                    const romajiMicroDVD = romajiLines.map(d => d.microLine).join('\n');
+                    
+                    addLog(`تفکیک شد: ${mainLines.length} خط دیالوگ اصلی، ${romajiLines.length} خط آهنگ/روماجی.`);
+                    
+                    const originalMicroDVDForMerge = dialogueData.map(d => d.microLine).join('\n');
+
+                    // --- New Logic (Prompt 2): Separate Translations ---
+                    const translatedMain = mainMicroDVD ? await translateChunk(mainMicroDVD, "این فایل فقط شامل دیالوگ‌های اصلی است. لطفاً آن‌ها را به فارسی روان و محاوره‌ای ترجمه کن.", `${file.name}-main`, 10, 45, i) : '';
+                    
+                    const romajiPrompt = `این فایل فقط شامل خطوط آهنگ (OP/ED) به زبان انگلیسی یا روماجی است. 
+لطفاً به فارسی **روان، آهنگین، و شاعرانه** ترجمه کنید. 
+**از ترجمه تحت‌اللفظی پرهیز کن.** حس و ریتم آهنگ را حفظ کن.`;
+                    const translatedRomaji = romajiMicroDVD ? await translateChunk(romajiMicroDVD, romajiPrompt, `${file.name}-romaji`, 45, 80, i) : '';
+
+                    addLog("ترجمه‌ها دریافت شد. در حال ادغام...");
+                    updateFileStatus(i, "در حال ادغام نتایج...", 80);
+
+                    // --- New Logic (Prompt 2): Smart Merging ---
+                    const mainTranslatedLines = translatedMain.split('\n').filter(l => l.trim());
+                    const romajiTranslatedLines = translatedRomaji.split('\n').filter(l => l.trim());
+
+                    let finalMicroDVDLines = new Array(originalDialogueBlocks.length).fill('');
+                    let mainLinesCounter = 0;
+                    let romajiLinesCounter = 0;
+
+                    mainLines.forEach((line) => {
+                        finalMicroDVDLines[line.i] = mainTranslatedLines[mainLinesCounter] || line.microLine;
+                        mainLinesCounter++;
+                    });
+
+                    romajiLines.forEach((line) => {
+                        const trans = (romajiLinesCounter < romajiTranslatedLines.length) ? romajiTranslatedLines[romajiLinesCounter] : line.cleanText;
+                        const timePart = `{${line.startFrame}}{${line.endFrame}}`;
+                        finalMicroDVDLines[line.i] = `${timePart}${trans.replace(/\n/g, '|')}`;
+                        romajiLinesCounter++;
                     });
                     
-                    if (thinkingTimer) clearInterval(thinkingTimer);
-                    addLog("ترجمه دریافت شد. در حال ادغام...");
-                    updateFileStatus(i, "در حال ادغام نتایج...", 80);
+                    if (romajiLines.length !== romajiLinesCounter || mainLines.length !== mainLinesCounter) {
+                         addLog(`هشدار: عدم تطابق در ادغام خطوط. اصلی: ${originalDialogueBlocks.length}, ترجمه‌شده اصلی: ${mainTranslatedLines.length}, ترجمه‌شده روماجی: ${romajiTranslatedLines.length}`, false, "yellow");
+                    }
+
+                    const finalTranslatedMicroDVD = finalMicroDVDLines.filter(l => l).join('\n');
+                    // --- End New Logic ---
                     
-                    const mergeResult = mergeTrustedFramesWithAiText(originalMicroDVDForMerge, translatedMicroDVD);
+                    const mergeResult = mergeTrustedFramesWithAiText(originalMicroDVDForMerge, finalTranslatedMicroDVD);
                     let microDVDSplitted = mergeResult.mergedTextLines; 
                     
                     const isComplete = checkTranslationCompleteness(microDVDSplitted.join('\n'), originalLastEndFrame);
@@ -1578,14 +1784,14 @@
                     updateFileStatus(i, "در حال اصلاح ترجمه...", 85);
                     microDVDSplitted = await performSelfCorrection(microDVDSplitted, i, model, apiKey, prompt); 
                     
-                    translatedMicroDVD = microDVDSplitted.join('\n'); 
+                    const finalMicroDVDWithCorrections = microDVDSplitted.join('\n'); 
                     
                     updateFileStatus(i, "در حال ساخت فایل .ass...", 95);
                     
                     let finalAssContent;
                     if (useAssPath) {
                         addLog(`بازسازی فایل ${file.name} با حفظ استایل...`);
-                        const translationLookup = createTranslationLookupMap(translatedMicroDVD);
+                        const translationLookup = createTranslationLookupMap(finalMicroDVDWithCorrections);
                         const rebuildResult = rebuildAssFromTranslation(originalAssContentForFile, assMapping, translationLookup);
                         finalAssContent = rebuildResult.rebuiltAss;
                         
@@ -1599,10 +1805,13 @@
                         const translatedMap = new Map();
                         const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
                         let lineIndex = 0;
-                        for (const line of translatedMicroDVD.split('\n')) {
+                        for (const line of finalMicroDVDWithCorrections.split('\n')) {
                             const match = line.match(microDVDLineRegex);
                             if (match && lineIndex < originalDialogueBlocks.length) {
-                                translatedMap.set(lineIndex, match[3].replace(/\|/g, '\n'));
+                                // Add RTL markers here for simple SRT/VTT path
+                                let text = match[3];
+                                text = text.split('|').map(part => `\u202B${part.trim()}\u202C`).join('\n');
+                                translatedMap.set(lineIndex, text);
                                 lineIndex++;
                             }
                         }
@@ -1626,29 +1835,39 @@
                     addLog(`--- پردازش فایل ${file.name} کامل شد. ---`);
 
                 } catch (error) {
-                    if (thinkingTimer) clearInterval(thinkingTimer);
+                    // if (thinkingTimer) clearInterval(thinkingTimer); // thinkingTimer is local to translateChunk
                     liveOutput.style.display = 'none'; 
                     
                     let userFriendlyMessage = '';
                     const errorMessageText = error.message || 'خطایی نامشخص رخ داد.';
-                    if (error.name === 'AbortError') {
+                    if (error.name === 'AbortError' || error.message.includes("لغو شد")) {
                         userFriendlyMessage = '<p>عملیات ترجمه توسط کاربر متوقف شد.</p>';
                         translationStatusMessage.innerHTML = '❌ ترجمه توسط کاربر متوقف شد.';
                         translationStatusMessage.className = 'status-message status-aborted';
                     } else if (errorMessageText.toLowerCase().includes('location') || errorMessageText.toLowerCase().includes('permission denied')) {
-                        userFriendlyMessage = `<p class="font-bold">خطا در دسترسی (مشکل تحریم یا فیلترشکن).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre><p class="mt-2">سرور گوگل به دلیل موقعیت جغرافیایی شما اجازه دسترسی نمی‌دهد.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>گزینه "استفاده از پراکسی" را در تنظیمات فعال کنید.</li><li>یا، از یک فیلترشکن قوی استفاده کنید.</li></ol>`;
+                        userFriendlyMessage = `<p class="font-bold">خطا در دسترسی (مشکل تحریم یا فیلترشکن).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">سرور گوگل به دلیل موقعیت جغرافیایی شما اجازه دسترسی نمی‌دهد.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>گزینه "استفاده از پراکسی" را در تنظیمات فعال کنید.</li><li>یا، از یک فیلترشکن قوی استفاده کنید.</li></ol>`;
                         translationStatusMessage.innerHTML = '❌ خطای دسترسی/فیلترشکن.';
                         translationStatusMessage.className = 'status-message status-aborted';
                     } else if (errorMessageText.toLowerCase().includes('networkerror') || errorMessageText.includes('522') || errorMessageText.includes('524')) {
-                        userFriendlyMessage = `<p class="font-bold">خطای شبکه (NetworkError یا خطای پراکسی).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre><p class="mt-2">اتصال به سرور (یا پراکسی) ناپایدار است یا قطع شده.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>از پایداری اینترنت خود مطمئن شوید.</li><li>اگر از پراکسی استفاده نمی‌کنید، فیلترشکن را بررسی کنید.</li><li>اگر از پراکسی استفاده می‌کنید، اتصال اینترنت خود را بررسی کنید.</li></ol>`;
+                        userFriendlyMessage = `<p class="font-bold">خطای شبکه (NetworkError یا خطای پراکسی).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">اتصال به سرور (یا پراکسی) ناپایدار است یا قطع شده.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>از پایداری اینترنت خود مطمئن شوید.</li><li>اگر از پراکسی استفاده نمی‌کنید، فیلترشکن را بررسی کنید.</li><li>اگر از پراکسی استفاده می‌کنید، اتصال اینترنت خود را بررسی کنید.</li></ol>`;
                         translationStatusMessage.innerHTML = '❌ خطای شبکه.';
                         translationStatusMessage.className = 'status-message status-aborted';
                     } else if (errorMessageText.toLowerCase().includes('api key not valid')) {
-                        userFriendlyMessage = `<p class="font-bold">کلید API نامعتبر است.</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre><p class="mt-2">کلید وارد شده صحیح نیست یا منقضی شده است.</p>`;
+                        userFriendlyMessage = `<p class="font-bold">کلید API نامعتبر است.</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">کلید وارد شده صحیح نیست یا منقضی شده است.</p>`;
                         translationStatusMessage.innerHTML = '❌ کلید API نامعتبر.';
                         translationStatusMessage.className = 'status-message status-aborted';
+                    
+                    } else if (errorMessageText.toLowerCase().includes('quota exceeded')) { // [!!!] اصلاح شده [!!!]
+                        userFriendlyMessage = `<p class="font-bold">API شما لیمیت خورده است.</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">شما از سقف استفاده مجاز (Quota) خود عبور کرده‌اید. لطفاً بعداً امتحان کنید یا پلن خود را در گوگل چک کنید.</p>`;
+                        translationStatusMessage.innerHTML = '❌ لیمیت API. بعداً تلاش کنید.';
+                        translationStatusMessage.className = 'status-message status-aborted'; 
+
+                    } else if (errorMessageText.toLowerCase().includes('overloaded') || errorMessageText.toLowerCase().includes('503') || errorMessageText.toLowerCase().includes('resource exhausted')) {
+                        userFriendlyMessage = `<p class="font-bold">مدل شلوغ است.</p><p class="mt-2">سرور هوش مصنوعی در حال حاضر ترافیک بالایی دارد. لطفاً چند دقیقه دیگر دوباره تلاش کنید.</p>`;
+                        translationStatusMessage.innerHTML = '⚠️ مدل شلوغ است.';
+                        translationStatusMessage.className = 'status-message status-incomplete';
                     } else {
-                        userFriendlyMessage = `<b>یک خطای پیش‌بینی‌نشده رخ داد:</b><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${errorMessageText}</pre>`;
+                        userFriendlyMessage = `<b>یک خطای پیش‌بینی‌نشده رخ داد:</b><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre>`;
                         translationStatusMessage.innerHTML = '❌ خطایی در ترجمه رخ داد.';
                         translationStatusMessage.className = 'status-message status-aborted';
                     }
@@ -1659,7 +1878,7 @@
                     updateFileStatus(i, "خطا", -1); 
                     console.error(error);
                     
-                    if (error.name !== 'AbortError') {
+                    if (error.name !== 'AbortError' && !error.message.includes("لغو شد")) {
                         addLog("عملیات به دلیل خطا متوقف شد.", true);
                     }
                     break; 
@@ -1676,12 +1895,12 @@
             if (processedFiles.length > 0) {
                 downloadFiles.disabled = false;
                 addLog("عملیات کامل شد. می‌توانید فایل‌ها را دانلود کنید.", false, "green");
-                if (!translationStatusMessage.classList.contains('status-aborted')) {
+                if (!translationStatusMessage.classList.contains('status-aborted') && !translationStatusMessage.classList.contains('status-incomplete')) {
                      translationStatusMessage.innerHTML = `✔️ عملیات با موفقیت کامل شد. (${processedFiles.length} فایل آماده دانلود)`;
                      translationStatusMessage.className = 'status-message status-complete';
                 }
             } else {
-                if (!translationStatusMessage.classList.contains('status-aborted')) {
+                if (!translationStatusMessage.classList.contains('status-aborted') && !translationStatusMessage.classList.contains('status-incomplete')) {
                     addLog("هیچ فایلی با موفقیت پردازش نشد.", true);
                     translationStatusMessage.innerHTML = '⚠️ عملیات کامل شد، اما هیچ فایلی پردازش نشد.';
                     translationStatusMessage.className = 'status-message status-incomplete';
@@ -1728,7 +1947,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 const translatedText = translatedTexts[i] || ""; 
                 let positionOverride = "";
                 
-                if (compareTimestamps(block.start, lastEndTime) < 0) {
+                let assText = translatedText.replace(/\r?\n/g, '\\N');
+
+                if (compareTimestamps(block.start, lastEndTime) < 0 && !assText.includes('\\an') && !assText.includes('\\pos')) {
                     positionOverride = "{\\an8}"; 
                 }
                 lastEndTime = block.end;
@@ -1740,22 +1961,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 const marginR = block.marginR || '0';
                 const marginV = block.marginV || '0';
                 const effect = block.effect || '';
+                
+                // [!!!] اصلاح: حذف تگ‌های VTT که ممکن است باقی مانده باشند [!!!]
+                const originalRawText = block.text.replace(/<[^>]+>/g, '');
 
-                let assText;
-                
-                const cleanTranslatedText = translatedText.replace(/\r?\n/g, '\\N');
-                
-                if (block.text && (block.text.includes('{') || block.text.includes('}'))) {
-                    const originalRawText = block.text;
+                if (originalRawText && (originalRawText.includes('{') || originalRawText.includes('}'))) {
                     const originalTextOnly = originalRawText.replace(/\{[^}]+\}/g, ' ').replace(/<[^>]+>/g, ' ');
                     
                     if (originalTextOnly.trim()) {
-                        assText = originalRawText.replace(originalTextOnly, cleanTranslatedText);
+                        assText = originalRawText.replace(originalTextOnly, assText);
                     } else {
-                        assText = originalRawLText + cleanTranslatedText;
+                        assText = originalRawText + assText;
                     }
-                } else {
-                     assText = cleanTranslatedText;
                 }
                 
                 if (positionOverride) {
@@ -1807,7 +2024,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             else if (color === 'green') logEntry.className = 'text-green-400';
             else if (color === 'yellow') logEntry.className = 'text-yellow-400';
             else logEntry.className = 'text-gray-300';
-            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${escapeHTML(message)}`;
             statusLog.appendChild(logEntry);
             statusLog.scrollTop = statusLog.scrollHeight;
         }
