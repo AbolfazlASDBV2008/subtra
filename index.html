@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -30,6 +31,57 @@
         details summary::before { content: '◀'; display: inline-block; transition: transform 0.2s; margin-left: 0.5rem; }
         details[open] summary::before { transform: rotate(-90deg); }
         
+        /* استایل برای رنج اسلایدر پیشرفته */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+            height: 6px;
+            border-radius: 5px;
+            cursor: pointer;
+            /* گرادینت پیش‌فرض - توسط JS آپدیت می‌شود */
+            background-image: linear-gradient(to right, #3b82f6 0%, #3b82f6 0%, #374151 0%, #374151 100%);
+            background-repeat: no-repeat;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #93c5fd; /* blue-300 */
+            cursor: pointer;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+            margin-top: -5px; /* تراز عمودی */
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: transparent; 
+            border-radius: 5px;
+        }
+        input[type=range]:focus {
+            outline: none; 
+        }
+        
+        /* تولتیپ / مدال راهنما */
+        .help-tooltip {
+            display: none;
+            position: absolute;
+            z-index: 50;
+            background-color: #374151; /* gray-700 */
+            border: 1px solid #4b5563;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            width: 300px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            color: #e5e7eb;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        .help-tooltip.show {
+            display: block;
+        }
+
         .safety-settings-content {
             margin-top: 1rem;
             padding: 1rem 1.5rem;
@@ -78,6 +130,7 @@
             margin-top: 1rem;
         }
     </style>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body class="bg-gray-900 text-white p-4 md:p-8 min-h-screen">
 
@@ -93,74 +146,181 @@
         </header>
 
         <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
-            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">تنظیمات</h2>
+            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">تنظیمات اصلی</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                     <div class="mb-4">
                         <label for="apiKey" class="block mb-2 text-sm font-medium text-gray-300">
                             کلید API گوگل (Gemini)
                         </label>
-                        <input type="password" id="apiKey" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" placeholder="کلید API خود را اینجا وارد کنید...">
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="modelSelect" class="block mb-2 text-sm font-medium text-gray-300">انتخاب مدل هوش مصنوعی</label>
-                        <select id="modelSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
-                            <option value="gemini-2.5-pro">Gemini 2.5 Pro (جدیدترین و دقیق‌ترین)</option>
-                            <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (سریع‌ترین)</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-4">
-                        <label for="fpsInput" class="block mb-2 text-sm font-medium text-gray-300">
-                            نرخ فریم (FPS)
-                        </label>
-                        <input type="number" id="fpsInput" step="0.001" value="23.976" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="direction: ltr; text-align: left;">
-                        <p class="text-xs text-gray-400 mt-1">مقدار پیش‌فرض 23.976 است. اگر زیرنویس هماهنگ نبود، این مقدار را (مثلاً به 25) تغییر دهید.</p>
-                    </div>
-
-                    <div class="proxy-setting-container">
-                        <input type="checkbox" id="proxy-toggle" class="w-5 h-5 cursor-pointer">
-                        <label for="proxy-toggle" class="font-medium text-gray-300 cursor-pointer">
-                            استفاده از پراکسی (برای دور زدن تحریم)
-                        </label>
+                        <div class="relative">
+                            <input type="password" id="apiKey" class="w-full p-2.5 pl-10 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 font-mono text-sm" placeholder="کلید API خود را اینجا وارد کنید...">
+                            <div class="absolute left-0 top-0 h-full px-3 flex items-center pointer-events-none">
+                                <!-- قفل قرمز/سبز -->
+                                <svg id="apiKeyLockIcon" class="w-5 h-5 text-red-500 transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">کلید API باید با "AIza" شروع شود.</p>
                     </div>
                 </div>
 
                 <div>
-                    <details class="safety-settings-details" role="region">
-                        <summary class="font-medium text-gray-300" aria-expanded="false" aria-controls="safety-settings-content">
-                            تنظیمات ایمنی (Safety Settings)
-                        </summary>
-                        <div class="safety-settings-content" id="safety-settings-content">
-                            <p class="text-xs text-gray-400">فعال کردن این گزینه‌ها فیلترهای محتوای Gemini را غیرفعال می‌کند. (ممکن است زمان ترجمه را افزایش دهد)</p>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="safety-harassment-toggle" class="w-4 h-4">
-                                آزار و اذیت (Harassment)
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="safety-hate-speech-toggle" class="w-4 h-4">
-                                سخنان نفرت‌پراکن (Hate Speech)
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="safety-sexually-explicit-toggle" class="w-4 h-4">
-                                محتوای جنسی (Sexually Explicit)
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="safety-dangerous-content-toggle" class="w-4 h-4">
-                                محتوای خطرناک (Dangerous)
-                            </label>
-                        </div>
-                    </details>
+                    <div class="mb-4">
+                        <label for="modelSelect" class="block mb-2 text-sm font-medium text-gray-300">انتخاب مدل هوش مصنوعی</label>
+                        <select id="modelSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
+                            <option value="gemini-3-pro-preview">Gemini 3 Pro (در طرح رایگان فعال نیست)</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro (قدرتمند و پایدار)</option>
+                            <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (سریع‌ترین)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
+            <!-- بخش تنظیمات پیشرفته -->
+            <details class="bg-gray-750 border border-gray-700 rounded-lg p-4 mb-4 group">
+                <summary class="font-bold text-lg text-blue-400 cursor-pointer flex items-center gap-2 select-none">
+                    <span>⚙️ تنظیمات پیشرفته</span>
+                </summary>
+                
+                <div class="mt-6 space-y-6 border-t border-gray-700 pt-4">
+                    
+                    <!-- کارت مدل و پارامترها -->
+                    <div class="bg-gray-800/50 p-5 rounded-xl border border-gray-600/50 shadow-inner">
+                        <h3 class="text-gray-200 font-bold mb-4 text-center text-lg">پارامترهای مدل هوش مصنوعی</h3>
+                        
+                        <div class="grid grid-cols-1 gap-8">
+                            <!-- اسلایدر خلاقیت -->
+                            <div class="relative">
+                                <div class="flex justify-between mb-2 items-center">
+                                    <div class="flex items-center gap-2">
+                                        <label for="creativityRange" class="text-sm font-medium text-gray-300">
+                                            دما (Temperature)
+                                        </label>
+                                        <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="tempHelp">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                        </button>
+                                    </div>
+                                    <span id="creativityValue" class="text-blue-400 font-mono font-bold text-lg">0.3</span>
+                                </div>
+                                <input type="range" id="creativityRange" min="0" max="2" step="0.1" value="0.3" class="w-full" style="direction: ltr;">
+                                
+                                <!-- تولتیپ راهنما Temperature -->
+                                <div id="tempHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
+                                    <p class="font-bold mb-1 text-blue-300">Temperature (دما)</p>
+                                    <p>میزان خلاقیت یا تصادفی بودن متن خروجی را تعیین می‌کند. مقادیر پایین‌تر (نزدیک به ۰) باعث تولید متنی قابل پیش‌بینی‌تر و متمرکزتر می‌شود، در حالی که مقادیر بالاتر (نزدیک به ۱ یا ۲) متنی متنوع‌تر و خلاقانه‌تر ایجاد می‌کند.<br>مقدار پیش‌فرض: 0.3</p>
+                                </div>
+                            </div>
 
-            <div class="mt-6">
-                <label for="systemPrompt" class="block mb-2 text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
-                <textarea id="systemPrompt" rows="8" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="text-align: right; direction: rtl;"></textarea>
-            </div>
+                            <!-- اسلایدر Top-P -->
+                            <div class="relative">
+                                <div class="flex justify-between mb-2 items-center">
+                                    <div class="flex items-center gap-2">
+                                        <label for="topPRange" class="text-sm font-medium text-gray-300">
+                                            Top-P
+                                        </label>
+                                        <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="topPHelp">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                        </button>
+                                    </div>
+                                    <span id="topPValue" class="text-blue-400 font-mono font-bold text-lg">0.9</span>
+                                </div>
+                                <input type="range" id="topPRange" min="0" max="1" step="0.01" value="0.9" class="w-full" style="direction: ltr;">
+                                
+                                <!-- تولتیپ راهنما Top-P -->
+                                <div id="topPHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
+                                    <p class="font-bold mb-1 text-blue-300">Top-P (هسته نمونه‌برداری)</p>
+                                    <p>یک روش نمونه‌برداری است که در آن مدل، مجموعه‌ای از محتمل‌ترین کلمات را که مجموع احتمال آن‌ها به عدد TopP می‌رسد، در نظر می‌گیرد. برای مثال، مقدار 0.9 باعث می‌شود فقط کلماتی که در 90% بالای توزیع احتمال قرار دارند، انتخاب شوند.<br>مقدار پیش‌فرض: 0.9</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ردیف دوم: FPS و پراکسی و لحن -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <!-- انتخاب لحن -->
+                         <div>
+                            <label for="toneSelect" class="block mb-2 text-sm font-medium text-gray-300">لحن ترجمه</label>
+                            <select id="toneSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
+                                <option value="informal">محاوره‌ای / دوستانه (مناسب انیمه)</option>
+                                <option value="formal">رسمی / کتابی</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="fpsInput" class="block mb-2 text-sm font-medium text-gray-300">
+                                نرخ فریم (FPS)
+                            </label>
+                            <input type="number" id="fpsInput" step="0.001" value="23.976" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="direction: ltr; text-align: left;">
+                        </div>
+                    </div>
+
+                     <div class="flex items-center">
+                        <div class="proxy-setting-container w-full">
+                            <input type="checkbox" id="proxy-toggle" class="w-5 h-5 cursor-pointer">
+                            <label for="proxy-toggle" class="font-medium text-gray-300 cursor-pointer select-none mr-2">
+                                استفاده از پراکسی (دور زدن تحریم)
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- تنظیمات ایمنی -->
+                    <div>
+                        <details class="safety-settings-details" role="region">
+                            <summary class="font-medium text-gray-300 bg-gray-900 p-3 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors" aria-expanded="false" aria-controls="safety-settings-content">
+                                تنظیمات ایمنی (Safety Filters)
+                            </summary>
+                            <div class="safety-settings-content mt-2" id="safety-settings-content">
+                                <p class="text-xs text-gray-400">غیرفعال کردن فیلترها برای جلوگیری از سانسور محتوا.</p>
+                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                                    <input type="checkbox" id="safety-harassment-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
+                                    آزار و اذیت (Harassment)
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                                    <input type="checkbox" id="safety-hate-speech-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
+                                    سخنان نفرت‌پراکن (Hate Speech)
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                                    <input type="checkbox" id="safety-sexually-explicit-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
+                                    محتوای جنسی (Sexually Explicit)
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                                    <input type="checkbox" id="safety-dangerous-content-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
+                                    محتوای خطرناک (Dangerous)
+                                </label>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- مدیریت پرامپت -->
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
+                        
+                        <!-- کنترل‌های مدیریت پرامپت -->
+                        <div class="flex gap-2 mb-2 items-center">
+                            <select id="promptSelector" class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-blue-500 focus:border-blue-500">
+                                <!-- گزینه‌ها توسط JS پر می‌شوند -->
+                            </select>
+                            <button id="addPromptBtn" class="p-2 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors" title="افزودن پرامپت سفارشی">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <button id="deletePromptBtn" class="p-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition-colors hidden" title="حذف این پرامپت">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <textarea id="systemPrompt" rows="6" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 text-sm" style="text-align: right; direction: rtl;"></textarea>
+                        <p id="promptReadOnlyMsg" class="text-xs text-yellow-500 mt-1 hidden">این پرامپت سیستمی ثابت است و قابل ویرایش نیست. برای تغییر، یک پرامپت سفارشی ایجاد کنید.</p>
+                    </div>
+
+                </div>
+            </details>
             
             <div class="flex items-center gap-4 mt-4">
                 <button id="saveSettings" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition duration-300 shadow-md">
@@ -195,16 +355,16 @@
             <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">۲. شروع عملیات</h2>
             
             <div id="outputFormatSelector" class="mt-6" style="display: none;">
-                <label class="block mb-2 text-sm font-medium text-gray-300">فرمت فایل خروجی (برای فایل .ass)</label>
-                <p class="text-xs text-gray-400 mb-3">شما یک فایل ASS آپلود کرده‌اید. می‌توانید انتخاب کنید که استایل‌های اصلی حفظ شوند.</p>
+                <label class="block mb-2 text-sm font-medium text-gray-300">فرمت فایل خروجی</label>
+                <p class="text-xs text-gray-400 mb-3">فرمت مورد نظر برای فایل نهایی را انتخاب کنید.</p>
                 <div class="flex flex-col sm:flex-row gap-4 p-3 bg-gray-900 rounded-lg">
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="output-format" value="ass" checked class="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-600 ring-offset-gray-800 focus:ring-2">
-                        ASS (حفظ استایل‌ها - حرفه‌ای و زیبا)
+                        ASS (فرمت پیشرفته - فونت و استایل)
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="output-format" value="srt" class="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-600 ring-offset-gray-800 focus:ring-2">
-                        SRT (تبدیل به فرمت ساده - سریع و سبک)
+                        SRT (فرمت ساده - متن خالی)
                     </label>
                 </div>
             </div>
@@ -244,14 +404,14 @@
                class="text-gray-400 hover:text-blue-400 transition-colors">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Telegram icon">
                     <title>تلگرام</title>
-                    <path d="M11.999 0C5.372 0 0 5.373 0 12s5.372 12 11.999 12C18.626 24 24 18.627 24 12S18.626 0 11.999 0zM18.26 8.13l-2.73 12.04c-.15.66-.54 1.25-1.1 1.25-.3 0-.58-.12-.82-.36l-3.37-3.11-1.63 1.57c-.18.17-.4.29-.63.29-.3 0-.58-.12-.8-.34l-.45-.43c-.4-.38-.63-1.12-.2-1.6l2.9-4.3 6.03-5.52c.26-.24.06-.39-.22-.25l-7.3 4.54-3.5-1.09c-.6-.18-.9-.45-.9-.94 0-.4.2-.68.6-.85l14.28-5.57c.5-.2 1.02.1 1.2.63z"/>
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-1.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
                 </svg>
             </a>
             <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" title="Instagram"
                class="text-gray-400 hover:text-purple-400 transition-colors">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Instagram icon">
                     <title>اینستاگرام</title>
-                    <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.784.297-1.459.717-2.126 1.384S.927 3.356.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.297.784.717 1.459 1.384 2.126.667.666 1.342 1.086 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.784-.297 1.459-.718 2.126-1.384.666-.667 1.086-1.342 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.277.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.148-.558-2.913-.297-.784-.718-1.459-1.384-2.126C20.644.927 19.969.507 19.185.21c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.163c3.203 0 3.585.012 4.85.07 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.265.07 1.646.07 4.85s-.012 3.585-.07 4.85c-.055 1.17-.249 1.805-.413 2.227-.217.562-.477.96-.896 1.382.42-.419-.819.679-1.381.896-.422.164-1.057.36-2.227.413-1.265.057-1.646.07-4.85.07s-3.585-.012-4.85-.07c-1.17-.055-1.805-.249-2.227-.413-.562-.217-.96-.477-1.382-.896-.419-.42-.679-.819-.896-1.381-.164.422-.36-1.057-.413-2.227-.057-1.265-.07-1.646-.07-4.85s.012-3.585.07-4.85c.055 1.17.249 1.805.413 2.227.217.562.477.96.896-1.382.42-.419.819.679 1.381-.896.422.164 1.057.36 2.227.413 1.265.057 1.646.07 4.85.07zM12 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z"/>
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                 </svg>
             </a>
         </div>
@@ -268,5 +428,6 @@
     </div>
 
     <script type="module" src="app.js"></script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
