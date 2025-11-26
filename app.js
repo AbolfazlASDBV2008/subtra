@@ -84,8 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const deletePromptBtn = document.getElementById('deletePromptBtn');
     const promptReadOnlyMsg = document.getElementById('promptReadOnlyMsg');
     
-    // const saveSettings = document.getElementById('saveSettings'); // Removed
-    // const settingsSaved = document.getElementById('settingsSaved'); // Removed
     const resetSettings = document.getElementById('resetSettings'); 
     const settingsReset = document.getElementById('settingsReset'); 
     
@@ -220,10 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSliderBackground(e.target);
     });
 
-    // اعتبارسنجی کلید API و تغییر رنگ قفل
-    apiKeyInput.addEventListener('input', (e) => {
-        const key = e.target.value.trim();
-        const isValid = /^AIza[0-9A-Za-z-_]{35}$/.test(key);
+    // تابع کمکی برای آپدیت آیکون قفل
+    function updateApiKeyLock(key) {
+        const isValid = /^AIza[0-9A-Za-z-_]{35}$/.test(key.trim());
         if (isValid) {
             apiKeyLockIcon.classList.remove('text-red-500');
             apiKeyLockIcon.classList.add('text-green-500');
@@ -231,6 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
             apiKeyLockIcon.classList.remove('text-green-500');
             apiKeyLockIcon.classList.add('text-red-500');
         }
+    }
+
+    // اعتبارسنجی کلید API و تغییر رنگ قفل
+    apiKeyInput.addEventListener('input', (e) => {
+        updateApiKeyLock(e.target.value);
     });
 
     // مدیریت دکمه‌های راهنما (تولتیپ)
@@ -257,28 +259,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function loadSettings() {
-        const key = localStorage.getItem('geminiApiKey') || '';
-        apiKeyInput.value = key;
-        
-        // تریگر کردن رویداد input برای آپدیت وضعیت قفل
-        apiKeyInput.dispatchEvent(new Event('input'));
+        // [!!!] ترتیب لود کردن مهم است: ابتدا متغیرهای داده‌ای، سپس UI [!!!]
+        // اگر اول UI ست شود و رویداد input تریگر شود، autoSave با آرایه خالی اجرا شده و دیتا می‌پرد.
 
-        modelSelect.value = localStorage.getItem('geminiModel') || 'gemini-2.5-pro';
-        fpsInput.value = localStorage.getItem('subtitleFPS') || '23.976';
-        proxyToggle.checked = localStorage.getItem('proxyEnabled') === 'true';
-        
-        // لود تنظیمات جدید
-        creativityRange.value = localStorage.getItem('geminiTemperature') || '0.3';
-        creativityValue.textContent = creativityRange.value;
-        updateSliderBackground(creativityRange);
-
-        topPRange.value = localStorage.getItem('geminiTopP') || '0.9';
-        topPValue.textContent = topPRange.value;
-        updateSliderBackground(topPRange);
-
-        toneSelect.value = localStorage.getItem('geminiTone') || 'informal';
-
-        // لود کردن پرامپت‌های سفارشی
+        // 1. بارگذاری داده‌های پرامپت از حافظه
         try {
             const savedPrompts = localStorage.getItem('customPrompts');
             customPrompts = savedPrompts ? JSON.parse(savedPrompts) : [];
@@ -292,6 +276,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPromptId !== 'default' && !customPrompts.find(p => p.id === currentPromptId)) {
             currentPromptId = 'default';
         }
+
+        // 2. تنظیم مقادیر UI
+        const key = localStorage.getItem('geminiApiKey') || '';
+        apiKeyInput.value = key;
+        updateApiKeyLock(key); // آپدیت آیکون بدون تریگر کردن رویداد input
+
+        modelSelect.value = localStorage.getItem('geminiModel') || 'gemini-2.5-pro';
+        fpsInput.value = localStorage.getItem('subtitleFPS') || '23.976';
+        proxyToggle.checked = localStorage.getItem('proxyEnabled') === 'true';
+        
+        creativityRange.value = localStorage.getItem('geminiTemperature') || '0.3';
+        creativityValue.textContent = creativityRange.value;
+        updateSliderBackground(creativityRange);
+
+        topPRange.value = localStorage.getItem('geminiTopP') || '0.9';
+        topPValue.textContent = topPRange.value;
+        updateSliderBackground(topPRange);
+
+        toneSelect.value = localStorage.getItem('geminiTone') || 'informal';
         
         updatePromptUI();
 
@@ -347,15 +350,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // تابع کمکی برای همگام‌سازی محتوای تکست‌اریا با آبجکت پرامپت فعلی قبل از تغییر
+    function syncCurrentPromptContent() {
+        if (currentPromptId !== 'default') {
+            const index = customPrompts.findIndex(p => p.id === currentPromptId);
+            if (index !== -1) {
+                customPrompts[index].content = systemPrompt.value;
+            }
+        }
+    }
+
     promptSelector.addEventListener('change', (e) => {
+        syncCurrentPromptContent(); // ذخیره محتوای قبلی قبل از تغییر
         currentPromptId = e.target.value;
         updatePromptUI();
-        autoSaveSettings(); // Auto-save on prompt switch
+        autoSaveSettings(); 
     });
 
     addPromptBtn.addEventListener('click', () => {
         const name = prompt("نام پرامپت جدید را وارد کنید:");
         if (name && name.trim()) {
+            syncCurrentPromptContent(); // ذخیره محتوای فعلی قبل از ایجاد جدید
+
             const newId = 'custom_' + Date.now();
             customPrompts.push({
                 id: newId,
@@ -365,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPromptId = newId;
             updatePromptUI();
             systemPrompt.focus();
-            autoSaveSettings(); // Auto-save after adding
+            autoSaveSettings(); 
         }
     });
 
@@ -375,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             customPrompts = customPrompts.filter(p => p.id !== currentPromptId);
             currentPromptId = 'default';
             updatePromptUI();
-            autoSaveSettings(); // Auto-save after deleting
+            autoSaveSettings(); 
         }
     });
 
@@ -390,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('safetySettings', JSON.stringify(settings));
     }
 
-    // Auto-save logic replacement
+    // Auto-save logic
     function autoSaveSettings() {
         localStorage.setItem('geminiApiKey', apiKeyInput.value);
         localStorage.setItem('geminiModel', modelSelect.value);
@@ -402,13 +418,9 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('geminiTopP', topPRange.value);
         localStorage.setItem('geminiTone', toneSelect.value);
         
-        // ذخیره وضعیت پرامپت‌ها
-        if (currentPromptId !== 'default') {
-            const index = customPrompts.findIndex(p => p.id === currentPromptId);
-            if (index !== -1) {
-                customPrompts[index].content = systemPrompt.value;
-            }
-        }
+        // ذخیره وضعیت پرامپت‌ها (با سینک کردن مجدد برای اطمینان)
+        syncCurrentPromptContent();
+        
         localStorage.setItem('customPrompts', JSON.stringify(customPrompts));
         localStorage.setItem('selectedPromptId', currentPromptId);
 
