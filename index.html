@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -150,10 +149,15 @@
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                    <div class="mb-4">
-                        <label for="apiKey" class="block mb-2 text-sm font-medium text-gray-300">
-                            کلید API گوگل (Gemini)
-                        </label>
+                    <div class="mb-4 relative">
+                        <div class="flex items-center gap-2 mb-2">
+                            <label for="apiKey" class="text-sm font-medium text-gray-300">
+                                کلید API گوگل (Gemini)
+                            </label>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="apiKeyHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            </button>
+                        </div>
                         <div class="relative">
                             <input type="password" id="apiKey" class="w-full p-2.5 pl-10 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 font-mono text-sm" placeholder="کلید API خود را اینجا وارد کنید...">
                             <div class="absolute left-0 top-0 h-full px-3 flex items-center pointer-events-none">
@@ -164,17 +168,34 @@
                             </div>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">کلید API باید با "AIza" شروع شود.</p>
+                        
+                        <!-- تولتیپ راهنما API Key -->
+                        <div id="apiKeyHelp" class="help-tooltip top-8 right-0 z-50">
+                            <p class="font-bold mb-1 text-blue-300">کلید API گوگل</p>
+                            <p>این کلید شخصی شما برای ارتباط با سرورهای هوش مصنوعی گوگل است. برای دریافت آن به سایت <a href="https://aistudio.google.com/" target="_blank" class="text-blue-400 hover:underline">Google AI Studio</a> مراجعه کنید. این کلید در مرورگر شما ذخیره می‌شود و به جایی ارسال نمی‌گردد.</p>
+                        </div>
                     </div>
                 </div>
 
                 <div>
-                    <div class="mb-4">
-                        <label for="modelSelect" class="block mb-2 text-sm font-medium text-gray-300">انتخاب مدل هوش مصنوعی</label>
+                    <div class="mb-4 relative">
+                        <div class="flex items-center gap-2 mb-2">
+                            <label for="modelSelect" class="text-sm font-medium text-gray-300">انتخاب مدل هوش مصنوعی</label>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="modelHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            </button>
+                        </div>
                         <select id="modelSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
                             <option value="gemini-3-pro-preview">Gemini 3 Pro (در طرح رایگان فعال نیست)</option>
                             <option value="gemini-2.5-pro">Gemini 2.5 Pro (قدرتمند و پایدار)</option>
-                            <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (سریع‌ترین)</option>
+                            <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (سریع‌ترین)</option>                        
                         </select>
+                        
+                         <!-- تولتیپ راهنما Model -->
+                         <div id="modelHelp" class="help-tooltip top-8 right-0 z-50">
+                            <p class="font-bold mb-1 text-blue-300">مدل هوش مصنوعی</p>
+                            <p>موتوری که ترجمه را انجام می‌دهد. <br><b>2.5 Pro:</b> تعادل عالی بین کیفیت و سرعت.<br><b>Flash:</b> سرعت بسیار بالا، مناسب برای فایل‌های حجیم.<br><b>3 Pro:</b> هوشمندترین مدل (ممکن است در حالت رایگان محدود باشد).</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -241,28 +262,60 @@
                     <!-- ردیف دوم: FPS و پراکسی و لحن -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <!-- انتخاب لحن -->
-                         <div>
-                            <label for="toneSelect" class="block mb-2 text-sm font-medium text-gray-300">لحن ترجمه</label>
+                         <div class="relative">
+                            <div class="flex items-center gap-2 mb-2">
+                                <label for="toneSelect" class="text-sm font-medium text-gray-300">لحن ترجمه</label>
+                                <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="toneHelp">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                </button>
+                            </div>
                             <select id="toneSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
                                 <option value="informal">محاوره‌ای / دوستانه (مناسب انیمه)</option>
                                 <option value="formal">رسمی / کتابی</option>
                             </select>
+                            
+                            <!-- تولتیپ راهنما Tone -->
+                            <div id="toneHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
+                                <p class="font-bold mb-1 text-blue-300">لحن ترجمه</p>
+                                <p>تعیین می‌کند هوش مصنوعی با چه سبکی ترجمه کند.<br><b>محاوره‌ای:</b> مناسب فیلم و انیمه (زبان شکسته‌نویسی).<br><b>رسمی:</b> مناسب مستند یا متون جدی (زبان معیار).</p>
+                            </div>
                         </div>
 
-                        <div>
-                            <label for="fpsInput" class="block mb-2 text-sm font-medium text-gray-300">
-                                نرخ فریم (FPS)
-                            </label>
+                        <div class="relative">
+                            <div class="flex items-center gap-2 mb-2">
+                                <label for="fpsInput" class="text-sm font-medium text-gray-300">
+                                    نرخ فریم (FPS)
+                                </label>
+                                <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="fpsHelp">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                </button>
+                            </div>
                             <input type="number" id="fpsInput" step="0.001" value="23.976" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="direction: ltr; text-align: left;">
+                            
+                            <!-- تولتیپ راهنما FPS -->
+                            <div id="fpsHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
+                                <p class="font-bold mb-1 text-blue-300">نرخ فریم (FPS)</p>
+                                <p>این عدد برای هماهنگی دقیق زمان‌بندی زیرنویس با ویدیو حیاتی است. اکثر انیمه‌ها 23.976 هستند. اگر زیرنویس شما هماهنگ نیست، این عدد را تغییر دهید (مثلاً به 24 یا 25).</p>
+                            </div>
                         </div>
                     </div>
 
-                     <div class="flex items-center">
-                        <div class="proxy-setting-container w-full">
+                     <div class="flex items-center relative">
+                        <div class="proxy-setting-container w-full flex items-center">
                             <input type="checkbox" id="proxy-toggle" class="w-5 h-5 cursor-pointer">
                             <label for="proxy-toggle" class="font-medium text-gray-300 cursor-pointer select-none mr-2">
                                 استفاده از پراکسی (دور زدن تحریم)
                             </label>
+                            
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="proxyHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            </button>
+                        </div>
+                        
+                         <!-- تولتیپ راهنما Proxy -->
+                         <div id="proxyHelp" class="help-tooltip bottom-14 left-0 z-50">
+                            <p class="font-bold mb-1 text-blue-300">پراکسی (Proxy)</p>
+                            <p>به دلیل تحریم‌های گوگل، دسترسی مستقیم از ایران ممکن نیست. با فعال کردن این گزینه، درخواست‌ها از طریق یک سرور واسط (Worker) ارسال می‌شوند تا مشکل دسترسی حل شود.</p>
                         </div>
                     </div>
 
@@ -295,8 +348,13 @@
                     </div>
 
                     <!-- مدیریت پرامپت -->
-                    <div>
-                        <label class="block mb-2 text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
+                    <div class="relative">
+                        <div class="flex items-center gap-2 mb-2">
+                            <label class="text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="promptHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            </button>
+                        </div>
                         
                         <!-- کنترل‌های مدیریت پرامپت -->
                         <div class="flex gap-2 mb-2 items-center">
@@ -317,19 +375,21 @@
 
                         <textarea id="systemPrompt" rows="6" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 text-sm" style="text-align: right; direction: rtl;"></textarea>
                         <p id="promptReadOnlyMsg" class="text-xs text-yellow-500 mt-1 hidden">این پرامپت سیستمی ثابت است و قابل ویرایش نیست. برای تغییر، یک پرامپت سفارشی ایجاد کنید.</p>
+                        
+                         <!-- تولتیپ راهنما Prompt -->
+                         <div id="promptHelp" class="help-tooltip bottom-full right-0 mb-2 z-50">
+                            <p class="font-bold mb-1 text-blue-300">پرامپت سیستم</p>
+                            <p>دستورالعمل اصلی که رفتار هوش مصنوعی را تعیین می‌کند. پرامپت پیش‌فرض برای ترجمه انیمه بهینه شده است. شما می‌توانید پرامپت‌های سفارشی خود را بسازید تا سبک ترجمه را به دلخواه خود تغییر دهید.</p>
+                        </div>
                     </div>
 
                 </div>
             </details>
             
             <div class="flex items-center gap-4 mt-4">
-                <button id="saveSettings" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition duration-300 shadow-md">
-                    ذخیره تنظیمات
-                </button>
                 <button id="resetSettings" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-semibold transition duration-300 shadow-md">
                     بازگردانی به پیش‌فرض
                 </button>
-                <span id="settingsSaved" class="text-green-400 hidden">تنظیمات ذخیره شد!</span>
                 <span id="settingsReset" class="text-amber-400 hidden">تنظیمات به پیش‌فرض بازگردانی شد!</span>
             </div>
             </div>
