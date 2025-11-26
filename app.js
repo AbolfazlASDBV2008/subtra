@@ -1,6 +1,3 @@
-
-
-
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. توابع کمکی (جدید: ماسک کردن تگ‌ها و مدیریت پرامپت) ---
@@ -87,8 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const deletePromptBtn = document.getElementById('deletePromptBtn');
     const promptReadOnlyMsg = document.getElementById('promptReadOnlyMsg');
     
-    const saveSettings = document.getElementById('saveSettings');
-    const settingsSaved = document.getElementById('settingsSaved');
+    // const saveSettings = document.getElementById('saveSettings'); // Removed
+    // const settingsSaved = document.getElementById('settingsSaved'); // Removed
     const resetSettings = document.getElementById('resetSettings'); 
     const settingsReset = document.getElementById('settingsReset'); 
     
@@ -133,69 +130,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
 
     const defaultPromptText = `
-پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (فرمت 'میکرو دی وی دی') 
-
-مأموریت شما:
-شما یک دستیار هوش مصنوعی متخصص در ترجمه حرفه‌ای و بومی‌سازی زیرنویس انیمه هستید. وظیفه شما دریافت یک فایل زیرنویس انگلیسی با فرمت 'میکرو دی وی دی' و ارائه ترجمه‌ای بی‌نقص، روان، جذاب و وفادار به زبان فارسی است، به گونه‌ای که تجربه تماشای انیمه برای مخاطب فارسی‌زبان، غنی و لذت‌بخش باشد.
-
-فایل ورودی:
-یک فایل متنی حاوی زیرنویس انگلیسی یک انیمه در فرمت 'میکرو دی وی دی'.
+نقش: شما یک مترجم حرفه‌ای زیرنویس فیلم و انیمه هستید که تخصص بالایی در زبان فارسی محاوره‌ای و اصطلاحات روزمره دارید. هدف شما ارائه ترجمه‌ای است که انگار توسط یک گوینده فارسی‌زبان نوشته شده است، نه یک ماشین.
 
 ---
 
-فرایند پردازش و ترجمه (مبتنی بر خود-اصلاحی):
+### اصول طلایی ترجمه (بسیار مهم):
 
-شما باید این فرآیند را در سه گام ذهنی و متوالی اجرا کنید:
+1. **معناگرایی به جای لفظ‌گرایی:**
+   - جملات را کلمه به کلمه ترجمه نکنید. مفهوم کل جمله را درک کنید و آن را به طبیعی‌ترین شکل ممکن به فارسی برگردانید.
+   - مثال: "It works" -> "جواب میده" (نه "آن کار می‌کند").
+   - مثال: "I'm home" -> "من اومدم" (نه "من خانه هستم").
 
-گام ۱: تحلیل جامع و تولید پیش‌نویس اولیه
-* اسم انیمه را از نام فایل ورودی شناسایی کرده و بر اساس موضوع داستانی آن، تحلیل را آغاز کن.
-* پیش از شروع ترجمه، کل محتوای زیرنویس را بخوانید تا ژانر، فضای داستانی، و ویژگی‌های شخصیتی کاراکترها را (تا حد امکان بر اساس دیالوگ‌های موجود) درک کنید.
-* ظرافت‌های زبانی، کنایه‌ها، ایهام‌ها، و ارجاعات فرهنگی موجود در متن اصلی را شناسایی کنید.
-* در مرحله‌ی اندیشیدن، بر اساس این درک عمیق، یک پیش‌نویس اولیه از ترجمه را تولید کنید. (این پیش‌نویس داخلی است و به کاربر نمایش داده نمی‌شود).
+2. **حذف ضمایر اضافی (طبیعت زبان فارسی):**
+   - در فارسی، شناسه فعل معمولاً نیاز به ضمیر را از بین می‌برد. از تکرار "من"، "تو"، "او" پرهیز کنید مگر برای تاکید.
+   - مثال: "I think he is right" -> "فکر کنم حق با اونه" (به جای "من فکر می‌کنم او حق دارد").
 
-گام ۲: بازبینی موشکافانه و پالایش (مرحله خود-اصلاحی)
-* حالا با نگاه یک ویراستار سخت‌گیر، پیش‌نویس خود را به چالش بکشید. هر خط را با در نظر گرفتن تمام اصول کلیدی ترجمه (که در ادامه آمده) بازبینی کنید.
-* از خود بپرسید: آیا این جمله روان است یا "بوی ترجمه" می‌دهد؟ آیا لحن شخصیت حفظ شده؟ آیا معادل بهتری برای این اصطلاح وجود دارد؟
-* متن را ویرایش و پالایش کنید تا به بهترین نسخه ممکن برسید.
+3. **اصطلاحات و ضرب‌المثل‌ها:**
+   - اگر کاراکتر از اصطلاح انگلیسی استفاده می‌کند، معادل فارسی آن را بیابید.
+   - مثال: "It's raining cats and dogs" -> "داره مثل چی بارون میاد" یا "آسمون سوراخ شده".
+   - مثال: "Break a leg" -> "موفق باشی" یا "بترکونی".
 
-گام ۳: ارائه خروجی نهایی
-* نسخه نهایی و بی‌نقص را که حاصل گام دوم است، به عنوان خروجی قطعی ارائه دهید.
+4. **مدیریت لحن:**
+   - لحن کاراکترها را حفظ کنید (بی‌ادب، رسمی، لاتی، کودکانه).
+   - برای انیمه، معمولاً لحن محاوره‌ای (شکسته) بهترین انتخاب است (مثلاً "میرم" به جای "می‌روم").
 
----
-
-اصول کلیدی ترجمه (قوانین حاکم بر گام‌های بالا):
-
-1.  وفاداری به معنا و مفهوم، نه ترجمه تحت‌اللفظی: هدف اصلی، انتقال دقیق پیام و حس دیالوگ اصلی است. از ترجمه کلمه به کلمه که منجر به عبارات نامأنوس یا بی‌معنی در فارسی می‌شود، اکیداً پرهیز کنید.
-2.  اولویت با زبان فارسی محاوره‌ای و انسان‌گونه: ترجمه باید به زبان فارسی امروزی، طبیعی، روان و «انسان‌گونه» باشد، نه یک ترجمه ماشینی و خشک. **اگر بین وفاداری کلمه به کلمه و یک عبارت روان و طبیعی فارسی تضاد وجود داشت، همواره عبارت روان و طبیعی را انتخاب کن**، به شرطی که مفهوم اصلی دیالوگ حفظ شود. متن نهایی باید به‌راحتی خوانده شود و برای مخاطب عام فارسی‌زبان کاملاً قابل فهم و گیرا باشد.
-3.  حفظ لحن و سبک شخصیت‌ها: لحن هر کاراکتر (رسمی، دوستانه، طنزآمیز، جدی، خشن، معصومانه و...) و سبک گفتاری او باید با دقت در ترجمه فارسی بازتاب داده شود.
-4.  بومی‌سازی هوشمندانه اصطلاحات و ارجاعات فرهنگی:
-    * اصطلاحات، ضرب‌المثل‌ها، شوخی‌ها و عبارات خاص فرهنگی انیمه را شناسایی کنید.
-    * اولویت با یافتن معادل‌های دقیق، رایج و طبیعی در زبان و فرهنگ فارسی است.
-    * در صورتی که معادل مستقیمی وجود ندارد، یا استفاده از آن به اصالت اثر لطمه می‌زند، سعی کنید مفهوم را با خلاقیت و به شکلی که برای مخاطب فارسی‌زبان قابل درک باشد، منتقل کنید. (مثلاً گاهی یک توضیح کوتاه درون پرانتز در خود زیرنویس لازم است، اما این مورد را تنها در صورت ضرورت انجام دهید و اولویت با معادل‌یابی است).
-5.  دقت و صحت کامل:
-    * ترجمه باید عاری از هرگونه اشتباه گرامری, املایی و معنایی باشد.
-    * تمامی جزئیات موجود در زیرنویس اصلی، از جمله اعداد، اسامی خاص (شخصیت‌ها، مکان‌ها، تکنیک‌ها و...) و علائم نگarشی باید با دقت و به درستی به فارسی برگردانده شوند.
-6.  یکپارچگی و ثبات: در طول ترجمه کل فایل، برای اسامی، اصطلاحات و عبارات تکرارشونده، از معادل‌های یکسان استفاده کنید تا انسجام متن حفظ شود.
+5. **خطوط کوتاه و تک‌کلمه‌ای (بسیار مهم):**
+   - کلمات کوتاه مثل "Yes", "No", "Right", "Fine" بسته به بافت قبلی معانی مختلفی دارند. به خطوط قبل و بعد دقت کنید.
+   - "Fine" در جواب "How are you?" -> "خوبم".
+   - "Fine" در جواب "Pay the penalty" -> "باشه" یا "بسیار خب".
 
 ---
 
-محدودیت‌های زبانی:
+### راهنمای سبک و مثال‌های ترجمه (Few-Shot Examples):
 
-* زبان پایه فارسی: ترجمه باید کاملاً به زبان فارسی باشد.
-* استفاده از واژگان انگلیسی: از به‌کار بردن کلمات غیرفارسی پرهیز کنید. تنها در صورتی مجاز به استفاده از واژه انگلیسی هستید که آن واژه یک نام خاص، برند، یا اصطلاح فنی شناخته‌شده باشد که معادل فارسی رایج و جاافتاده‌ای ندارد و استفاده از اصل کلمه به درک بهتر کمک می‌کند. اولویت مطلق با واژگان فارسی است.
-* حفظ تگ‌ها (مهم): در متن ورودی ممکن است تگ‌هایی به صورت \`___TAG_n___\` وجود داشته باشند. **این‌ها استایل‌های زیرنویس هستند. شما باید آن‌ها را دقیقاً در جای مناسب خود در متن ترجمه‌شده حفظ کنید.** هرگز آن‌ها را ترجمه نکنید یا تغییر ندهید.
+ورودی: "It can't be helped."
+ترجمه بد: "نمی‌توان به آن کمک کرد."
+ترجمه عالی: "کاریش نمیشه کرد." / "چاره‌ای نیست."
+
+ورودی: "You gotta be kidding me!"
+ترجمه بد: "تو باید داری با من شوخی می‌کنی!"
+ترجمه عالی: "حتماً داری شوخی می‌کنی!" / "مسخره‌ست!"
+
+ورودی: "Leave me alone."
+ترجمه بد: "مرا تنها بگذار."
+ترجمه عالی: "تنهام بذار." / "دست از سرم بردار."
+
+ورودی: "I made it just in time."
+ترجمه بد: "من آن را درست در زمان ساختم."
+ترجمه عالی: "خوب موقعی رسیدم."
+
+ورودی: "Don't look down on me!"
+ترجمه بد: "به من نگاه پایین نکن."
+ترجمه عالی: "منو دست‌کم نگیر!"
 
 ---
 
-ساختار و فرمت خروجی:
+### قوانین فنی:
+1. **حفظ تگ‌ها:** تگ‌های فرمت \`___TAG_n___\` را دقیقاً در جای خود نگه دارید.
+2. **عدم ترجمه اسامی خاص:** اسامی شهرها (Tokyo)، اشخاص (Naruto) و تکنیک‌های خاص (Bankai) را ترجیحاً به همان شکل فارسی بنویسید (ناروتو، بانکای) و معنی نکنید.
+3. **خروجی تمیز:** فقط و فقط متن ترجمه شده را برگردانید. هیچ توضیحی ندهید.
 
-1.  تطابق کامل با فرمت ورودی: خروجی باید *دقیقا* با حفظ ساختار، فرمت، شماره‌گذاری خطوط و به‌ویژه زمان‌بندی فایل اصلی 'میکرو دی وی دی' ارائه شود. هر خط ترجمه شده باید متناظر با خط اصلی در فایل ورودی باشد.
-2.  محتوای خروجی: خروجی نهایی باید *صرفاً* یک بلوک کد باشد که *فقط و فقط* شامل متن ترجمه‌شده‌ی زیرنویس به فارسی است.
-3.  عدم وجود اطلاعات اضافی در بلوک کد: هیچ‌گونه توضیح، مقدمه، تفسیر، یادداشت مترجم یا هرگونه متن اضافی دیگری نباید *درون* این بلوک کد قرار گیرد.
-
-تأکید نهایی:
-شما باید تمامی این دستورالعمل‌ها را با دقت مرور کرده و اطمینان حاصل کنید که خروجی شما دقیقاً مطابق با موارد ذکر شده است. هدف، ارائه یک ترجمه حرفه‌ای و بی‌نقص است که نیازی به ویرایش مجدد نداشته باشد.
-    `.trim().replace('لذت‌bخش', 'لذت‌بخش');
+اکنون، با رعایت تمام اصول بالا، فایل زیرنویس ارائه شده را به فارسی سلیس و روان ترجمه کن.
+    `.trim();
 
     // مدیریت پرامپت‌ها
     let customPrompts = []; 
@@ -320,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // گزینه دیفالت
         const defaultOpt = document.createElement('option');
         defaultOpt.value = 'default';
-        defaultOpt.textContent = 'پیش‌فرض (ثابت)';
+        defaultOpt.textContent = 'پیش‌فرض (نسخه پیشرفته)';
         promptSelector.appendChild(defaultOpt);
         
         // گزینه‌های سفارشی
@@ -354,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     promptSelector.addEventListener('change', (e) => {
         currentPromptId = e.target.value;
         updatePromptUI();
+        autoSaveSettings(); // Auto-save on prompt switch
     });
 
     addPromptBtn.addEventListener('click', () => {
@@ -368,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPromptId = newId;
             updatePromptUI();
             systemPrompt.focus();
+            autoSaveSettings(); // Auto-save after adding
         }
     });
 
@@ -377,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
             customPrompts = customPrompts.filter(p => p.id !== currentPromptId);
             currentPromptId = 'default';
             updatePromptUI();
+            autoSaveSettings(); // Auto-save after deleting
         }
     });
 
@@ -391,7 +390,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('safetySettings', JSON.stringify(settings));
     }
 
-    saveSettings.addEventListener('click', () => {
+    // Auto-save logic replacement
+    function autoSaveSettings() {
         localStorage.setItem('geminiApiKey', apiKeyInput.value);
         localStorage.setItem('geminiModel', modelSelect.value);
         localStorage.setItem('subtitleFPS', fpsInput.value);
@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // ذخیره تنظیمات جدید
         localStorage.setItem('geminiTemperature', creativityRange.value);
-        localStorage.setItem('geminiTopP', topPRange.value); // ذخیره Top-P
+        localStorage.setItem('geminiTopP', topPRange.value);
         localStorage.setItem('geminiTone', toneSelect.value);
         
         // ذخیره وضعیت پرامپت‌ها
@@ -413,11 +413,20 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('selectedPromptId', currentPromptId);
 
         saveSafetySettings();
-        
-        settingsSaved.classList.remove('hidden');
-        settingsReset.classList.add('hidden'); 
-        setTimeout(() => settingsSaved.classList.add('hidden'), 3000);
+    }
+    
+    // Attach auto-save listeners to all relevant inputs
+    [apiKeyInput, modelSelect, fpsInput, 
+     creativityRange, topPRange, toneSelect, 
+     proxyToggle,
+     safetyHarassmentToggle, safetyHateSpeechToggle, 
+     safetySexuallyExplicitToggle, safetyDangerousContentToggle,
+     systemPrompt
+    ].forEach(input => {
+        input.addEventListener('change', autoSaveSettings);
+        input.addEventListener('input', autoSaveSettings);
     });
+
     
     resetSettings.addEventListener('click', () => {
         // 1. بازنشانی وضعیت پرامپت به دیفالت (بدون حذف کاستوم‌ها)
@@ -446,10 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSliderBackground(topPRange);
 
         toneSelect.value = 'informal';
+        
+        // Trigger auto-save to persist reset state
+        autoSaveSettings();
 
         // 6. نمایش پیام تایید
         settingsReset.classList.remove('hidden');
-        settingsSaved.classList.add('hidden'); 
         setTimeout(() => settingsReset.classList.add('hidden'), 3000);
     });
     
@@ -476,12 +487,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         });
         
-        uploadedFiles = newFiles;
+        // [!!!] تغییر: اضافه کردن به صف به جای جایگزینی [!!!]
+        if (newFiles.length === 0) return;
+
+        uploadedFiles.push(...newFiles);
         
         if (uploadedFiles.length > 0) {
-            startTranslation.disabled = false;
-            downloadFiles.disabled = true;
-            processedFiles = [];
             updateFileListUI();
             clearFileList.style.display = 'block';
 
@@ -492,13 +503,25 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 outputFormatSelector.style.display = 'none';
             }
+
+            if (!isTranslating) {
+                startTranslation.disabled = false;
+                downloadFiles.disabled = true;
+                processedFiles = []; // اگر ترجمه در حال انجام نیست، لیست پردازش‌شده‌ها را پاک کن (شروع مجدد)
+            }
+            // اگر در حال ترجمه است، هیچ کاری با دکمه‌ها و لیست پردازش‌شده نکن، تا صف به درستی ادامه یابد
         }
     }
+    
     function updateFileListUI() {
-        fileList.innerHTML = ''; 
+        // [!!!] تغییر: به جای پاک کردن کل لیست، فقط آیتم‌های جدید را اضافه کن [!!!]
+        // این کار باعث می‌شود اگر فایلی در حال پردازش است، وضعیتش (پروگرس بار) ریست نشود
         uploadedFiles.forEach((file, index) => {
+            const elementId = `file-${index}`;
+            if (document.getElementById(elementId)) return; // اگر قبلاً وجود دارد، رد شو
+
             const fileElement = document.createElement('div');
-            fileElement.id = `file-${index}`;
+            fileElement.id = elementId;
             fileElement.className = 'bg-gray-700 p-3 rounded-lg flex items-center justify-between';
             fileElement.innerHTML = `
                 <div class="flex-1 min-w-0">
@@ -514,6 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fileList.appendChild(fileElement);
         });
     }
+
     function updateFileStatus(index, status, progress = -1) {
         const statusEl = document.getElementById(`file-status-${index}`);
         const progressEl = document.getElementById(`file-progress-${index}`);
@@ -1496,7 +1520,6 @@ ${originalChunkTexts.join('|||')}`;
             addLog('FPS نامعتبر یا خالی بود. از مقدار پیش‌فرض 23.976 استفاده شد.', false, 'yellow');
         }
         
-        const totalFiles = uploadedFiles.length;
         addLog("شروع عملیات ترجمه...");
 
         async function translateChunk(content, customPrompt, fileName, progressStart, progressEnd, fileIndex) {
@@ -1628,8 +1651,9 @@ ${originalChunkTexts.join('|||')}`;
             }
         }
 
-
-        for (let i = 0; i < totalFiles; i++) {
+        // [!!!] تغییر: استفاده از حلقه دینامیک برای پشتیبانی از اضافه شدن فایل در حین اجرا [!!!]
+        // به جای کش کردن uploadedFiles.length، در هر تکرار مقدار جدید را چک می‌کنیم
+        for (let i = 0; i < uploadedFiles.length; i++) {
             const file = uploadedFiles[i];
             const apiKey = apiKeyInput.value.trim();
             const model = modelSelect.value;
