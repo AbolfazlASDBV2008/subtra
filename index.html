@@ -123,10 +123,17 @@
             overflow-y: auto; /* اسکرول عمودی */
             white-space: pre-wrap; /* شکستن خطوط */
             word-break: break-word; /* شکستن کلمات */
+            overflow-wrap: anywhere; /* جلوگیری از بیرون زدگی متن طولانی */
             font-size: 0.9rem; /* کمی کوچکتر */
             line-height: 1.7;
             color: #d1d5db; /* gray-300 */
             margin-top: 1rem;
+        }
+        
+        /* جلوگیری از بیرون زدگی متن در لاگ و خطاها */
+        #statusLog, #errorMessageContainer, .break-words {
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
     </style>
 <link rel="stylesheet" href="/index.css">
@@ -188,7 +195,8 @@
                         <select id="modelSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
                             <option value="gemini-3-pro-preview">Gemini 3 Pro (در طرح رایگان فعال نیست)</option>
                             <option value="gemini-2.5-pro">Gemini 2.5 Pro (قدرتمند و پایدار)</option>
-                            <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (سریع‌ترین)</option>                           
+                            <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash (سریع‌ترین)</option>
+                            <option value="gemma-2-27b-it">Gemma 2 27B (Open Model)</option>
                         </select>
                         
                          <!-- تولتیپ راهنما Model -->
@@ -224,14 +232,14 @@
                                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                                         </button>
                                     </div>
-                                    <span id="creativityValue" class="text-blue-400 font-mono font-bold text-lg">0.3</span>
+                                    <span id="creativityValue" class="text-blue-400 font-mono font-bold text-lg">0.2</span>
                                 </div>
-                                <input type="range" id="creativityRange" min="0" max="2" step="0.1" value="0.3" class="w-full" style="direction: ltr;">
+                                <input type="range" id="creativityRange" min="0" max="2" step="0.1" value="0.2" class="w-full" style="direction: ltr;">
                                 
                                 <!-- تولتیپ راهنما Temperature -->
                                 <div id="tempHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
                                     <p class="font-bold mb-1 text-blue-300">Temperature (دما)</p>
-                                    <p>میزان خلاقیت یا تصادفی بودن متن خروجی را تعیین می‌کند. مقادیر پایین‌تر (نزدیک به ۰) باعث تولید متنی قابل پیش‌بینی‌تر و متمرکزتر می‌شود، در حالی که مقادیر بالاتر (نزدیک به ۱ یا ۲) متنی متنوع‌تر و خلاقانه‌تر ایجاد می‌کند.<br>مقدار پیش‌فرض: 0.3</p>
+                                    <p>میزان خلاقیت یا تصادفی بودن متن خروجی را تعیین می‌کند. مقادیر پایین‌تر (نزدیک به ۰) باعث تولید متنی قابل پیش‌بینی‌تر و متمرکزتر می‌شود، در حالی که مقادیر بالاتر (نزدیک به ۱ یا ۲) متنی متنوع‌تر و خلاقانه‌تر ایجاد می‌کند.<br>مقدار پیش‌فرض: 0.2</p>
                                 </div>
                             </div>
 
@@ -443,7 +451,8 @@
 
             <div class="mt-6" id="overallProgressSection" style="display: none;">
                 <label class="block mb-2 text-sm font-medium text-gray-300 break-words leading-relaxed" id="overallProgressLabel">پیشرفت کلی</label>
-                <div class="w-full bg-gray-700 rounded-full h-4">
+                <!-- [!!!] FIX: added overflow-hidden to rounded-full container for aesthetic safety [!!!] -->
+                <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
                     <div id="overallProgressBar" class="bg-blue-500 h-4 rounded-full progress-bar-inner" style="width: 0%"></div>
                 </div>
                 <pre id="liveOutput" style="display: none; direction: rtl; text-align: right;"></pre>
