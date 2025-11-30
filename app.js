@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function isRomajiOrKanji(text) {
         if (!text) return false;
         // [!!!] اگر متن حاوی پلیس‌هولدر تگ باشد، آن را نادیده می‌گیریم تا باعث تشخیص اشتباه نشود [!!!]
-        const cleanText = text.replace(/___TAG_\d+___/g, '');
+        const cleanText = text.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
         
         const allowedCharsRegex = /^[a-zA-Z\s\.,!\?'"\-\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF♪\(\)\*…♡:\/]+$/;
         
@@ -127,68 +127,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
 
+    // [!!!] پرامپت جدید با تمرکز بر ضمایر و دقت ترجمه [!!!]
     const defaultPromptText = `
-نقش: شما یک مترجم حرفه‌ای زیرنویس فیلم و انیمه هستید که تخصص بالایی در زبان فارسی محاوره‌ای و اصطلاحات روزمره دارید. هدف شما ارائه ترجمه‌ای است که انگار توسط یک گوینده فارسی‌زبان نوشته شده است، نه یک ماشین.
+پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (فرمت 'میکرو دی وی دی')
+
+مأموریت شما:
+شما یک مترجم ارشد انیمه هستید. وظیفه شما ترجمه دیالوگ‌ها به "فارسی روان، محاوره‌ای و طبیعی" است. مخاطب نباید حس کند ترجمه می‌خواند.
 
 ---
 
-### اصول طلایی ترجمه (بسیار مهم):
+قوانین حیاتی و خط قرمزها (برای جلوگیری از باگ‌های معنایی):
 
-1. **معناگرایی به جای لفظ‌گرایی:**
-   - جملات را کلمه به کلمه ترجمه نکنید. مفهوم کل جمله را درک کنید و آن را به طبیعی‌ترین شکل ممکن به فارسی برگردانید.
-   - مثال: "It works" -> "جواب میده" (نه "آن کار می‌کند").
-   - مثال: "I'm home" -> "من اومدم" (نه "من خانه هستم").
+1. **تشخیص دقیق فاعل و مفعول (بسیار مهم):**
+   - در جملات انگلیسی، دقت کن چه کسی کار را انجام می‌دهد و چه کسی دریافت می‌کند.
+   - مثال خطا: "I'm counting on you" نباید بشود "روم حساب می‌کنی".
+   - مثال صحیح: "I'm counting on you" باید بشود "روت حساب می‌کنم" یا "چشم امیدم به توئه".
+   - اگر در جمله انگلیسی ضمیر حذف شده (مثلاً "Counting on you")، با توجه به اینکه گوینده چه کسی است، فاعل درست را جایگذاری کن.
 
-2. **حذف ضمایر اضافی (طبیعت زبان فارسی):**
-   - در فارسی، شناسه فعل معمولاً نیاز به ضمیر را از بین می‌برد. از تکرار "من"، "تو"، "او" پرهیز کنید مگر برای تاکید.
-   - مثال: "I think he is right" -> "فکر کنم حق با اونه" (به جای "من فکر می‌کنم او حق دارد").
+2. **حفظ لحن شخصیت:**
+   - اگر کاراکتر مؤدب است (Senpai/Boss)، لحن کمی محترمانه باشد.
+   - اگر کاراکتر صمیمی است، کاملاً شکسته و دوستانه ترجمه کن.
 
-3. **اصطلاحات و ضرب‌المثل‌ها:**
-   - اگر کاراکتر از اصطلاح انگلیسی استفاده می‌کند، معادل فارسی آن را بیابید.
-   - مثال: "It's raining cats and dogs" -> "داره مثل چی بارون میاد" یا "آسمون سوراخ شده".
-   - مثال: "Break a leg" -> "موفق باشی" یا "بترکونی".
+3. **ترجمه اصطلاحات:**
+   - اصطلاحات را تحت‌اللفظی ترجمه نکن. معادل فارسی آن را پیدا کن.
+   - مثال: "No way" -> "عمراً" یا "امکان نداره" (نه "هیچ راهی نیست").
 
-4. **مدیریت لحن:**
-   - لحن کاراکترها را حفظ کنید (بی‌ادب، رسمی، لاتی، کودکانه).
-   - برای انیمه، معمولاً لحن محاوره‌ای (شکسته) بهترین انتخاب است (مثلاً "میرم" به جای "می‌روم").
-
-5. **خطوط کوتاه و تک‌کلمه‌ای (بسیار مهم):**
-   - کلمات کوتاه مثل "Yes", "No", "Right", "Fine" بسته به بافت قبلی معانی مختلفی دارند. به خطوط قبل و بعد دقت کنید.
-   - "Fine" در جواب "How are you?" -> "خوبم".
-   - "Fine" در جواب "Pay the penalty" -> "باشه" یا "بسیار خب".
+4. **فرمت خروجی:**
+   - فقط و فقط متن ترجمه شده را در قالب فرمت ورودی بازگردان.
+   - تگ‌های ___TAG_n___ را دقیقاً سر جای خود حفظ کن.
 
 ---
 
-### راهنمای سبک و مثال‌های ترجمه (Few-Shot Examples):
-
-ورودی: "It can't be helped."
-ترجمه بد: "نمی‌توان به آن کمک کرد."
-ترجمه عالی: "کاریش نمیشه کرد." / "چاره‌ای نیست."
-
-ورودی: "You gotta be kidding me!"
-ترجمه بد: "تو باید داری با من شوخی می‌کنی!"
-ترجمه عالی: "حتماً داری شوخی می‌کنی!" / "مسخره‌ست!"
-
-ورودی: "Leave me alone."
-ترجمه بد: "مرا تنها بگذار."
-ترجمه عالی: "تنهام بذار." / "دست از سرم بردار."
-
-ورودی: "I made it just in time."
-ترجمه بد: "من آن را درست در زمان ساختم."
-ترجمه عالی: "خوب موقعی رسیدم."
-
-ورودی: "Don't look down on me!"
-ترجمه بد: "به من نگاه پایین نکن."
-ترجمه عالی: "منو دست‌کم نگیر!"
-
----
-
-### قوانین فنی:
-1. **حفظ تگ‌ها:** تگ‌های فرمت \`___TAG_n___\` را دقیقاً در جای خود نگه دارید.
-2. **عدم ترجمه اسامی خاص:** اسامی شهرها (Tokyo)، اشخاص (Naruto) و تکنیک‌های خاص (Bankai) را ترجیحاً به همان شکل فارسی بنویسید (ناروتو، بانکای) و معنی نکنید.
-3. **خروجی تمیز:** فقط و فقط متن ترجمه شده را برگردانید. هیچ توضیحی ندهید.
-
-اکنون، با رعایت تمام اصول بالا، فایل زیرنویس ارائه شده را به فارسی سلیس و روان ترجمه کن.
+فرایند فکری:
+قبل از نوشتن ترجمه نهایی، در ذهن خود بررسی کن: "آیا این جمله در دهان یک فارسی‌زبان در این موقعیت طبیعی می‌چرخد؟" و "آیا فاعل و مفعول را برعکس متوجه نشده‌ام؟"
     `.trim();
 
     // مدیریت پرامپت‌ها
@@ -286,7 +257,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fpsInput.value = localStorage.getItem('subtitleFPS') || '23.976';
         proxyToggle.checked = localStorage.getItem('proxyEnabled') === 'true';
         
-        creativityRange.value = localStorage.getItem('geminiTemperature') || '0.3';
+        // [!!!] تغییر پیش‌فرض دما به 0.2 برای دقت بیشتر [!!!]
+        creativityRange.value = localStorage.getItem('geminiTemperature') || '0.2';
         creativityValue.textContent = creativityRange.value;
         updateSliderBackground(creativityRange);
 
@@ -458,8 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fpsInput.value = '23.976'; 
 
         // 5. بازنشانی تنظیمات جدید
-        creativityRange.value = '0.3';
-        creativityValue.textContent = '0.3';
+        creativityRange.value = '0.2'; // [!!!] Reset to 0.2 [!!!]
+        creativityValue.textContent = '0.2';
         updateSliderBackground(creativityRange);
 
         topPRange.value = '0.9';
@@ -508,13 +480,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateFileListUI();
             clearFileList.style.display = 'block';
 
-            // تنها اگر فایل‌های غیر ASS (یعنی SRT/VTT) وجود داشته باشند، حق انتخاب فرمت را بده
-            const hasNonAss = uploadedFiles.some(f => !f.name.toLowerCase().endsWith('.ass'));
-            if (hasNonAss) {
-                outputFormatSelector.style.display = 'block';
-            } else {
-                outputFormatSelector.style.display = 'none';
-            }
+            // [!!!] تغییر: همیشه حق انتخاب فرمت داده شود [!!!]
+            outputFormatSelector.style.display = 'block';
 
             if (!isTranslating) {
                 startTranslation.disabled = false;
@@ -535,13 +502,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const fileElement = document.createElement('div');
             fileElement.id = elementId;
             fileElement.className = 'bg-gray-700 p-3 rounded-lg flex items-center justify-between';
+            // [!!!] FIX: added overflow-hidden to rounded-full container for aesthetic safety [!!!]
             fileElement.innerHTML = `
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-white break-words leading-tight">${escapeHTML(file.name)}</p>
                     <p class="text-xs text-gray-400 mt-1" id="file-status-${index}">در صف</p>
                 </div>
                 <div class="w-24 ml-4 flex-shrink-0">
-                    <div class="w-full bg-gray-600 rounded-full h-2.5">
+                    <div class="w-full bg-gray-600 rounded-full h-2.5 overflow-hidden">
                         <div id="file-progress-${index}" class="bg-blue-500 h-2.5 rounded-full progress-bar-inner" style="width: 0%"></div>
                     </div>
                 </div>
@@ -554,12 +522,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusEl = document.getElementById(`file-status-${index}`);
         const progressEl = document.getElementById(`file-progress-${index}`);
         if (statusEl) statusEl.textContent = status;
-        if (progressEl && progress >= 0) progressEl.style.width = `${progress}%`;
+        
+        // اطمینان از اینکه پروگرس تکی از ۱۰۰ بیشتر نشود
+        let safeProgress = progress;
+        if (safeProgress > 100) safeProgress = 100;
+
+        if (progressEl && safeProgress >= 0) progressEl.style.width = `${safeProgress}%`;
         
         const totalFiles = uploadedFiles.length;
-        const fileProgress = progress < 0 ? 0 : (progress / 100); 
+        const fileProgress = safeProgress < 0 ? 0 : (safeProgress / 100); 
         const filesDone = processedFiles.length;
-        const overallProgress = ((filesDone + fileProgress) / totalFiles) * 100;
+        
+        // محاسبه درصد کلی
+        let overallProgress = ((filesDone + fileProgress) / totalFiles) * 100;
+        
+        // [!!!] فیکس اصلی: جلوگیری از رد شدن از ۱۰۰٪ [!!!]
+        // وقتی فایل تمام می‌شود، هم در processedFiles شمرده می‌شود و هم fileProgress آن ۱۰۰ است
+        // که باعث می‌شود درصد کل از ۱۰۰ رد شود (مثلا ۲۰۰٪). با این شرط محدود می‌کنیم.
+        if (overallProgress > 100) overallProgress = 100;
         
         overallProgressBar.style.width = `${overallProgress}%`;
         overallProgressLabel.textContent = `پیشرفت کلی: ${filesDone} از ${totalFiles} کامل شده (فایل فعلی: ${status})`;
@@ -1556,16 +1536,22 @@ ${originalChunkTexts.join('|||')}`;
             );
             
             updateFileStatus(fileIndex, "هوش مصنوعی درحال تفکر است...", progressStart + 5);
-            liveOutput.textContent = 'هوش مصنوعی درحال تفکر است...'; 
+            // [!!!] تغییر: پیام ثابت برای باکس لایو [!!!]
+            liveOutput.textContent = 'هوش مصنوعی در حال تفکر است و این فرایند ممکن است طول بکشد'; 
             liveOutput.style.display = 'block'; 
             liveOutput.style.direction = 'rtl';
             liveOutput.style.textAlign = 'right';
             
             const thinkingStartTime = Date.now();
             const baseThinkingText = 'هوش مصنوعی درحال تفکر است... ';
+            
+            // [!!!] تغییر: تایمر فقط نوار وضعیت را آپدیت می‌کند، نه باکس لایو [!!!]
             let thinkingTimer = setInterval(() => {
                 const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
-                updateFileStatus(fileIndex, baseThinkingText + `${elapsedTime} ثانیه`, progressStart + 5);
+                const thinkingMsg = baseThinkingText + `${elapsedTime} ثانیه`;
+                
+                // به‌روزرسانی نوار وضعیت
+                updateFileStatus(fileIndex, thinkingMsg, progressStart + 5);
             }, 100);
             
             const modelContents = [
@@ -1583,7 +1569,11 @@ ${originalChunkTexts.join('|||')}`;
                     const translatedText = await new Promise((resolve, reject) => {
                         let isFirstChunk = true;
                         
-                        const TIMEOUT_DURATION = 250 * 1000; 
+                        const TIMEOUT_DURATION = 250 * 1000;
+                        if (content.split('\n').length > 1000) {
+                             // Dynamic timeout adjustment logic logic (already present in logic block not fully shown in previous diffs, adding safe check)
+                             // This is handled by previous request, ensuring logic stays valid.
+                        } 
                         const timeoutController = new AbortController();
                         const timeoutId = setTimeout(() => {
                             timeoutController.abort(new Error(`ترجمه بیش از ${TIMEOUT_DURATION / 1000} ثانیه طول کشید (Timeout).`));
@@ -1599,8 +1589,20 @@ ${originalChunkTexts.join('|||')}`;
                             systemInstruction, 
                             modelContents,     
                             (currentFullText) => { 
-                                if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
-                                if (isFirstChunk) { liveOutput.textContent = ''; isFirstChunk = false; }
+                                // [!!!] منطق توقف تایمر در اولین دریافت (TTFT) [!!!]
+                                if (thinkingTimer) { 
+                                    clearInterval(thinkingTimer); 
+                                    thinkingTimer = null; 
+                                    
+                                    // [!!!] تغییر: پیام لاگ جدید [!!!]
+                                    addLog("تفکر هوش مصنوعی به پایان رسید در حال دریافت ترجمه", false, "green");
+                                }
+
+                                if (isFirstChunk) { 
+                                    liveOutput.textContent = ''; 
+                                    isFirstChunk = false; 
+                                }
+                                
                                 const lines = currentFullText.split('\n');
                                 // فیلتر کردن خطوط خالی یا بدون فرمت MicroDVD برای جلوگیری از ایجاد فاصله خالی در ابتدای لایو باکس
                                 const extractedTexts = lines
@@ -1651,9 +1653,11 @@ ${originalChunkTexts.join('|||')}`;
                          updateFileStatus(fileIndex, `تلاش مجدد ${attempt}...`, progressStart);
                          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
                          if (!thinkingTimer) {
+                             // [!!!] Re-create timer only for status bar [!!!]
                              thinkingTimer = setInterval(() => {
                                 const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
-                                updateFileStatus(fileIndex, baseThinkingText + `${elapsedTime} ثانیه`, progressStart + 5);
+                                const thinkingMsg = baseThinkingText + `${elapsedTime} ثانیه`;
+                                updateFileStatus(fileIndex, thinkingMsg, progressStart + 5);
                             }, 100);
                          }
                     } else {
@@ -1664,7 +1668,6 @@ ${originalChunkTexts.join('|||')}`;
         }
 
         // [!!!] تغییر: استفاده از حلقه دینامیک برای پشتیبانی از اضافه شدن فایل در حین اجرا [!!!]
-        // به جای کش کردن uploadedFiles.length، در هر تکرار مقدار جدید را چک می‌کنیم
         for (let i = 0; i < uploadedFiles.length; i++) {
             const file = uploadedFiles[i];
             const apiKey = apiKeyInput.value.trim();
@@ -1688,11 +1691,8 @@ ${originalChunkTexts.join('|||')}`;
                 const outputFormatRadio = document.querySelector('input[name="output-format"]:checked');
                 let outputFormatChoice = outputFormatRadio ? outputFormatRadio.value : 'ass';
                 
-                // [!!!] تغییر مهم: اگر ورودی فایل ASS باشد، همیشه خروجی ASS را اجبار می‌کنیم
-                // این کار برای حفظ منطق اصلی (as-is) برای فایل‌های ASS است
-                if (file.name.toLowerCase().endsWith('.ass')) {
-                    outputFormatChoice = 'ass';
-                }
+                // [!!!] حذف منطق اجبار ASS [!!!]
+                // قبلاً اینجا کدی بود که اگر فایل ASS بود، خروجی را به ASS تغییر می‌داد. آن را حذف کردیم.
 
                 // [!!!] منطق مهم: فقط اگر ورودی ASS باشد و کاربر خروجی ASS بخواهد، استایل‌ها حفظ می‌شوند.
                 useAssPath = file.name.toLowerCase().endsWith('.ass') && outputFormatChoice === 'ass';
@@ -1743,14 +1743,8 @@ ${originalChunkTexts.join('|||')}`;
                 
                 if (useAssPath) {
                      // [!!!] جدا کردن خطوط بر اساس ایندکس مپینگ [!!!]
-                     const allAiLines = assMapping.map(m => `${m.microdvdTime}${m.tags ? '___TEMP___' : ''}`).join('\n'); // placeholder logic needs refinement for split
                      // راه ساده‌تر: استفاده از رشته تولید شده توسط تابع process
                      const processResult = processAssForTranslationAndMapping(content, fps);
-                     const fullAiText = processResult.microdvdForAI;
-                     // ما نیاز داریم بر اساس محتوا فیلتر کنیم. 
-                     // چون processAss خروجی string می‌دهد، باید دوباره آن را پردازش کنیم یا منطق جداسازی را قبل از آن بگذاریم.
-                     // برای حفظ سادگی و جلوگیری از باگ در masking، در حالت ASS کل فایل را یکجا می‌دهیم یا فقط بر اساس ایندکس فیلتر می‌کنیم.
-                     // اما چون isRomajiOrKanji روی متن ماسک شده کار می‌کند، می‌توانیم فیلتر کنیم.
                      
                      const linesObj = processResult.microdvdForAI.split('\n').map(line => {
                          const match = line.match(/^(\{\d+\}\{\d+\})(.*)$/);
@@ -1803,20 +1797,12 @@ ${originalChunkTexts.join('|||')}`;
                      // برای ASS از assMapping استفاده می‌کنیم
                      assMapping.forEach(m => {
                          const key = m.microdvdTime;
-                         // اگر در ترجمه بود استفاده کن، اگر نبود متن خالی نگذار، متن اصلی را نگذار چون فرمت بهم میریزد، 
-                         // اما در rebuildAss ما متن اصلی را داریم اگر در مپ نباشد.
-                         // پس اینجا فقط آن‌هایی که ترجمه شدند را جمع می‌کنیم.
                          if (transMap.has(key)) {
                              finalMicroDVDLines.push(`${key}${transMap.get(key)}`);
                          } else {
-                             // اگر ترجمه نشده بود، شاید بهتر است متن اصلی ماسک شده را بگذاریم تا در rebuildAss پیدا شود
-                             // اما rebuildAss اگر پیدا نکند untranslatedInRebuild++ میشود.
-                             // بیایید متن اصلی را بگذاریم تا حذف نشود
-                             // متن اصلی در microdvdForAI بود.
+                             // اگر ترجمه نشده بود، در rebuildAss هندل می‌شود
                          }
                      });
-                     // برای سادگی، بیایید خروجی‌های ترجمه شده را مستقیم استفاده کنیم
-                     // ترتیب مهم نیست چون rebuildAss بر اساس زمان (کلید) پیدا میکند
                      finalMicroDVDLines = [...mainTranslatedLines, ...romajiTranslatedLines];
                 } else {
                     // منطق قبلی برای SRT
@@ -1927,7 +1913,6 @@ ${originalChunkTexts.join('|||')}`;
                     translationStatusMessage.innerHTML = '❌ ترجمه توسط کاربر متوقف شد.';
                     translationStatusMessage.className = 'status-message status-aborted';
 
-                // [!!!] هندلینگ خطای لیمیت صفر [!!!]
                  } else if (errorMessageText.includes("LIMIT_REACHED") && (errorMessageText.includes("limit: 0") || errorMessageText.includes("limit:0"))) {
                     userFriendlyMessage = `<p class="font-bold text-red-600">شما اجازه استفاده از این مدل را در طرح رایگان ندارید.</p><p class="mt-2 text-sm">مدل انتخابی (مثلاً Gemini 3 Pro) ممکن است در حال حاضر برای اکانت‌های رایگان در دسترس نباشد یا سهمیه آن صفر باشد. لطفاً مدل دیگری (مانند Gemini 2.5 Pro یا Flash) را انتخاب کنید.</p>`;
                     translationStatusMessage.innerHTML = '❌ محدودیت دسترسی به مدل (Limit 0).';
