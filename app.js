@@ -1,7 +1,49 @@
+
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. توابع کمکی (جدید: ماسک کردن تگ‌ها و مدیریت پرامپت) ---
     
+    // --- [NEW] Storage Manager Functions for Resume Capability ---
+    const STORAGE_KEY_PREFIX = 'anime_sub_resume_data_';
+
+    function getFileId(file) {
+        // Unique ID based on name and size to avoid conflicts
+        return `${file.name}_${file.size}`;
+    }
+
+    function saveProgress(fileId, map) {
+        try {
+            // Convert Map to Array of entries for JSON serialization
+            const obj = Array.from(map.entries());
+            localStorage.setItem(STORAGE_KEY_PREFIX + fileId, JSON.stringify(obj));
+        } catch (e) {
+            console.error("Failed to save progress to LocalStorage:", e);
+        }
+    }
+
+    function loadProgress(fileId) {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_PREFIX + fileId);
+            if (saved) {
+                // Convert JSON back to Map
+                return new Map(JSON.parse(saved));
+            }
+        } catch (e) {
+            console.error("Failed to load progress:", e);
+        }
+        return new Map();
+    }
+
+    function clearProgress(fileId) {
+        try {
+            localStorage.removeItem(STORAGE_KEY_PREFIX + fileId);
+        } catch (e) {
+            console.error("Failed to clear progress:", e);
+        }
+    }
+    // -----------------------------------------------------------
+
     // تابع ماسک کردن: تگ‌های داخل {} را با پلیس‌هولدر ___TAG_n___ جایگزین می‌کند
     function maskTags(text) {
         const tags = [];
@@ -30,6 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return unmasked;
     }
 
+    // [!!!] تابع جدید برای تمیزکاری خروجی AI (حذف بک‌تیک‌های مارک‌داون) [!!!]
+    function cleanAIOutput(text) {
+        if (!text) return "";
+        // حذف بلوک‌های کد شروع (مثلاً ```, ```text, ```json) و پایان
+        // این کار باعث می‌شود اگر AI متن را در کدبلاک گذاشت، خط اول خراب نشود
+        return text.replace(/^```[a-zA-Z]*\n?/g, '').replace(/\n?```$/g, '').trim();
+    }
 
     function escapeHTML(str) {
         if (typeof str !== 'string') return str;
@@ -104,6 +153,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const liveOutput = document.getElementById('liveOutput'); 
     const translationStatusMessage = document.getElementById('translationStatusMessage'); 
     const proxyToggle = document.getElementById('proxy-toggle'); 
+    const karaokeToggle = document.getElementById('karaoke-toggle'); // [!!!] دکمه جدید کارائوکه
+    const aiDetectionToggle = document.getElementById('ai-detection-toggle'); // [!!!] دکمه جدید تشخیص هوشمند
+    const liveOutputToggle = document.getElementById('live-output-toggle'); // [!!!] دکمه جدید نمایش زنده
+
     const safetyHarassmentToggle = document.getElementById('safety-harassment-toggle'); 
     const safetyHateSpeechToggle = document.getElementById('safety-hate-speech-toggle'); 
     const safetySexuallyExplicitToggle = document.getElementById('safety-sexually-explicit-toggle'); 
@@ -120,7 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let processedFiles = []; 
     let isTranslating = false;
     let abortController = null; 
-    let userManuallyAborted = false; 
+    let userManuallyAborted = false;
+    let saveProgressTimeout = null; // [!!!] تایمر برای Debounce ذخیره
     
     let assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
     let styleFormatFields = ['Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'OutlineColour', 'BackColour', 'Bold', 'Italic', 'Underline', 'StrikeOut', 'ScaleX', 'ScaleY', 'Spacing', 'Angle', 'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL', 'MarginR', 'MarginV', 'Encoding'];
@@ -256,7 +310,10 @@ document.addEventListener('DOMContentLoaded', () => {
         modelSelect.value = localStorage.getItem('geminiModel') || 'gemini-2.5-pro';
         fpsInput.value = localStorage.getItem('subtitleFPS') || '23.976';
         proxyToggle.checked = localStorage.getItem('proxyEnabled') === 'true';
-        
+        karaokeToggle.checked = localStorage.getItem('karaokeEnabled') !== 'false'; // پیش‌فرض true
+        aiDetectionToggle.checked = localStorage.getItem('aiDetectionEnabled') === 'true'; // پیش‌فرض false
+        liveOutputToggle.checked = localStorage.getItem('liveOutputEnabled') !== 'false'; // پیش‌فرض true
+
         // [!!!] تغییر پیش‌فرض دما به 0.2 برای دقت بیشتر [!!!]
         creativityRange.value = localStorage.getItem('geminiTemperature') || '0.2';
         creativityValue.textContent = creativityRange.value;
@@ -384,6 +441,9 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('geminiModel', modelSelect.value);
         localStorage.setItem('subtitleFPS', fpsInput.value);
         localStorage.setItem('proxyEnabled', proxyToggle.checked);
+        localStorage.setItem('karaokeEnabled', karaokeToggle.checked);
+        localStorage.setItem('aiDetectionEnabled', aiDetectionToggle.checked);
+        localStorage.setItem('liveOutputEnabled', liveOutputToggle.checked);
         
         // ذخیره تنظیمات جدید
         localStorage.setItem('geminiTemperature', creativityRange.value);
@@ -402,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Attach auto-save listeners to all relevant inputs
     [apiKeyInput, modelSelect, fpsInput, 
      creativityRange, topPRange, toneSelect, 
-     proxyToggle,
+     proxyToggle, karaokeToggle, aiDetectionToggle, liveOutputToggle,
      safetyHarassmentToggle, safetyHateSpeechToggle, 
      safetySexuallyExplicitToggle, safetyDangerousContentToggle,
      systemPrompt
@@ -417,8 +477,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPromptId = 'default';
         updatePromptUI();
         
-        // 2. بازنشانی پراکسی
+        // 2. بازنشانی پراکسی و کارائوکه
         proxyToggle.checked = false; 
+        karaokeToggle.checked = true;
+        aiDetectionToggle.checked = false;
+        liveOutputToggle.checked = true;
         
         // 3. بازنشانی تنظیمات ایمنی
         safetyHarassmentToggle.checked = false;
@@ -1041,49 +1104,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function mergeTrustedFramesWithAiText(originalMicroDVD, aiOutputMicroDVD) {
         if (!originalMicroDVD) return { mergedTextLines: [], untranslatedCount: 0, untranslatedLinesData: [] };
+        
         const originalLines = originalMicroDVD.trim().split('\n');
-        if (!aiOutputMicroDVD) return { mergedTextLines: originalLines, untranslatedCount: originalLines.length, untranslatedLinesData: [] }; 
-
-        const aiLines = aiOutputMicroDVD.trim().split('\n');
+        const mergedLines = [];
+        let untranslatedLinesData = [];
+        
+        // 1. ساخت Map از خروجی هوش مصنوعی (با مدیریت تکرار و خطوط بدون زمان)
         const translatedTextMap = new Map();
-        const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
+        
+        if (aiOutputMicroDVD) {
+            const aiLines = aiOutputMicroDVD.trim().split('\n');
+            const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
+            let lastSeenKey = null;
 
-        for (const line of aiLines) {
-            const match = line.trim().match(microDVDLineRegex);
-            if (match) {
-                const timeBlockKey = `{${match[1]}}{${match[2]}}`;
-                translatedTextMap.set(timeBlockKey, match[3]);
+            for (const line of aiLines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+
+                const match = trimmedLine.match(microDVDLineRegex);
+
+                if (match) {
+                    // حالت ۱: خط دارای فرمت زمانی صحیح است
+                    const timeBlockKey = `{${match[1]}}{${match[2]}}`;
+                    const text = match[3];
+                    lastSeenKey = timeBlockKey;
+
+                    if (translatedTextMap.has(timeBlockKey)) {
+                        // اگر این زمان قبلاً وجود داشت (تکرار توسط AI)، متن جدید را به قبلی بچسبان
+                        const currentText = translatedTextMap.get(timeBlockKey);
+                        // از جداکننده فاصله استفاده می‌کنیم
+                        translatedTextMap.set(timeBlockKey, currentText + " " + text);
+                    } else {
+                        translatedTextMap.set(timeBlockKey, text);
+                    }
+                } else if (lastSeenKey) {
+                    // حالت ۲: خط بدون زمان است (ادامه خط قبلی توسط AI)
+                    // متن را به آخرین کلید زمانی مشاهده شده اضافه می‌کنیم
+                    const currentText = translatedTextMap.get(lastSeenKey);
+                    translatedTextMap.set(lastSeenKey, currentText + " " + trimmedLine);
+                }
             }
         }
 
-        const mergedLines = [];
-        let untranslatedLinesData = []; 
-        
-        for (let i = 0; i < originalLines.length; i++) { 
+        // 2. ادغام با خطوط اصلی بر اساس زمان (Time-Based Anchoring)
+        const originalLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
+
+        for (let i = 0; i < originalLines.length; i++) {
             const originalLine = originalLines[i];
-            const originalMatch = originalLine.match(microDVDLineRegex);
-            
-            if (originalMatch) {
-                const timeBlockKey = `{${originalMatch[1]}}{${originalMatch[2]}}`;
+            const match = originalLine.match(originalLineRegex);
+
+            if (match) {
+                const timeBlockKey = `{${match[1]}}{${match[2]}}`;
+                
                 if (translatedTextMap.has(timeBlockKey)) {
+                    // ترجمه پیدا شد
                     const translatedText = translatedTextMap.get(timeBlockKey);
                     mergedLines.push(`${timeBlockKey}${translatedText}`);
                 } else {
-                    mergedLines.push(originalLine); 
+                    // ترجمه پیدا نشد -> استفاده از متن اصلی و ثبت برای تلاش مجدد
+                    mergedLines.push(originalLine);
                     untranslatedLinesData.push({
-                        indexInMerged: i, 
-                        originalText: originalMatch[3] 
+                        indexInMerged: i,
+                        originalText: match[3]
                     });
                 }
             } else {
-                 mergedLines.push(originalLine); 
+                // خطوطی که فرمت زمانی ندارند (مثلاً هدر یا خطوط خراب) عیناً کپی می‌شوند
+                mergedLines.push(originalLine);
             }
         }
-        
-        return { 
-            mergedTextLines: mergedLines, 
+
+        return {
+            mergedTextLines: mergedLines,
             untranslatedCount: untranslatedLinesData.length,
-            untranslatedLinesData: untranslatedLinesData 
+            untranslatedLinesData: untranslatedLinesData
         };
     }
     
@@ -1155,6 +1249,74 @@ document.addEventListener('DOMContentLoaded', () => {
             xhr.send(formData);
         });
     }
+
+    // --- تابع جدید: تشخیص هوشمند آهنگ با AI ---
+    async function detectSongsWithAI(dialogueData, fps, apiKey, model) {
+        if (!dialogueData || dialogueData.length === 0) return null;
+
+        const totalLines = dialogueData.length;
+        const lastFrame = dialogueData[totalLines - 1].endFrame;
+        const totalSeconds = lastFrame / fps;
+        
+        // 10 دقیقه به فریم (600 ثانیه * fps)
+        const tenMinutesInFrames = 600 * fps;
+
+        // استخراج خطوط نامزد (۱۰ دقیقه اول و ۱۰ دقیقه آخر)
+        // برای ویدیوهای کوتاهتر از ۲۰ دقیقه، کل ویدیو اسکن می‌شود
+        let candidateLines = [];
+        
+        if (totalSeconds < 1200) { // کمتر از ۲۰ دقیقه
+            candidateLines = dialogueData.map(d => ({ index: d.i, time: `{${d.startFrame}}-{${d.endFrame}}`, text: d.cleanText }));
+        } else {
+            // فیلتر کردن ۱۰ دقیقه اول و ۱۰ دقیقه آخر
+            const startCutoff = tenMinutesInFrames;
+            const endCutoff = lastFrame - tenMinutesInFrames;
+            
+            candidateLines = dialogueData.filter(d => {
+                return d.startFrame < startCutoff || d.startFrame > endCutoff;
+            }).map(d => ({ index: d.i, time: `{${d.startFrame}}-{${d.endFrame}}`, text: d.cleanText }));
+        }
+
+        if (candidateLines.length === 0) return null;
+
+        // آماده‌سازی داده برای ارسال به هوش مصنوعی (JSON Stringify)
+        // برای کاهش مصرف توکن، فقط موارد ضروری را ارسال می‌کنیم
+        const dataForAI = JSON.stringify(candidateLines);
+
+        const systemPrompt = `Analyze these subtitle lines. Identify the Start and End timestamps (or Line Indices) for the Opening Song (OP) and Ending Song (ED). Look for Romaji lyrics, song structures, or musical symbols. 
+        
+        Return ONLY a JSON object with this structure: 
+        { 
+            "op": { "start_index": number, "end_index": number }, 
+            "ed": { "start_index": number, "end_index": number } 
+        }. 
+        
+        If a song is not found, use null for that key (e.g. "op": null).
+        The 'start_index' and 'end_index' must correspond to the 'index' field provided in the input data.
+        DO NOT return markdown code blocks. Return raw JSON only.`;
+
+        const userPrompt = `Here is the data: ${dataForAI}`;
+
+        try {
+            const responseText = await callSimpleGeminiAPI(systemPrompt, userPrompt, model, apiKey);
+            
+            // تلاش برای پارس کردن JSON (ممکن است AI آن را در مارک‌داون بگذارد)
+            let jsonString = responseText;
+            const jsonMatch = responseText.match(/```json([\s\S]*?)```/);
+            if (jsonMatch) {
+                jsonString = jsonMatch[1];
+            } else if (responseText.includes('```')) {
+                 jsonString = responseText.replace(/```/g, '');
+            }
+
+            const result = JSON.parse(jsonString);
+            return result;
+        } catch (error) {
+            console.error("AI Song Detection Failed:", error);
+            addLog(`خطا در تشخیص هوشمند آهنگ: ${error.message}`, true);
+            return null;
+        }
+    }
     
     // --- 7. منطق خود-اصلاح‌گری (شامل پرامپت‌های اصلاح شده) ---
     async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt) {
@@ -1204,21 +1366,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
             const originalChunkTexts = chunk.map(l => l.text);
             
-            const promptText = `خطوط زیر (که با '|||' جدا شده‌اند) شامل خطا هستند (ترجمه ناقص، کلمات انگلیسی، کاراکتر خراب).
-لطفاً **هر خط را به صورت کامل** به فارسی روان و صحیح بازنویسی کن.
-اگر خط حاوی تگ‌های \`___TAG_n___\` است، حتماً آن‌ها را بدون تغییر در متن خروجی نگه دار.
-پاسخ‌ها باید **دقیقاً با همان تعداد خطوط ارسالی** و با جداکننده '|||' برگردانده شوند.
-**مهم: هرگز یک خط ورودی را به چند خط خروجی (با '|||' اضافی) تقسیم نکن.**
-ساختار کلی خط (مانند تگ‌های |) را حفظ نما.
+            // [Modified] Use JSON format prompt
+            const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
+Please rewrite **each line completely** into fluent and correct Persian.
+If a line contains \`___TAG_n___\` placeholders, you MUST preserve them exactly in the output.
+Do NOT split or merge lines. 
+You must return a **Valid JSON Array of Strings**.
+The array length must be exactly ${chunk.length}.
 
-خطوط برای اصلاح:
-${originalChunkTexts.join('|||')}`;
+Input JSON Array:
+${JSON.stringify(originalChunkTexts)}`;
             
             try {
                 const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
-                const correctedChunk = response.split('|||').map(t => t.trim());
+                
+                // [Modified] Parse JSON response
+                let jsonStr = response.trim();
+                // Remove markdown code blocks if present
+                jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
+                
+                let correctedChunk;
+                try {
+                    correctedChunk = JSON.parse(jsonStr);
+                } catch(e) {
+                    console.error("JSON Parse Error:", e, jsonStr);
+                    addLog(`خطای فرمت پاسخ در اصلاح بخش ${i + 1}.`, true);
+                    continue;
+                }
 
-                if (correctedChunk.length === chunk.length) {
+                if (Array.isArray(correctedChunk) && correctedChunk.length === chunk.length) {
                     for (let j = 0; j < chunk.length; j++) {
                         const originalIndex = chunk[j].index;
                         const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
@@ -1227,8 +1403,12 @@ ${originalChunkTexts.join('|||')}`;
                             correctedCount++;
                         }
                     }
-                } else { addLog(`خطا در اصلاح بخش ${i + 1}. تعداد ارسالی: ${chunk.length}، دریافتی: ${correctedChunk.length}`, true); }
-            } catch (error) { addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); }
+                } else { 
+                    addLog(`خطا در اصلاح بخش ${i + 1}. عدم تطابق تعداد. ارسالی: ${chunk.length}، دریافتی: ${Array.isArray(correctedChunk) ? correctedChunk.length : 'نامعتبر'}`, true); 
+                }
+            } catch (error) { 
+                addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); 
+            }
         }
         addLog(`اصلاح ${correctedCount} خط کامل شد.`);
         return texts;
@@ -1514,7 +1694,8 @@ ${originalChunkTexts.join('|||')}`;
         
         addLog("شروع عملیات ترجمه...");
 
-        async function translateChunk(content, customPrompt, fileName, progressStart, progressEnd, fileIndex) {
+        // [Modified] Added accumulatedMap and fileId params
+        async function translateChunk(content, customPrompt, fileName, progressStart, progressEnd, fileIndex, accumulatedMap, fileId) {
             if (!content.trim()) return '';
             updateFileStatus(fileIndex, `در حال آپلود (${fileName})...`, progressStart);
             
@@ -1536,13 +1717,18 @@ ${originalChunkTexts.join('|||')}`;
             );
             
             updateFileStatus(fileIndex, "هوش مصنوعی درحال تفکر است...", progressStart + 5);
-            // [!!!] تغییر: پیام ثابت برای باکس لایو [!!!]
-            liveOutput.textContent = 'هوش مصنوعی در حال تفکر است و این فرایند ممکن است طول بکشد'; 
-            liveOutput.style.display = 'block'; 
-            liveOutput.style.direction = 'rtl';
-            liveOutput.style.textAlign = 'right';
             
-            const thinkingStartTime = Date.now();
+            // [!!!] تغییر: چک کردن تاگل قبل از نمایش پیام اولیه [!!!]
+            if (liveOutputToggle.checked) {
+                liveOutput.textContent = 'هوش مصنوعی در حال تفکر است و این فرایند ممکن است طول بکشد'; 
+                liveOutput.style.display = 'block'; 
+                liveOutput.style.direction = 'rtl';
+                liveOutput.style.textAlign = 'right';
+            } else {
+                liveOutput.style.display = 'none';
+            }
+            
+            let thinkingStartTime = Date.now();
             const baseThinkingText = 'هوش مصنوعی درحال تفکر است... ';
             
             // [!!!] تغییر: تایمر فقط نوار وضعیت را آپدیت می‌کند، نه باکس لایو [!!!]
@@ -1599,7 +1785,7 @@ ${originalChunkTexts.join('|||')}`;
                                 }
 
                                 if (isFirstChunk) { 
-                                    liveOutput.textContent = ''; 
+                                    if (liveOutputToggle.checked) liveOutput.textContent = ''; // Clear only if visible
                                     isFirstChunk = false; 
                                 }
                                 
@@ -1607,13 +1793,36 @@ ${originalChunkTexts.join('|||')}`;
                                 // فیلتر کردن خطوط خالی یا بدون فرمت MicroDVD برای جلوگیری از ایجاد فاصله خالی در ابتدای لایو باکس
                                 const extractedTexts = lines
                                     .map(line => {
-                                        const match = line.match(/\{(\d+)\}\{(\d+)\}(.*)/);
-                                        return match ? match[3] : null;
+                                        const match = line.match(/^(\{\d+\}\{\d+\})(.*)$/);
+                                        if (match) {
+                                            // --- [NEW] Real-time Progress Saving (Debounced) ---
+                                            // Save the translated line immediately to localStorage (memory map)
+                                            if (accumulatedMap) {
+                                                const key = match[1]; // {start}{end}
+                                                const text = match[2]; // Translated Text
+                                                accumulatedMap.set(key, text);
+                                                
+                                                // [!!!] Debounce Logic: Wait 1.5s before writing to disk
+                                                if (saveProgressTimeout) clearTimeout(saveProgressTimeout);
+                                                saveProgressTimeout = setTimeout(() => {
+                                                    saveProgress(fileId, accumulatedMap);
+                                                }, 1500);
+                                            }
+                                            return match[2]; // Return only text for Live Output
+                                        }
+                                        return null;
                                     })
                                     .filter(text => text !== null); // حذف خطوطی که مچ نشدند
                                 
-                                liveOutput.textContent = extractedTexts.join('\n').replace(/\|/g, '\n');
-                                liveOutput.scrollTop = liveOutput.scrollHeight;
+                                // [!!!] تغییر: آپدیت DOM فقط در صورت فعال بودن تاگل [!!!]
+                                if (liveOutputToggle.checked) {
+                                    liveOutput.style.display = 'block';
+                                    liveOutput.textContent = extractedTexts.join('\n').replace(/\|/g, '\n');
+                                    liveOutput.scrollTop = liveOutput.scrollHeight;
+                                } else {
+                                    liveOutput.style.display = 'none';
+                                }
+
                                 const percentage = (lines.length / (content.match(/\n/g) || []).length);
                                 updateFileStatus(fileIndex, `در حال دریافت ترجمه... ${lines.length} خط`, progressStart + 5 + (percentage * (progressEnd - (progressStart + 5)) * 0.9)); 
                             },
@@ -1652,6 +1861,9 @@ ${originalChunkTexts.join('|||')}`;
                          addLog(`خطای شلوغی در ترجمه اصلی (تلاش ${attempt} از ${MAX_ATTEMPTS}). ${RETRY_DELAY/1000} ثانیه صبر می‌کنیم...`, false, "yellow");
                          updateFileStatus(fileIndex, `تلاش مجدد ${attempt}...`, progressStart);
                          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                         
+                         thinkingStartTime = Date.now();
+
                          if (!thinkingTimer) {
                              // [!!!] Re-create timer only for status bar [!!!]
                              thinkingTimer = setInterval(() => {
@@ -1674,6 +1886,15 @@ ${originalChunkTexts.join('|||')}`;
             const model = modelSelect.value;
             const prompt = systemPrompt.value;
             
+            // --- [NEW] Start Resume Logic ---
+            const fileId = getFileId(file);
+            let masterTranslationMap = loadProgress(fileId);
+            
+            if (masterTranslationMap.size > 0) {
+                 addLog("این فایل قبلا به صورت ناقص ترجمه شده بود ارسال ادامه فایل به هوش مصنوعی برای کامل کردن ترجمه", false, "green");
+            }
+            // -------------------------------
+
             let originalDialogueBlocks = [];
             let originalLastEndFrame = 0;
 
@@ -1732,11 +1953,68 @@ ${originalChunkTexts.join('|||')}`;
                     }
                     
                     const microLine = `{${startFrame}}{${endFrame}}${cleanText.replace(/\n/g, '|')}`;
-                    return { i, microLine, cleanText, startFrame, endFrame, block };
+                    return { i, microLine, cleanText, startFrame, endFrame, block, isSong: false, songType: null };
                 });
 
-                const mainLines = dialogueData.filter(d => !isRomajiOrKanji(d.cleanText));
-                const romajiLines = dialogueData.filter(d => isRomajiOrKanji(d.cleanText));
+                // --- منطق تشخیص هوشمند آهنگ (NEW) ---
+                if (aiDetectionToggle.checked) {
+                    addLog('در حال اسکن هوشمند ۱۰ دقیقه ابتدا و انتها برای یافتن آهنگ...', false, "yellow");
+                    updateFileStatus(i, "اسکن هوشمند آهنگ...", 5);
+                    
+                    const songIndices = await detectSongsWithAI(dialogueData, fps, apiKey, model);
+                    
+                    if (songIndices) {
+                        let opCount = 0;
+                        let edCount = 0;
+                        
+                        // اعمال ایندکس‌ها
+                        if (songIndices.op && songIndices.op.start_index !== null && songIndices.op.end_index !== null) {
+                            for (let j = songIndices.op.start_index; j <= songIndices.op.end_index; j++) {
+                                if (dialogueData[j]) {
+                                    dialogueData[j].isSong = true;
+                                    dialogueData[j].songType = 'OP';
+                                    opCount++;
+                                }
+                            }
+                            addLog(`آهنگ Opening شناسایی شد: از خط ${songIndices.op.start_index} تا ${songIndices.op.end_index}`, false, "green");
+                        }
+
+                        if (songIndices.ed && songIndices.ed.start_index !== null && songIndices.ed.end_index !== null) {
+                            for (let j = songIndices.ed.start_index; j <= songIndices.ed.end_index; j++) {
+                                if (dialogueData[j]) {
+                                    dialogueData[j].isSong = true;
+                                    dialogueData[j].songType = 'ED';
+                                    edCount++;
+                                }
+                            }
+                            addLog(`آهنگ Ending شناسایی شد: از خط ${songIndices.ed.start_index} تا ${songIndices.ed.end_index}`, false, "green");
+                        }
+                        
+                        if (opCount === 0 && edCount === 0) {
+                            addLog("هوش مصنوعی هیچ آهنگی پیدا نکرد. استفاده از روش سنتی...", false, "yellow");
+                            // فال‌بک به روش قدیمی
+                            dialogueData.forEach(d => {
+                                if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                            });
+                        }
+                    } else {
+                         addLog("خطا در اسکن هوشمند یا نتیجه خالی. استفاده از روش سنتی...", false, "yellow");
+                         // فال‌بک به روش قدیمی
+                         dialogueData.forEach(d => {
+                            if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                         });
+                    }
+
+                } else {
+                    // روش سنتی (غیر فعال بودن تاگل)
+                    dialogueData.forEach(d => {
+                        if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                    });
+                }
+
+
+                const mainLines = dialogueData.filter(d => !d.isSong);
+                const romajiLines = dialogueData.filter(d => d.isSong);
 
                 // برای مسیر ASS، ما از خروجی processAssForTranslationAndMapping استفاده می‌کنیم که دقیق‌تر است
                 let mainMicroDVD, romajiMicroDVD;
@@ -1746,82 +2024,121 @@ ${originalChunkTexts.join('|||')}`;
                      // راه ساده‌تر: استفاده از رشته تولید شده توسط تابع process
                      const processResult = processAssForTranslationAndMapping(content, fps);
                      
-                     const linesObj = processResult.microdvdForAI.split('\n').map(line => {
+                     const linesObj = processResult.microdvdForAI.split('\n').map((line, idx) => {
+                         // نکته: اینجا idx ممکن است دقیقاً با dialogueData یکی نباشد اگر فیلتر شده باشند
+                         // اما چون هر دو از یک منطق فیلتر رد شده‌اند، باید هماهنگ باشند.
+                         // برای اطمینان بیشتر، از منطق isSong که روی dialogueData اعمال شده استفاده می‌کنیم.
+                         
                          const match = line.match(/^(\{\d+\}\{\d+\})(.*)$/);
-                         return { time: match[1], text: match[2], line: line };
+                         return { time: match[1], text: match[2], line: line, originalIndex: idx };
                      });
                      
-                     mainMicroDVD = linesObj.filter(l => !isRomajiOrKanji(l.text)).map(l => l.line).join('\n');
-                     romajiMicroDVD = linesObj.filter(l => isRomajiOrKanji(l.text)).map(l => l.line).join('\n');
+                     // اگر AI Detection فعال باشد، باید بر اساس ایندکس تصمیم بگیریم نه متن
+                     // اما مپینگ بین dialogueData و linesObj ممکن است چالش برانگیز باشد.
+                     // ساده‌ترین کار: اگر AI Detection فعال بود، از روی ایندکس dialogueData تصمیم بگیریم.
+                     
+                     if (aiDetectionToggle.checked) {
+                         // بازسازی بر اساس فلگ isSong در dialogueData
+                         // فرض بر این است که dialogueData دقیقاً متناظر با linesObj است (چون هر دو فیلترهای مشابه داشتند)
+                         // --- [NEW] Filter based on MasterMap ---
+                         mainMicroDVD = linesObj
+                            .filter((l, idx) => dialogueData[idx] && !dialogueData[idx].isSong)
+                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
+                            .map(l => l.line).join('\n');
+                         
+                         romajiMicroDVD = linesObj
+                            .filter((l, idx) => dialogueData[idx] && dialogueData[idx].isSong)
+                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
+                            .map(l => l.line).join('\n');
+                     } else {
+                         // --- [NEW] Filter based on MasterMap ---
+                         mainMicroDVD = linesObj
+                            .filter(l => !isRomajiOrKanji(l.text))
+                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
+                            .map(l => l.line).join('\n');
+
+                         romajiMicroDVD = linesObj
+                            .filter(l => isRomajiOrKanji(l.text))
+                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
+                            .map(l => l.line).join('\n');
+                     }
                      
                 } else {
-                    mainMicroDVD = mainLines.map(d => d.microLine).join('\n');
-                    romajiMicroDVD = romajiLines.map(d => d.microLine).join('\n');
+                    // --- [NEW] Filter based on MasterMap (Standard SRT Path) ---
+                    mainMicroDVD = mainLines
+                        .filter(d => {
+                             const key = `{${d.startFrame}}{${d.endFrame}}`;
+                             return !masterTranslationMap.has(key);
+                        })
+                        .map(d => d.microLine).join('\n');
+
+                    romajiMicroDVD = romajiLines
+                        .filter(d => {
+                             const key = `{${d.startFrame}}{${d.endFrame}}`;
+                             return !masterTranslationMap.has(key);
+                        })
+                        .map(d => d.microLine).join('\n');
                 }
                 
-                addLog(`تفکیک شد: ${mainMicroDVD.split('\n').filter(l=>l).length} خط دیالوگ اصلی، ${romajiMicroDVD.split('\n').filter(l=>l).length} خط آهنگ/روماجی.`);
+                const mainLinesCount = mainMicroDVD ? mainMicroDVD.split('\n').filter(l=>l).length : 0;
+                const romajiLinesCount = romajiMicroDVD ? romajiMicroDVD.split('\n').filter(l=>l).length : 0;
+                addLog(`تفکیک شد: ${mainLinesCount} خط دیالوگ اصلی، ${romajiLinesCount} خط آهنگ/روماجی .`);
                 
                 const originalMicroDVDForMerge = dialogueData.map(d => d.microLine).join('\n');
 
-                const translatedMain = mainMicroDVD ? await translateChunk(mainMicroDVD, "این فایل فقط شامل دیالوگ‌های اصلی است. لطفاً آن‌ها را به فارسی روان ترجمه کن.", `${file.name}-main`, 10, 45, i) : '';
+                // --- [NEW] Pass masterTranslationMap and fileId to translateChunk ---
+                if (mainLinesCount > 0) {
+                    await translateChunk(mainMicroDVD, "این فایل فقط شامل دیالوگ‌های اصلی است. لطفاً آن‌ها را به فارسی روان ترجمه کن.", `${file.name}-main`, 10, 45, i, masterTranslationMap, fileId);
+                }
                 
+                // [!!!] FIX: اضافه کردن تاکید بر ترجمه خط اول برای رفع باگ نمایش داده نشدن خط اول آهنگ [!!!]
                 const romajiPrompt = `این فایل فقط شامل خطوط آهنگ (OP/ED) به زبان انگلیسی یا روماجی است. 
 لطفاً به فارسی **روان، آهنگین، و شاعرانه** ترجمه کنید. 
 **از ترجمه تحت‌اللفظی پرهیز کن.** حس و ریتم آهنگ را حفظ کن.
-**نکته مهم:** هیچ خطی را جا نینداز. تمام خطوط باید ترجمه شوند. خط اول را حتما ترجمه کن.`;
-                const translatedRomaji = romajiMicroDVD ? await translateChunk(romajiMicroDVD, romajiPrompt, `${file.name}-romaji`, 45, 80, i) : '';
+**نکته بسیار مهم:** تمام خطوط را دقیقاً خط به خط ترجمه کن. **حتی خط اول را هم حتماً ترجمه کن و جا نینداز.**
+تعداد خطوط خروجی باید دقیقاً با تعداد خطوط ورودی برابر باشد.`;
+                
+                if (romajiLinesCount > 0) {
+                    await translateChunk(romajiMicroDVD, romajiPrompt, `${file.name}-romaji`, 45, 80, i, masterTranslationMap, fileId);
+                }
 
-                addLog("ترجمه‌ها دریافت شد. در حال ادغام...");
+                addLog("ترجمه‌ها دریافت شد . در حال ادغام...");
                 updateFileStatus(i, "در حال ادغام نتایج...", 80);
 
-                const mainTranslatedLines = translatedMain.split('\n').filter(l => l.trim());
-                const romajiTranslatedLines = translatedRomaji.split('\n').filter(l => l.trim());
-
-                // [!!!] منطق ادغام باید برای حالت ASS و غیر ASS یکسان عمل کند چون هر دو فرمت microDVD دارند [!!!]
-                // اما برای ASS باید ترتیب را دقیق حفظ کنیم
+                // --- [NEW] Reconstruct Arrays from MasterMap ---
+                // Instead of using just the returned string, we pull everything from the Map
+                // This handles both new translations AND recovered ones.
                 
                 let finalMicroDVDLines = [];
                 
-                // ایجاد مپ برای دسترسی سریع
-                const transMap = new Map();
-                mainTranslatedLines.forEach(l => {
-                    const m = l.match(/^(\{\d+\}\{\d+\})(.*)$/);
-                    if(m) transMap.set(m[1], m[2]);
-                });
-                romajiTranslatedLines.forEach(l => {
-                    const m = l.match(/^(\{\d+\}\{\d+\})(.*)$/);
-                    if(m) transMap.set(m[1], m[2]);
-                });
-
                 if (useAssPath) {
                      // برای ASS از assMapping استفاده می‌کنیم
                      assMapping.forEach(m => {
                          const key = m.microdvdTime;
-                         if (transMap.has(key)) {
-                             finalMicroDVDLines.push(`${key}${transMap.get(key)}`);
+                         if (masterTranslationMap.has(key)) {
+                             // Clean any potential markdown from values stored in map (just in case)
+                             const rawVal = masterTranslationMap.get(key);
+                             finalMicroDVDLines.push(`${key}${cleanAIOutput(rawVal)}`);
                          } else {
-                             // اگر ترجمه نشده بود، در rebuildAss هندل می‌شود
+                             // If not in map, it wasn't translated (handled in rebuildAss)
                          }
                      });
-                     finalMicroDVDLines = [...mainTranslatedLines, ...romajiTranslatedLines];
+                     // Note: finalMicroDVDLines is now populated directly from the map, ensuring order.
                 } else {
                     // منطق قبلی برای SRT
-                    let mainLinesCounter = 0;
-                    let romajiLinesCounter = 0;
-                    
-                     // بازسازی آرایه نهایی با حفظ ترتیب
+                    // Iterate original dialogue blocks and fetch from Map
                     finalMicroDVDLines = new Array(originalDialogueBlocks.length).fill('');
                     
-                    mainLines.forEach((line) => {
-                        finalMicroDVDLines[line.i] = mainTranslatedLines[mainLinesCounter] || line.microLine;
-                        mainLinesCounter++;
-                    });
-
-                    romajiLines.forEach((line) => {
-                        const trans = (romajiLinesCounter < romajiTranslatedLines.length) ? romajiTranslatedLines[romajiLinesCounter] : line.cleanText;
-                        const timePart = `{${line.startFrame}}{${line.endFrame}}`;
-                        finalMicroDVDLines[line.i] = `${timePart}${trans.replace(/\n/g, '|')}`;
-                        romajiLinesCounter++;
+                    dialogueData.forEach(line => {
+                         const key = `{${line.startFrame}}{${line.endFrame}}`;
+                         if (masterTranslationMap.has(key)) {
+                              const trans = masterTranslationMap.get(key);
+                              // We need to store it back in MicroDVD format: {start}{end}Text
+                              finalMicroDVDLines[line.i] = `${key}${cleanAIOutput(trans).replace(/\n/g, '|')}`;
+                         } else {
+                              // Keep original if not translated
+                              finalMicroDVDLines[line.i] = line.microLine;
+                         }
                     });
                 }
 
@@ -1885,7 +2202,7 @@ ${originalChunkTexts.join('|||')}`;
                     if (outputFormatChoice === 'srt') {
                         finalContent = buildSRT(originalDialogueBlocks, correctedTexts);
                     } else {
-                        finalContent = buildASS(originalDialogueBlocks, correctedTexts, file.name);
+                        finalContent = buildASS(originalDialogueBlocks, correctedTexts, file.name, dialogueData);
                     }
                 }
 
@@ -1899,6 +2216,10 @@ ${originalChunkTexts.join('|||')}`;
                     content: finalContent 
                 });
                 
+                // --- [NEW] Cleanup on Success ---
+                clearProgress(fileId);
+                // ------------------------------
+                
                 updateFileStatus(i, "کامل شد", 100);
                 addLog(`--- پردازش فایل ${file.name} کامل شد. ---`);
 
@@ -1907,6 +2228,12 @@ ${originalChunkTexts.join('|||')}`;
                 
                 let userFriendlyMessage = '';
                 const errorMessageText = error.message || 'خطایی نامشخص رخ داد.';
+
+                // --- [NEW] Error Handling for Resume ---
+                if (!userManuallyAborted && (error.name !== 'AbortError' && !error.message.includes("لغو شد"))) {
+                    addLog("Translation stopped. Progress saved. Reload the page and upload the file again to resume.", true);
+                }
+                // ----------------------------------------
 
                 if (userManuallyAborted && (error.name === 'AbortError' || errorMessageText.includes("لغو شد"))) {
                     userFriendlyMessage = '<p>عملیات ترجمه توسط کاربر متوقف شد.</p>';
@@ -2013,7 +2340,9 @@ ${originalChunkTexts.join('|||')}`;
 
     // --- 9. ساخت فایل .ASS و دانلود (اصلاح شده) ---
 
-    function buildASS(originalBlocks, translatedTexts, originalFileName) {
+    function buildASS(originalBlocks, translatedTexts, originalFileName, dialogueData) {
+        // [!!!] اضافه شدن استایل‌های OP و ED برای افکت کارائوکه [!!!]
+        // رنگ‌ها: &H00FFFFFF (سفید)، &H00FF0000 (آبی در فرمت ASS BGR)، &H009999FF (صورتی روشن)
         const header = `
 [Script Info]
 Title: ${originalFileName.replace(/\.(srt|vtt|ass)$/i, '')}_FA_Translated
@@ -2025,27 +2354,75 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,Vazirmatn Medium,55,&H00FFFFFF,&H0000FFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1R,2,1,2,30,30,30,1
+Style: OP,Vazirmatn Medium,65,&H002EFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,2.5,1.5,8,30,30,40,1
+Style: ED,Vazirmatn Medium,65,&H00FFB4FF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,2.5,1.5,2,30,30,40,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         `.trim();
 
         let events = [];
         let lastEndTime = "0:00:00.00";
+        
+        // تشخیص حدودی مدت زمان ویدیو برای تفکیک OP از ED (اگر دکمه فعال باشد)
+        const isKaraokeActive = document.getElementById('karaoke-toggle').checked;
+        const isAiDetectionActive = document.getElementById('ai-detection-toggle').checked;
+
+        let totalDurationSecs = 0;
+        if (originalBlocks.length > 0) {
+            const lastBlock = originalBlocks[originalBlocks.length - 1];
+            totalDurationSecs = parseTimeToMS(lastBlock.end) / 1000;
+        }
 
         for (let i = 0; i < originalBlocks.length; i++) {
             const block = originalBlocks[i];
             const translatedText = translatedTexts[i] || ""; 
             let positionOverride = "";
+            let currentStyle = block.style || 'Default';
+            
+            // [!!!] منطق اعمال استایل کارائوکه [!!!]
+            if (isKaraokeActive) {
+                // اگر AI Detection فعال باشد و دیتا وجود داشته باشد، اولویت با آن است
+                if (isAiDetectionActive && dialogueData && dialogueData[i]) {
+                    if (dialogueData[i].songType === 'OP') {
+                        currentStyle = 'OP';
+                    } else if (dialogueData[i].songType === 'ED') {
+                        currentStyle = 'ED';
+                    } else if (dialogueData[i].isSong) {
+                         // Fallback logic for AI generic song detection
+                         const blockStartSec = parseTimeToMS(block.start) / 1000;
+                         if (blockStartSec < totalDurationSecs * 0.5) currentStyle = 'OP';
+                         else currentStyle = 'ED';
+                    }
+                } 
+                // اگر AI فعال نبود یا دیتا نداشت، از روش سنتی استفاده کن
+                else if (isRomajiOrKanji(block.text) || isRomajiOrKanji(translatedText)) {
+                    const blockStartSec = parseTimeToMS(block.start) / 1000;
+                    
+                    // اگر در 30% ابتدایی ویدیو باشد = OP
+                    // اگر در 30% انتهایی ویدیو باشد = ED
+                    if (blockStartSec < totalDurationSecs * 0.3) {
+                        currentStyle = 'OP';
+                    } else if (blockStartSec > totalDurationSecs * 0.7) {
+                        currentStyle = 'ED';
+                    }
+                }
+            }
             
             let assText = translatedText.replace(/\r?\n/g, '\\N');
+            
+            // اضافه کردن افکت فید برای آهنگ‌ها (اختیاری برای زیبایی بیشتر)
+            if (currentStyle === 'OP' || currentStyle === 'ED') {
+                 if (!assText.includes('\\fad')) {
+                     assText = `{\\fad(200,200)}${assText}`;
+                 }
+            }
 
-            if (compareTimestamps(block.start, lastEndTime) < 0 && !assText.includes('\\an') && !assText.includes('\\pos')) {
+            if (currentStyle === 'Default' && compareTimestamps(block.start, lastEndTime) < 0 && !assText.includes('\\an') && !assText.includes('\\pos')) {
                 positionOverride = "{\\an8}"; 
             }
             lastEndTime = block.end;
             
             const layer = block.layer || '0';
-            const style = block.style || 'Default';
             const name = block.name || '';
             const marginL = block.marginL || '0';
             const marginR = block.marginR || '0';
@@ -2073,7 +2450,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             }
 
             events.push(
-                `Dialogue: ${layer},${block.start},${block.end},${style},${name},${marginL},${marginR},${marginV},${effect},${assText}`
+                `Dialogue: ${layer},${block.start},${block.end},${currentStyle},${name},${marginL},${marginR},${marginV},${effect},${assText}`
             );
         }
         return header + '\n' + events.join('\n');
