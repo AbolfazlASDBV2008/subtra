@@ -52,25 +52,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return { maskedText, tags };
     }
 
-    // تابع آن‌ماسک کردن: پلیس‌هولدرها را با تگ‌های اصلی بازمی‌گرداند
-    // [UPDATED]: Robust version to handle hallucinations and deletions
+    // [NEW: Tag Fix] تابع آن‌ماسک کردن فوق هوشمند و مقاوم در برابر تغییرات AI
     function unmaskTags(text, tags) {
         if (!tags || tags.length === 0) return text;
         
-        let unmasked = text.replace(/[_\[\]\*\-\s]*(?:TAG|tag|تگ)[_:\-\s]*(\d+)[_\[\]\*\-\s]*/gi, (match, index) => {
-            const idx = parseInt(index, 10);
+        const foundIndices = new Set();
+
+        // 1. استفاده از Regex انعطاف‌پذیر برای یافتن تگ‌ها حتی اگر AI آن‌ها را خراب کرده باشد
+        // مثال‌هایی که پیدا می‌کند: ___TAG_0___, TAG 0, [TAG 0], تگ 0, ___tag_0
+        let unmasked = text.replace(/(?:_|\[)?\s*(?:TAG|tag|تگ)[\s_]*(\d+)\s*(?:_|\])?/gi, (match, indexStr) => {
+            const idx = parseInt(indexStr, 10);
             if (idx >= 0 && idx < tags.length) {
+                foundIndices.add(idx);
                 return tags[idx];
             }
-            return ""; // [CRITICAL FIX]: Delete hallucinated/invalid tags instead of leaving them in text
+            return match; // اگر ایندکس معتبر نبود، دست نزن
         });
 
-        for (let i = 0; i < tags.length; i++) {
-            if (!unmasked.includes(tags[i])) {
-                 unmasked = tags[i] + unmasked;
+        // 2. [Fallback Mechanism] بازگرداندن تگ‌های گم شده
+        // اگر AI یک تگ را کامل حذف کرده باشد، آن را به ابتدای خط اضافه می‌کنیم تا استایل خراب نشود
+        let missingTags = '';
+        tags.forEach((tag, idx) => {
+            if (!foundIndices.has(idx)) {
+                missingTags += tag;
             }
-        }
-        return unmasked;
+        });
+
+        return missingTags + unmasked;
     }
 
     // [!!!] تابع جدید برای تمیزکاری خروجی AI (حذف بک‌تیک‌های مارک‌داون) [!!!]
@@ -182,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
 
-    // [!!!] پرامپت جدید با تمرکز بر ضمایر و دقت ترجمه [!!!]
+    // [NEW: Tag Fix] پرامپت به‌روز شده با قوانین سخت‌گیرانه تگ‌ها
     const defaultPromptText = `
 پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (فرمت 'میکرو دی وی دی')
 
@@ -211,15 +219,16 @@ document.addEventListener('DOMContentLoaded', () => {
    - فقط و فقط متن ترجمه شده را در قالب فرمت ورودی بازگردان.
    - تگ‌های ___TAG_n___ را دقیقاً سر جای خود حفظ کن.
 
+قانون حیاتی و غیرقابل نقض در مورد تگ‌ها:
+در متن ورودی ممکن است کلماتی شبیه به ___TAG_0___ یا ___TAG_1___ وجود داشته باشد. این‌ها کدهای برنامه‌نویسی (تگ‌های استایل) هستند.
+۱. به هیچ وجه آن‌ها را ترجمه نکن (مثلاً ننویس "تگ").
+۲. فرمت آن‌ها را تغییر نده (آندرلاین‌ها را پاک نکن و فاصله نینداز).
+۳. آن‌ها را دقیقاً در کنار معادل فارسی کلمه‌ای که در انگلیسی به آن چسبیده بودند، قرار بده.
+
 ---
 
 فرایند فکری:
 قبل از نوشتن ترجمه نهایی، در ذهن خود بررسی کن: "آیا این جمله در دهان یک فارسی‌زبان در این موقعیت طبیعی می‌چرخد؟" و "آیا فاعل و مفعول را برعکس متوجه نشده‌ام؟"
-
-قوانین حیاتی و غیرقابل نقض:
-۱. در متن ورودی کدهایی شبیه به ***TAG_0*** وجود دارد. به هیچ وجه آن‌ها را ترجمه نکن، فرمتشان را تغییر نده و دقیقاً کنار معادل فارسی کلمه‌شان قرار بده.
-۲. توهم تگ: فقط و فقط از تگ‌هایی که در خط ورودی می‌بینی استفاده کن. به هیچ وجه تگ جدیدی (مثل TAG_99) از خودت اختراع نکن و تگ‌های خطوط دیگر را با هم قاطی نکن.
-۳. عدم تکرار: جملات ترجمه شده را به هیچ وجه دو بار تکرار نکن (DO NOT duplicate or repeat the translated sentences). هر خط را فقط یک بار ترجمه کن.
     `.trim();
 
     // مدیریت پرامپت‌ها
@@ -877,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return srtOutput.trim();
     }
 
-    // [!!!] تابع اصلاح شده پردازش ASS با قابلیت ماسک کردن تگ‌ها [!!!]
+    // [NEW: Tag Fix] تابع اصلاح شده پردازش ASS با قابلیت استخراج هوشمند تگ‌های ابتدایی
     function processAssForTranslationAndMapping(assContent, fps) {
         assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
         
@@ -917,12 +926,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (drawingCommandRegex.test(textWithoutTags)) return; 
                 if (dialoguePart.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) return;
 
-                // [!!!] استراتژی جدید: ماسک کردن تگ‌ها با پلیس‌هولدر [!!!]
-                // به جای حذف تگ‌ها، آن‌ها را با ___TAG_0___ عوض می‌کنیم تا در متن بمانند
+                // [NEW: Tag Fix] استخراج هوشمند تگ‌های ابتدایی (Line-Start Tags)
+                // اگر خط با تگ‌های پوزیشن یا استایل شروع می‌شود، آن‌ها را جدا می‌کنیم تا AI اصلاً نبیند
                 
-                const { maskedText, tags } = maskTags(dialoguePart);
-                // تمیز کردن متن ماسک شده برای ارسال بهتر (تبدیل \N به | و \h به فاصله)
-                // نکته: پلیس‌هولدرها دست نخورده باقی می‌مانند
+                let textToProcess = dialoguePart;
+                let extractedStartTags = "";
+
+                // Regex برای یافتن تگ‌ها در همان ابتدای خط
+                // مثال: {\an8} یا {\fad(100,0)}{\blur2}
+                const startTagMatch = textToProcess.match(/^(\{[^}]+\})+/);
+                if (startTagMatch) {
+                    extractedStartTags = startTagMatch[0];
+                    textToProcess = textToProcess.substring(extractedStartTags.length);
+                }
+
+                // اکنون textToProcess را که تگ‌های اولیه‌اش حذف شده به ماسک‌کننده می‌فرستیم
+                const { maskedText, tags } = maskTags(textToProcess);
+                
                 let textForAI = maskedText.replace(/\\N/g, '|').replace(/\\h/g, ' ').trim();
 
                 if (textForAI.trim()) {
@@ -935,7 +955,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     mapping.push({
                         lineNumber: index,
                         microdvdTime: microdvdTime,
-                        tags: tags // ذخیره تگ‌های اصلی برای بازیابی
+                        tags: tags, // تگ‌های میانی که ماسک شدند
+                        extractedStartTags: extractedStartTags // تگ‌های ابتدایی که جدا شدند
                     });
                     
                     microdvdLines.push(`${microdvdTime}${textForAI}`);
@@ -974,7 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return lookupMap;
     }
 
-    // [!!!] تابع بازسازی اصلاح شده برای بازگرداندن تگ‌ها [!!!]
+    // [NEW: Tag Fix] تابع بازسازی اصلاح شده برای بازگرداندن دقیق تگ‌ها
     function rebuildAssFromTranslation(originalAssContent, mapping, translationLookup) {
         assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
         
@@ -993,7 +1014,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         mapping.forEach(mapItem => {
-            const { lineNumber, microdvdTime, tags } = mapItem;
+            // دریافت تگ‌های ابتدایی که جدا شده بودند
+            const { lineNumber, microdvdTime, tags, extractedStartTags } = mapItem;
 
             if (translationLookup.has(microdvdTime) && translationLookup.get(microdvdTime).length > 0) {
                 let translatedText = translationLookup.get(microdvdTime).shift(); 
@@ -1010,8 +1032,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 2. بازگرداندن \N
                 cleanTranslation = cleanTranslation.replace(/\|/g, '\\N');
 
-                // 3. [!!!] بازگرداندن تگ‌های اصلی (Unmasking) [!!!]
-                const finalDialogueText = unmaskTags(cleanTranslation, tags);
+                // 3. [NEW: Tag Fix] بازگرداندن تگ‌های میانی (با unmaskTags هوشمند)
+                // و چسباندن تگ‌های ابتدایی (extractedStartTags) به اول خط
+                const unmaskedText = unmaskTags(cleanTranslation, tags);
+                const finalDialogueText = (extractedStartTags || "") + unmaskedText;
 
                 const dialogueObjRebuild = {};
                 assFormatFields.forEach((field, i) => { dialogueObjRebuild[field] = parts[i]; });
