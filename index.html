@@ -12,7 +12,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-    <link rel="stylesheet" href="/index.css">
     
     <style>
         /* اعمال فونت وزیرمتن به کل صفحه */
@@ -137,8 +136,9 @@
             word-break: break-word;
         }
     </style>
+<link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-gray-900 text-white p-4 md:p-8 min-h-screen antialiased">
+<body class="bg-gray-900 text-white p-4 md:p-8 min-h-screen">
 
     <div class="max-w-5xl mx-auto">
         
@@ -161,20 +161,22 @@
                             <label for="apiKey" class="text-sm font-medium text-gray-300">
                                 کلید API گوگل (Gemini)
                             </label>
-                            <button type="button" aria-label="راهنمای کلید API" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="apiKeyHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="apiKeyHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
                         <div class="relative">
                             <input type="password" id="apiKey" class="w-full p-2.5 pl-10 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 font-mono text-sm" placeholder="کلید API خود را اینجا وارد کنید...">
                             <div class="absolute left-0 top-0 h-full px-3 flex items-center pointer-events-none">
-                                <svg id="apiKeyLockIcon" aria-hidden="true" class="w-5 h-5 text-red-500 transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20">
+                                <!-- قفل قرمز/سبز -->
+                                <svg id="apiKeyLockIcon" class="w-5 h-5 text-red-500 transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
                                 </svg>
                             </div>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">کلید API باید با "AIza" شروع شود.</p>
                         
+                        <!-- تولتیپ راهنما API Key -->
                         <div id="apiKeyHelp" class="help-tooltip top-8 right-0 z-50">
                             <p class="font-bold mb-1 text-blue-300">کلید API گوگل</p>
                             <p>این کلید شخصی شما برای ارتباط با سرورهای هوش مصنوعی گوگل است. برای دریافت آن به سایت <a href="https://aistudio.google.com/" target="_blank" class="text-blue-400 hover:underline">Google AI Studio</a> مراجعه کنید. این کلید در مرورگر شما ذخیره می‌شود و به جایی ارسال نمی‌گردد.</p>
@@ -186,8 +188,8 @@
                     <div class="mb-4 relative">
                         <div class="flex items-center gap-2 mb-2">
                             <label for="modelSelect" class="text-sm font-medium text-gray-300">انتخاب مدل هوش مصنوعی</label>
-                            <button type="button" aria-label="راهنمای مدل هوش مصنوعی" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="modelHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="modelHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
                         <select id="modelSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
@@ -197,6 +199,7 @@
                             <option value="gemini-2.5-flash">Gemini 2.5 Flash (سریع‌ترین)</option>                            
                         </select>
                         
+                         <!-- تولتیپ راهنما Model -->
                          <div id="modelHelp" class="help-tooltip top-8 right-0 z-50">
                             <p class="font-bold mb-1 text-blue-300">مدل هوش مصنوعی</p>
                             <p>موتوری که ترجمه را انجام می‌دهد. <br><b>2.5 Pro:</b> تعادل عالی بین کیفیت و سرعت.<br><b>Flash:</b> سرعت بسیار بالا، مناسب برای فایل‌های حجیم.<br><b>3 Pro:</b> هوشمندترین مدل (ممکن است در حالت رایگان محدود باشد).</p>
@@ -205,6 +208,7 @@
                 </div>
             </div>
 
+            <!-- بخش تنظیمات پیشرفته -->
             <details class="bg-gray-750 border border-gray-700 rounded-lg p-4 mb-4 group">
                 <summary class="font-bold text-lg text-blue-400 cursor-pointer flex items-center gap-2 select-none">
                     <span>⚙️ تنظیمات پیشرفته</span>
@@ -212,44 +216,49 @@
                 
                 <div class="mt-6 space-y-6 border-t border-gray-700 pt-4">
                     
+                    <!-- کارت مدل و پارامترها -->
                     <div class="bg-gray-800/50 p-5 rounded-xl border border-gray-600/50 shadow-inner">
                         <h3 class="text-gray-200 font-bold mb-4 text-center text-lg">پارامترهای مدل هوش مصنوعی</h3>
                         
                         <div class="grid grid-cols-1 gap-8">
+                            <!-- اسلایدر خلاقیت -->
                             <div class="relative">
                                 <div class="flex justify-between mb-2 items-center">
                                     <div class="flex items-center gap-2">
                                         <label for="creativityRange" class="text-sm font-medium text-gray-300">
                                             دما (Temperature)
                                         </label>
-                                        <button type="button" aria-label="راهنمای دما" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="tempHelp">
-                                            <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                        <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="tempHelp">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                                         </button>
                                     </div>
                                     <span id="creativityValue" class="text-blue-400 font-mono font-bold text-lg">0.2</span>
                                 </div>
                                 <input type="range" id="creativityRange" min="0" max="2" step="0.1" value="0.2" class="w-full" style="direction: ltr;">
                                 
+                                <!-- تولتیپ راهنما Temperature -->
                                 <div id="tempHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
                                     <p class="font-bold mb-1 text-blue-300">Temperature (دما)</p>
                                     <p>میزان خلاقیت یا تصادفی بودن متن خروجی را تعیین می‌کند. مقادیر پایین‌تر (نزدیک به ۰) باعث تولید متنی قابل پیش‌بینی‌تر و متمرکزتر می‌شود، در حالی که مقادیر بالاتر (نزدیک به ۱ یا ۲) متنی متنوع‌تر و خلاقانه‌تر ایجاد می‌کند.<br>مقدار پیش‌فرض: 0.2</p>
                                 </div>
                             </div>
 
+                            <!-- اسلایدر Top-P -->
                             <div class="relative">
                                 <div class="flex justify-between mb-2 items-center">
                                     <div class="flex items-center gap-2">
                                         <label for="topPRange" class="text-sm font-medium text-gray-300">
                                             Top-P
                                         </label>
-                                        <button type="button" aria-label="راهنمای Top-P" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="topPHelp">
-                                            <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                        <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="topPHelp">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                                         </button>
                                     </div>
                                     <span id="topPValue" class="text-blue-400 font-mono font-bold text-lg">0.9</span>
                                 </div>
                                 <input type="range" id="topPRange" min="0" max="1" step="0.01" value="0.9" class="w-full" style="direction: ltr;">
                                 
+                                <!-- تولتیپ راهنما Top-P -->
                                 <div id="topPHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
                                     <p class="font-bold mb-1 text-blue-300">Top-P (هسته نمونه‌برداری)</p>
                                     <p>یک روش نمونه‌برداری است که در آن مدل، مجموعه‌ای از محتمل‌ترین کلمات را که مجموع احتمال آن‌ها به عدد TopP می‌رسد، در نظر می‌گیرد. برای مثال، مقدار 0.9 باعث می‌شود فقط کلماتی که در 90% بالای توزیع احتمال قرار دارند، انتخاب شوند.<br>مقدار پیش‌فرض: 0.9</p>
@@ -258,12 +267,14 @@
                         </div>
                     </div>
 
+                    <!-- ردیف دوم: FPS و پراکسی و لحن -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <!-- انتخاب لحن -->
                          <div class="relative">
                             <div class="flex items-center gap-2 mb-2">
                                 <label for="toneSelect" class="text-sm font-medium text-gray-300">لحن ترجمه</label>
-                                <button type="button" aria-label="راهنمای لحن ترجمه" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="toneHelp">
-                                    <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="toneHelp">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                                 </button>
                             </div>
                             <select id="toneSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
@@ -271,6 +282,7 @@
                                 <option value="formal">رسمی / کتابی</option>
                             </select>
                             
+                            <!-- تولتیپ راهنما Tone -->
                             <div id="toneHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
                                 <p class="font-bold mb-1 text-blue-300">لحن ترجمه</p>
                                 <p>تعیین می‌کند هوش مصنوعی با چه سبکی ترجمه کند.<br><b>محاوره‌ای:</b> مناسب فیلم و انیمه (زبان شکسته‌نویسی).<br><b>رسمی:</b> مناسب مستند یا متون جدی (زبان معیار).</p>
@@ -282,12 +294,13 @@
                                 <label for="fpsInput" class="text-sm font-medium text-gray-300">
                                     نرخ فریم (FPS)
                                 </label>
-                                <button type="button" aria-label="راهنمای نرخ فریم" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="fpsHelp">
-                                    <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="fpsHelp">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                                 </button>
                             </div>
                             <input type="number" id="fpsInput" step="0.001" value="23.976" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="direction: ltr; text-align: left;">
                             
+                            <!-- تولتیپ راهنما FPS -->
                             <div id="fpsHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
                                 <p class="font-bold mb-1 text-blue-300">نرخ فریم (FPS)</p>
                                 <p>این عدد برای هماهنگی دقیق زمان‌بندی زیرنویس با ویدیو حیاتی است. اکثر انیمه‌ها 23.976 هستند. اگر زیرنویس شما هماهنگ نیست، این عدد را تغییر دهید (مثلاً به 24 یا 25).</p>
@@ -295,18 +308,19 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center relative">
+                     <div class="flex items-center relative">
                         <div class="proxy-setting-container w-full flex items-center">
                             <input type="checkbox" id="proxy-toggle" class="w-5 h-5 cursor-pointer">
                             <label for="proxy-toggle" class="font-medium text-gray-300 cursor-pointer select-none mr-2">
                                 استفاده از پراکسی (دور زدن تحریم)
                             </label>
                             
-                            <button type="button" aria-label="راهنمای پراکسی" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="proxyHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="proxyHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
                         
+                         <!-- تولتیپ راهنما Proxy -->
                          <div id="proxyHelp" class="help-tooltip bottom-14 left-0 z-50">
                             <p class="font-bold mb-1 text-blue-300">پراکسی (Proxy)</p>
                             <p>به دلیل تحریم‌های گوگل، دسترسی مستقیم از ایران ممکن نیست. با فعال کردن این گزینه، درخواست‌ها از طریق یک سرور واسط (Worker) ارسال می‌شوند تا مشکل دسترسی حل شود.</p>
@@ -320,17 +334,19 @@
                                 افکت کارائوکه OP/ED (استایل‌دهی آهنگ‌ها)
                             </label>
                             
-                            <button type="button" aria-label="راهنمای افکت کارائوکه" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="karaokeHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="karaokeHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
                         
+                         <!-- تولتیپ راهنما Karaoke -->
                          <div id="karaokeHelp" class="help-tooltip bottom-14 left-0 z-50">
                             <p class="font-bold mb-1 text-blue-300">افکت کارائوکه</p>
                             <p>اگر فعال باشد، خطوط آهنگ‌های آغازین (OP) و پایانی (ED) با رنگ‌ها و فونت‌های خاص (آبی و صورتی) در فایل خروجی ASS استایل‌دهی می‌شوند.</p>
                         </div>
                     </div>
 
+                    <!-- بخش جدید: تشخیص هوشمند با AI -->
                     <div class="flex items-center relative mt-4">
                         <div class="proxy-setting-container w-full flex items-center">
                             <input type="checkbox" id="ai-detection-toggle" class="w-5 h-5 cursor-pointer">
@@ -338,17 +354,19 @@
                                 تشخیص هوشمند OP/ED با AI (پیشنهادی)
                             </label>
                             
-                            <button type="button" aria-label="راهنمای تشخیص هوشمند آهنگ" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="aiDetectionHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="aiDetectionHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
                         
+                         <!-- تولتیپ راهنما AI Detection -->
                          <div id="aiDetectionHelp" class="help-tooltip bottom-14 left-0 z-50">
                             <p class="font-bold mb-1 text-blue-300">تشخیص هوشمند آهنگ</p>
                             <p>در این حالت، هوش مصنوعی ۱۰ دقیقه اول و ۱۰ دقیقه آخر ویدیو را اسکن می‌کند تا دقیق‌ترین محل شروع و پایان آهنگ‌ها را پیدا کند. عالی برای فایل‌های بدون تگ.</p>
                         </div>
                     </div>
 
+                    <!-- بخش جدید: نمایش زنده متن (جلوگیری از کرش) -->
                     <div class="flex items-center relative mt-4">
                         <div class="proxy-setting-container w-full flex items-center">
                             <input type="checkbox" id="live-output-toggle" class="w-5 h-5 cursor-pointer" checked>
@@ -356,17 +374,19 @@
                                 نمایش زنده متن (Live Output) - <span class="text-xs text-yellow-500">در صورت کرش در موبایل خاموش کنید</span>
                             </label>
                             
-                            <button type="button" aria-label="راهنمای نمایش زنده متن" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="liveOutputHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="liveOutputHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
                         
+                         <!-- تولتیپ راهنما Live Output -->
                          <div id="liveOutputHelp" class="help-tooltip bottom-14 left-0 z-50">
                             <p class="font-bold mb-1 text-blue-300">نمایش زنده متن</p>
                             <p>متن ترجمه شده را همزمان با دریافت نمایش می‌دهد. در گوشی‌های موبایل یا فایل‌های حجیم، این کار ممکن است باعث پر شدن حافظه و کرش کردن مرورگر شود. اگر با خطای "Aw Snap" مواجه شدید، این گزینه را خاموش کنید.</p>
                         </div>
                     </div>
 
+                    <!-- تنظیمات ایمنی -->
                     <div>
                         <details class="safety-settings-details" role="region">
                             <summary class="font-medium text-gray-300 bg-gray-900 p-3 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors" aria-expanded="false" aria-controls="safety-settings-content">
@@ -394,32 +414,36 @@
                         </details>
                     </div>
 
+                    <!-- مدیریت پرامپت -->
                     <div class="relative">
                         <div class="flex items-center gap-2 mb-2">
-                            <label for="promptSelector" class="text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
-                            <button type="button" aria-label="راهنمای پرامپت سیستم" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="promptHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <label class="text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
+                            <button class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="promptHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
                         
+                        <!-- کنترل‌های مدیریت پرامپت -->
                         <div class="flex gap-2 mb-2 items-center">
                             <select id="promptSelector" class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-blue-500 focus:border-blue-500">
-                                </select>
-                            <button type="button" id="addPromptBtn" aria-label="افزودن پرامپت سفارشی" class="p-2 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors" title="افزودن پرامپت سفارشی">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" aria-hidden="true" viewBox="0 0 20 20" fill="currentColor">
+                                <!-- گزینه‌ها توسط JS پر می‌شوند -->
+                            </select>
+                            <button id="addPromptBtn" class="p-2 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors" title="افزودن پرامپت سفارشی">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                                 </svg>
                             </button>
-                            <button type="button" id="deletePromptBtn" aria-label="حذف این پرامپت" class="p-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition-colors hidden" title="حذف این پرامپت">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" aria-hidden="true" viewBox="0 0 20 20" fill="currentColor">
+                            <button id="deletePromptBtn" class="p-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition-colors hidden" title="حذف این پرامپت">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                                 </svg>
                             </button>
                         </div>
 
-                        <textarea id="systemPrompt" aria-label="متن پرامپت سیستم" rows="6" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 text-sm" style="text-align: right; direction: rtl;"></textarea>
+                        <textarea id="systemPrompt" rows="6" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 text-sm" style="text-align: right; direction: rtl;"></textarea>
                         <p id="promptReadOnlyMsg" class="text-xs text-yellow-500 mt-1 hidden">این پرامپت سیستمی ثابت است و قابل ویرایش نیست. برای تغییر، یک پرامپت سفارشی ایجاد کنید.</p>
                         
+                         <!-- تولتیپ راهنما Prompt -->
                          <div id="promptHelp" class="help-tooltip bottom-full right-0 mb-2 z-50">
                             <p class="font-bold mb-1 text-blue-300">پرامپت سیستم</p>
                             <p>دستورالعمل اصلی که رفتار هوش مصنوعی را تعیین می‌کند. پرامپت پیش‌فرض برای ترجمه انیمه بهینه شده است. شما می‌توانید پرامپت‌های سفارشی خود را بسازید تا سبک ترجمه را به دلخواه خود تغییر دهید.</p>
@@ -430,12 +454,12 @@
             </details>
             
             <div class="flex items-center gap-4 mt-4">
-                <button type="button" id="resetSettings" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-semibold transition duration-300 shadow-md">
+                <button id="resetSettings" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-semibold transition duration-300 shadow-md">
                     بازگردانی به پیش‌فرض
                 </button>
                 <span id="settingsReset" class="text-amber-400 hidden">تنظیمات به پیش‌فرض بازگردانی شد!</span>
             </div>
-        </div>
+            </div>
 
         <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
             <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">۱. انتخاب فایل‌ها</h2>
@@ -443,13 +467,13 @@
                 <p class="mb-4">فایل‌های زیرنویس خود را اینجا بکشید و رها کنید</p>
                 <p class="mb-4 text-sm">(فرمت‌های .vtt, .srt, .ass)</p>
                 <label for="fileInput" class="inline-block cursor-pointer text-white px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors shadow-md">
-                    یا برای انتخاب فایل کلیک کنید
-                </label>
+    یا برای انتخاب فایل کلیک کنید
+</label>
                 <input type="file" id="fileInput" multiple accept=".vtt,.srt,.ass">
             </div>
             <div id="fileList" class="mt-6 space-y-3">
-            </div>
-            <button type="button" id="clearFileList" class="mt-4 w-full md:w-auto px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-xs font-medium transition duration-300 disabled:opacity-50" style="display: none;">
+                </div>
+            <button id="clearFileList" class="mt-4 w-full md:w-auto px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-xs font-medium transition duration-300 disabled:opacity-50" style="display: none;">
                 پاک کردن لیست فایل‌ها
             </button>
         </div>
@@ -473,19 +497,20 @@
             </div>
 
             <div class="flex flex-col md:flex-row gap-4 mt-6">
-                <button type="button" id="startTranslation" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <button id="startTranslation" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     شروع ترجمه
                 </button>
-                <button type="button" id="stopTranslation" class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition duration-300" style="display: none;">
+                <button id="stopTranslation" class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition duration-300" style="display: none;">
                     ⛔ توقف عملیات
                 </button>
-                <button type="button" id="downloadFiles" class="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <button id="downloadFiles" class="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     دانلود فایل(ها)
                 </button>
             </div>
 
             <div class="mt-6" id="overallProgressSection" style="display: none;">
                 <label class="block mb-2 text-sm font-medium text-gray-300 break-words leading-relaxed" id="overallProgressLabel">پیشرفت کلی</label>
+                <!-- [!!!] FIX: added overflow-hidden to rounded-full container for aesthetic safety [!!!] -->
                 <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
                     <div id="overallProgressBar" class="bg-blue-500 h-4 rounded-full progress-bar-inner" style="width: 0%"></div>
                 </div>
@@ -495,23 +520,23 @@
             </div>
             
             <div id="statusLog" class="mt-4 p-4 bg-gray-900 rounded-lg max-h-48 overflow-y-auto text-sm text-gray-300" style="display: none;">
-            </div>
+                </div>
         </div>
         
-    </div>
-
-    <footer class="text-center mt-12 pb-8">
+    </div> <footer class="text-center mt-12 pb-8">
         <p class="text-gray-400 text-sm mb-2">
             توسعه دهنده : Abolfazl_ASDBV
         </p>
         <div class="flex justify-center gap-4">
-            <a href="https://t.me/anime_sub_Persian" target="_blank" rel="noopener noreferrer" title="Telegram" class="text-gray-400 hover:text-blue-400 transition-colors">
+            <a href="https://t.me/anime_sub_Persian" target="_blank" rel="noopener noreferrer" title="Telegram"
+               class="text-gray-400 hover:text-blue-400 transition-colors">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Telegram icon">
                     <title>تلگرام</title>
                     <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-1.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
                 </svg>
             </a>
-            <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" title="Instagram" class="text-gray-400 hover:text-purple-400 transition-colors">
+            <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" title="Instagram"
+               class="text-gray-400 hover:text-purple-400 transition-colors">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Instagram icon">
                     <title>اینستاگرام</title>
                     <path d="M7.8,2H16.2C19.4,2 22,4.6 22,7.8V16.2A5.8,5.8 0 0,1 16.2,22H7.8C4.6,22 2,19.4 2,16.2V7.8A5.8,5.8 0 0,1 7.8,2M7.6,4A3.6,3.6 0 0,0 4,7.6V16.4C4,18.39 5.61,20 7.6,20H16.4A3.6,3.6 0 0,0 20,16.4V7.6C20,5.61 18.39,4 16.4,4H7.6M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M18,5A1,1 0 0,1 19,6A1,1 0 0,1 18,7A1,1 0 0,1 17,6A1,1 0 0,1 18,5Z"/>
@@ -519,16 +544,12 @@
             </a>
         </div>
     </footer>
-
-    <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none; z-index: 100;">
-        <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 border border-gray-700">
-            <h3 class="text-2xl font-bold text-red-500 mb-4 flex items-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                خطا در عملیات
-            </h3>
-            <div id="errorMessageContainer" class="text-gray-300 mb-6 text-right max-h-96 overflow-y-auto leading-relaxed">
-            </div>
-            <button type="button" id="closeModal" class="w-full px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition duration-300">
+    <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4" style="display: none; z-index: 50;">
+        <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6">
+            <h3 class="text-2xl font-bold text-red-500 mb-4">خطا در عملیات</h3>
+            <div id="errorMessageContainer" class="text-gray-300 mb-6 text-right max-h-96 overflow-y-auto">
+                </div>
+            <button id="closeModal" class="w-full px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition duration-300">
                 بستن
             </button>
         </div>
