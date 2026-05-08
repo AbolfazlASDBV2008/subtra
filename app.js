@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // -----------------------------------------------------------
 
-    // تابع ماسک کردن: تگ‌های داخل {} را با تگ‌های شبه XML جایگزین می‌کند تا هوش مصنوعی آن‌ها را تغییر ندهد
+    // [اصلاح شده]: استفاده از تگ‌های شبه XML برای جلوگیری از توهم AI
     function maskTags(text) {
         const tags = [];
         let maskedText = text.replace(/\{[^}]*?\}/g, (match) => {
@@ -52,21 +52,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return { maskedText, tags };
     }
 
-    // [CRITICAL UPDATE: Robust unmaskTags with Anti-Hallucination Logic]
+    // [اصلاح شده]: شناسایی قوی‌تر تگ‌های XML
     function unmaskTags(text, tags) {
         if (!tags || tags.length === 0) return text;
 
-        // شناسایی تگ‌های XML با مقاومت در برابر فاصله‌های احتمالی یا تغییر کیس
+        // این رجکس در برابر فاصله‌های احتمالی یا تغییرات کوچک مقاوم است (مثل < t0 /> یا <T1>)
         let unmasked = text.replace(/<\s*[tT](\d+)\s*\/?\s*>/gi, (match, index) => {
             const idx = parseInt(index, 10);
             if (idx >= 0 && idx < tags.length) {
                 return tags[idx];
             }
-            // اگر ایندکس نامعتبر بود (توهم هوش مصنوعی)، تگ فیک را کامل حذف کن
-            return ""; 
+            return ""; // حذف تگ‌های فیک
         });
 
-        // Fallback: اگر تگی کلاً از متن حذف شده بود، آن را به ابتدای خط اضافه کن تا استایل خراب نشود
         for (let i = 0; i < tags.length; i++) {
             if (!unmasked.includes(tags[i])) {
                  unmasked = tags[i] + unmasked;
@@ -75,10 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return unmasked;
     }
 
-    // تابع جدید برای تمیزکاری خروجی AI (حذف بک‌تیک‌های مارک‌داون)
     function cleanAIOutput(text) {
         if (!text) return "";
-        // حذف بلوک‌های کد شروع (مثلاً ```, ```text, ```json) و پایان
         return text.replace(/^```[a-zA-Z]*\n?/g, '').replace(/\n?```$/g, '').trim();
     }
 
@@ -89,8 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isRomajiOrKanji(text) {
         if (!text) return false;
-        // نادیده گرفتن تگ‌های ماسک شده قبل از بررسی
-        const cleanText = text.replace(/<t\d+\/>/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+        // نادیده گرفتن تگ‌های XML جدید
+        const cleanText = text.replace(/<t\d+\/>/gi, '').replace(/\{[^}]+\}/g, ' ').trim();
 
         const allowedCharsRegex = /^[a-zA-Z\s\.,!\?'"\-\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF♪\(\)\*…♡:\/]+$/;
 
@@ -111,24 +107,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
-
     // --- 1. انتخاب عناصر HTML ---
     const apiKeyInput = document.getElementById('apiKey');
     const apiKeyLockIcon = document.getElementById('apiKeyLockIcon'); 
     const modelSelect = document.getElementById('modelSelect');
     const fpsInput = document.getElementById('fpsInput');
 
-    // عناصر جدید: خلاقیت و لحن و Top-P
     const creativityRange = document.getElementById('creativityRange');
     const creativityValue = document.getElementById('creativityValue');
     const topPRange = document.getElementById('topPRange'); 
     const topPValue = document.getElementById('topPValue'); 
     const toneSelect = document.getElementById('toneSelect');
 
-    // دکمه‌های راهنما
     const helpButtons = document.querySelectorAll('.help-btn');
 
-    // عناصر مربوط به پرامپت
     const systemPrompt = document.getElementById('systemPrompt');
     const promptSelector = document.getElementById('promptSelector');
     const addPromptBtn = document.getElementById('addPromptBtn');
@@ -183,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
 
-    // پرامپت آپدیت شده با توضیحات تگ شبه XML
+    // [اصلاح شده]: پرامپت با فرمت جدید تگ‌های XML
     const defaultPromptText = `
 پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (فرمت 'میکرو دی وی دی')
 
@@ -210,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 4. **فرمت خروجی:**
    - فقط و فقط متن ترجمه شده را در قالب فرمت ورودی بازگردان.
-   - تگ‌های <tN/> را دقیقاً سر جای خود حفظ کن.
+   - تگ‌های <t0/> و مشابه آن را دقیقاً سر جای خود حفظ کن.
 
 ---
 
@@ -223,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
 ۳. عدم تکرار: جملات ترجمه شده را به هیچ وجه دو بار تکرار نکن (DO NOT duplicate or repeat the translated sentences). هر خط را فقط یک بار ترجمه کن.
     `.trim();
 
-    // مدیریت پرامپت‌ها
     let customPrompts = []; 
     let currentPromptId = 'default';
 
@@ -311,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         creativityValue.textContent = creativityRange.value;
         updateSliderBackground(creativityRange);
 
-        // [!!!] Top-P default changed to 0.5 to prevent AI looping hallucinations
+        // [اصلاح شده]: پیش‌فرض Top-P برای کاهش توهم روی 0.5 تنظیم شد
         topPRange.value = localStorage.getItem('geminiTopP') || '0.5';
         topPValue.textContent = topPRange.value;
         updateSliderBackground(topPRange);
@@ -414,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
     function saveSafetySettings() {
         const settings = {
             harassment: safetyHarassmentToggle.checked,
@@ -457,7 +447,6 @@ document.addEventListener('DOMContentLoaded', () => {
         input.addEventListener('input', autoSaveSettings);
     });
 
-
     resetSettings.addEventListener('click', () => {
         currentPromptId = 'default';
         updatePromptUI();
@@ -478,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
         creativityValue.textContent = '0.2';
         updateSliderBackground(creativityRange);
 
-        // Reset to 0.5 to prevent AI hallucination
+        // [اصلاح شده]: ریست کردن به مقدار امن
         topPRange.value = '0.5';
         topPValue.textContent = '0.5';
         updateSliderBackground(topPRange);
@@ -521,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (uploadedFiles.length > 0) {
             updateFileListUI();
             clearFileList.style.display = 'block';
+
             outputFormatSelector.style.display = 'block';
 
             if (!isTranslating) {
@@ -569,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const filesDone = processedFiles.length;
 
         let overallProgress = ((filesDone + fileProgress) / totalFiles) * 100;
+
         if (overallProgress > 100) overallProgress = 100;
 
         overallProgressBar.style.width = `${overallProgress}%`;
@@ -599,7 +590,6 @@ document.addEventListener('DOMContentLoaded', () => {
         translationStatusMessage.classList.add('hidden');
     });
 
-
     // --- 5. توابع پارسر ---
 
     function parseTimeToMS(timeStr) {
@@ -619,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function msToASS(ms) {
       const totalSec = Math.floor(ms/1000);
-      const cs = Math.floor((ms % 1000) / 10); // centiseconds
+      const cs = Math.floor((ms % 1000) / 10); 
       const h = Math.floor(totalSec/3600);
       const m = Math.floor((totalSec%3600)/60);
       const s = totalSec%60;
@@ -903,10 +893,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // [اصلاح شده]: استفاده از رجکس مقاوم در برابر فاصله برای خطوط MicroDVD
     function createTranslationLookupMap(translatedMicroDVD) {
         const lookupMap = new Map();
         const lines = translatedMicroDVD.split(/\r?\n/);
-        // استفاده از رجکس مقاوم در برابر فاصله‌ها
         const lineRegex = /^\s*\{(\d+)\}\s*\{(\d+)\}\s*(.*)$/;
 
         for (const line of lines) {
@@ -958,6 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let cleanTranslation = translatedText.replace(/\u202B/g, '').replace(/\u202C/g, '');
                 cleanTranslation = cleanTranslation.replace(/\|/g, '\\N');
+
                 const finalDialogueText = unmaskTags(cleanTranslation, tags);
 
                 const dialogueObjRebuild = {};
@@ -1055,6 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.floor((ms / 1000) * fps);
     }
 
+    // [اصلاح شده]: رجکس مقاوم در برابر فاصله‌های اضافی بین کروشه‌ها
     function mergeTrustedFramesWithAiText(originalMicroDVD, aiOutputMicroDVD) {
         if (!originalMicroDVD) return { mergedTextLines: [], untranslatedCount: 0, untranslatedLinesData: [] };
 
@@ -1066,7 +1058,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (aiOutputMicroDVD) {
             const aiLines = aiOutputMicroDVD.trim().split('\n');
-            // مقاوم در برابر فاصله‌ها
             const microDVDLineRegex = /^\s*\{(\d+)\}\s*\{(\d+)\}\s*(.*)$/;
             let lastSeenKey = null;
 
@@ -1094,7 +1085,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // مقاوم در برابر فاصله‌ها
         const originalLineRegex = /^\s*\{(\d+)\}\s*\{(\d+)\}\s*(.*)$/;
 
         for (let i = 0; i < originalLines.length; i++) {
@@ -1159,10 +1149,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // نکته: این تابع در ساختار جدید Chunking استفاده نمی‌شود اما برای حفظ ساختار فایل اصلی نگه داشته شد
     function uploadFileToGemini(processedText, originalFilename, apiKey, onProgress, signal) {
         return new Promise((resolve, reject) => {
             const proxyEnabled = proxyToggle.checked;
-            const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
+            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
             const url = `${GEMINI_BASE_URL}/upload/v1beta/files?key=${apiKey}`;
 
             const formData = new FormData();
@@ -1203,6 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalSeconds = lastFrame / fps;
 
         const tenMinutesInFrames = 600 * fps;
+
         let candidateLines = [];
 
         if (totalSeconds < 1200) { 
@@ -1265,9 +1257,11 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < texts.length; i++) {
             if (typeof texts[i] !== 'string') continue; 
 
-            const textPart = (texts[i].match(/^\s*\{(\d+)\}\s*\{(\d+)\}\s*(.*)/) || [])[3] || '';
+            // [اصلاح شده]: رجکس مقاوم در برابر فاصله
+            const match = texts[i].match(/^\s*\{(\d+)\}\s*\{(\d+)\}\s*(.*)/) || [];
+            const textPart = match[3] || '';
 
-            const textForCheck = textPart.replace(/<t\d+\/>/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+            const textForCheck = textPart.replace(/<t\d+\/>/gi, '').replace(/\{[^}]+\}/g, ' ').trim();
 
             if (!textForCheck) continue; 
 
@@ -1303,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
 Please rewrite **each line completely** into fluent and correct Persian.
-If a line contains \`<tN/>\` placeholders, you MUST preserve them exactly in the output.
+If a line contains \`<t_n/>\` placeholders, you MUST preserve them exactly in the output.
 Do NOT split or merge lines. 
 You must return a **Valid JSON Array of Strings**.
 The array length must be exactly ${chunk.length}.
@@ -1329,9 +1323,10 @@ ${JSON.stringify(originalChunkTexts)}`;
                 if (Array.isArray(correctedChunk) && correctedChunk.length === chunk.length) {
                     for (let j = 0; j < chunk.length; j++) {
                         const originalIndex = chunk[j].index;
-                        const timePartMatch = texts[originalIndex].match(/^\s*\{(\d+)\}\s*\{(\d+)\}/);
+                        // [اصلاح شده]
+                        const timePartMatch = texts[originalIndex].match(/^\s*(\{\d+\}\s*\{\d+\})/);
                         if (timePartMatch) {
-                            texts[originalIndex] = `${timePartMatch[0]}${correctedChunk[j]}`; 
+                            texts[originalIndex] = `${timePartMatch[1]}${correctedChunk[j]}`; 
                             correctedCount++;
                         }
                     }
@@ -1350,7 +1345,7 @@ ${JSON.stringify(originalChunkTexts)}`;
         if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
 
         const proxyEnabled = proxyToggle.checked;
-        const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+        const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
         const API_URL = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         const safetySettings = [];
@@ -1439,7 +1434,7 @@ ${JSON.stringify(originalChunkTexts)}`;
 
             const promptText = `خطوط انگلیسی زیر در ترجمه اولیه جا افتاده‌اند و با '|||' جدا شده‌اند.
 لطفاً **هر خط را به صورت کامل** به فارسی روان ترجمه کن.
-اگر خط حاوی تگ‌های \`<tN/>\` است، حتماً آن‌ها را بدون تغییر در متن خروجی نگه دار.
+اگر خط حاوی تگ‌های \`<t_n/>\` است، حتماً آن‌ها را بدون تغییر در متن خروجی نگه دار.
 پاسخ‌ها باید **دقیقاً با همان تعداد خطوط ارسالی** و با جداکننده '|||' برگردانده شوند.
 **مهم: هرگز یک خط ورودی را به چند خط خروجی (با '|||' اضافی) تقسیم نکن.**
 
@@ -1455,9 +1450,10 @@ ${originalChunkTexts.join('|||')}`;
                         const originalData = chunk[j];
                         const originalLineIndex = originalData.indexInMerged;
 
-                        const timePartMatch = mergedLinesArray[originalLineIndex].match(/^\s*\{(\d+)\}\s*\{(\d+)\}/);
+                        // [اصلاح شده]
+                        const timePartMatch = mergedLinesArray[originalLineIndex].match(/^\s*(\{\d+\}\s*\{\d+\})/);
                         if (timePartMatch) {
-                            const timePart = timePartMatch[0];
+                            const timePart = timePartMatch[1];
                             mergedLinesArray[originalLineIndex] = `${timePart}${correctedChunk[j]}`; 
                             correctedCount++;
                         }
@@ -1466,10 +1462,10 @@ ${originalChunkTexts.join('|||')}`;
                     addLog(`اصلاح ویژه: 1 خط به ${correctedChunk.length} خط تبدیل شد (مورد کردیت‌ها).`, false, "yellow");
                     const originalData = chunk[0];
                     const originalLineIndex = originalData.indexInMerged;
-                    const timePartMatch = mergedLinesArray[originalLineIndex].match(/^\s*\{(\d+)\}\s*\{(\d+)\}/);
+                    const timePartMatch = mergedLinesArray[originalLineIndex].match(/^\s*(\{\d+\}\s*\{\d+\})/);
 
                     if (timePartMatch) {
-                        const timePart = timePartMatch[0];
+                        const timePart = timePartMatch[1];
                         const newText = correctedChunk.join('|'); 
                         mergedLinesArray[originalLineIndex] = `${timePart}${newText}`;
                         correctedCount++;
@@ -1481,18 +1477,18 @@ ${originalChunkTexts.join('|||')}`;
 
                     const firstOriginalData = chunk[0];
                     const firstLineIndex = firstOriginalData.indexInMerged;
-                    const firstTimePartMatch = mergedLinesArray[firstLineIndex].match(/^\s*\{(\d+)\}\s*\{(\d+)\}/);
+                    const firstTimePartMatch = mergedLinesArray[firstLineIndex].match(/^\s*(\{\d+\}\s*\{\d+\})/);
 
                     if (firstTimePartMatch) {
-                        mergedLinesArray[firstLineIndex] = `${firstTimePartMatch[0]}${newText}`;
+                        mergedLinesArray[firstLineIndex] = `${firstTimePartMatch[1]}${newText}`;
                         correctedCount++;
                     }
                     for (let j = 1; j < chunk.length; j++) {
                         const subData = chunk[j];
                         const subLineIndex = subData.indexInMerged;
-                        const subTimePartMatch = mergedLinesArray[subLineIndex].match(/^\s*\{(\d+)\}\s*\{(\d+)\}/);
+                        const subTimePartMatch = mergedLinesArray[subLineIndex].match(/^\s*(\{\d+\}\s*\{\d+\})/);
                         if (subTimePartMatch) {
-                            mergedLinesArray[subLineIndex] = `${subTimePartMatch[0]}`; 
+                            mergedLinesArray[subLineIndex] = `${subTimePartMatch[1]}`; 
                         }
                     }
                 } else {
@@ -1507,14 +1503,14 @@ ${originalChunkTexts.join('|||')}`;
     }
 
 
-    // --- 8. منطق اصلی ترجمه ---
+    // --- 8. منطق اصلی ترجمه (بازنویسی و ارتقا یافته) ---
 
     async function getTranslationStream(systemInstruction, modelContents, onChunk, onEnd, onError, signal) {
         const apiKey = apiKeyInput.value.trim();
         const model = modelSelect.value;
 
         const proxyEnabled = proxyToggle.checked;
-        const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+        const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
         const url = `${GEMINI_BASE_URL}/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
         try {
@@ -1624,15 +1620,15 @@ ${originalChunkTexts.join('|||')}`;
 
         addLog("شروع عملیات ترجمه...");
 
-        // [!!!] IMPLEMENTED: Chunking System for AI Stability [!!!]
+        // [!!!] تابع فوق‌العاده مهم برای قطعه‌قطعه کردن (Chunking) جلوگیری از توهم AI در فایل‌های طولانی
         async function translateChunk(content, customPrompt, fileName, progressStart, progressEnd, fileIndex, accumulatedMap, fileId) {
             if (!content.trim()) return '';
             
-            const lines = content.split('\n').filter(l => l.trim());
-            const CHUNK_SIZE = 80; // تقسیم به قطعات امن برای جلوگیری از توهم AI
-            let fullTranslatedText = "";
+            const lines = content.trim().split('\n');
+            const CHUNK_SIZE = 80; // تقسیم به قطعات ۸۰ خطی برای پایداری ۱۰۰ درصدی مدل
+            let allTranslatedText = '';
+            
             const apiKey = apiKeyInput.value.trim();
-
             let systemInstruction = systemPrompt.value; 
             const tone = toneSelect.value;
             if (tone === 'formal') {
@@ -1644,85 +1640,52 @@ ${originalChunkTexts.join('|||')}`;
             for (let i = 0; i < lines.length; i += CHUNK_SIZE) {
                 if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
 
-                const chunkLines = lines.slice(i, i + CHUNK_SIZE).join('\n');
-                const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+                const chunkLines = lines.slice(i, i + CHUNK_SIZE);
+                const chunkText = chunkLines.join('\n');
+                const currentChunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
                 const totalChunks = Math.ceil(lines.length / CHUNK_SIZE);
-                const chunkName = `${fileName}_part${chunkIndex}.txt`;
+                
+                const chunkProgStart = progressStart + (i / lines.length) * (progressEnd - progressStart);
+                const chunkProgEnd = progressStart + (Math.min(i + CHUNK_SIZE, lines.length) / lines.length) * (progressEnd - progressStart);
 
-                const currentPStart = progressStart + ((i / lines.length) * (progressEnd - progressStart));
-                const currentPEnd = progressStart + ((Math.min(i + CHUNK_SIZE, lines.length) / lines.length) * (progressEnd - progressStart));
+                updateFileStatus(fileIndex, `در حال تفکر (بخش ${currentChunkIndex} از ${totalChunks})...`, chunkProgStart);
 
-                updateFileStatus(fileIndex, `در حال آپلود بخش ${chunkIndex} از ${totalChunks}...`, currentPStart);
-
-                const fileUri = await uploadFileToGemini(
-                    chunkLines, chunkName, apiKey,
-                    (p) => updateFileStatus(fileIndex, `آپلود بخش ${chunkIndex}... ${Math.round(p)}%`, currentPStart + (p * 0.02)), 
-                    abortController.signal
-                );
-
-                updateFileStatus(fileIndex, `تفکر روی بخش ${chunkIndex}...`, currentPStart + 2);
-
-                if (liveOutputToggle.checked) {
-                    liveOutput.textContent = `هوش مصنوعی در حال پردازش بخش ${chunkIndex} از ${totalChunks} است و این فرایند ممکن است طول بکشد`; 
-                    liveOutput.style.display = 'block'; 
-                    liveOutput.style.direction = 'rtl';
-                    liveOutput.style.textAlign = 'right';
-                } else {
-                    liveOutput.style.display = 'none';
-                }
-
-                let thinkingStartTime = Date.now();
-                const baseThinkingText = `تفکر روی بخش ${chunkIndex}... `;
-
-                let thinkingTimer = setInterval(() => {
-                    const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
-                    updateFileStatus(fileIndex, baseThinkingText + `${elapsedTime} ثانیه`, currentPStart + 2);
-                }, 100);
-
+                // در این معماری جدید، متن به صورت مستقیم ارسال می‌شود و دیگر از Upload API استفاده نمی‌کنیم تا جلوی توهم گرفته شود
                 const modelContents = [
-                    { parts: [ { text: customPrompt + "\n\n[مهم: فقط همین بخش از خطوط را به صورت خط به خط ترجمه کن و هیچ خطی را جا نینداز.]" } ] }, 
-                    { parts: [ { fileData: { mime_type: "text/plain", file_uri: fileUri } } ] } 
+                    { parts: [ { text: customPrompt + "\n\nمتن زیرنویس زیر را دقیقاً خط به خط ترجمه کن:\n\n" + chunkText } ] }
                 ];
 
                 const MAX_ATTEMPTS = 3; 
                 const RETRY_DELAY = 10000; 
-                let chunkTranslatedText = "";
+                let chunkTranslatedText = '';
 
                 for (let attempt = 1; attempt <= MAX_ATTEMPTS + 1; attempt++) {
                     if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
-
+                    
                     try {
                         chunkTranslatedText = await new Promise((resolve, reject) => {
                             let isFirstChunk = true;
-                            const TIMEOUT_DURATION = 150 * 1000;
+                            const TIMEOUT_DURATION = 120 * 1000; // 120 ثانیه برای هر بخش
                             const timeoutController = new AbortController();
                             const timeoutId = setTimeout(() => {
-                                timeoutController.abort(new Error(`ترجمه بیش از ${TIMEOUT_DURATION / 1000} ثانیه طول کشید (Timeout).`));
+                                timeoutController.abort(new Error(`ترجمه بخش ${currentChunkIndex} بیش از حد طول کشید (Timeout).`));
                             }, TIMEOUT_DURATION);
 
-                            const onMainAbort = () => {
-                                timeoutController.abort(new Error("عملیات لغو شد"));
-                            };
+                            const onMainAbort = () => timeoutController.abort(new Error("عملیات لغو شد"));
                             abortController.signal.addEventListener('abort', onMainAbort, { once: true });
 
                             getTranslationStream(
                                 systemInstruction, 
                                 modelContents,     
                                 (currentFullText) => { 
-                                    if (thinkingTimer) { 
-                                        clearInterval(thinkingTimer); 
-                                        thinkingTimer = null; 
-                                        addLog(`شروع دریافت ترجمه بخش ${chunkIndex}`, false, "green");
-                                    }
-
                                     if (isFirstChunk) { 
                                         if (liveOutputToggle.checked) liveOutput.textContent = ''; 
                                         isFirstChunk = false; 
+                                        addLog(`دریافت ترجمه بخش ${currentChunkIndex}...`, false, "green");
                                     }
 
-                                    const chunkOutputLines = currentFullText.split('\n');
-                                    
-                                    const extractedTexts = chunkOutputLines
+                                    const currentLines = currentFullText.split('\n');
+                                    const extractedTexts = currentLines
                                         .map(line => {
                                             const match = line.match(/^\s*\{(\d+)\}\s*\{(\d+)\}\s*(.*)$/);
                                             if (match) {
@@ -1740,7 +1703,7 @@ ${originalChunkTexts.join('|||')}`;
                                             }
                                             return null;
                                         })
-                                        .filter(text => text !== null); 
+                                        .filter(text => text !== null);
 
                                     if (liveOutputToggle.checked) {
                                         liveOutput.style.display = 'block';
@@ -1748,17 +1711,15 @@ ${originalChunkTexts.join('|||')}`;
                                         liveOutput.scrollTop = liveOutput.scrollHeight;
                                     }
 
-                                    const percentage = (chunkOutputLines.length / CHUNK_SIZE);
-                                    updateFileStatus(fileIndex, `دریافت بخش ${chunkIndex}... ${chunkOutputLines.length} خط`, currentPStart + 2 + (percentage * (currentPEnd - (currentPStart + 2)) * 0.9)); 
+                                    const percentage = (currentLines.length / chunkLines.length);
+                                    updateFileStatus(fileIndex, `دریافت بخش ${currentChunkIndex}... ${currentLines.length} خط`, chunkProgStart + (percentage * (chunkProgEnd - chunkProgStart) * 0.9)); 
                                 },
                                 (finalText) => { 
-                                    if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
                                     clearTimeout(timeoutId); 
                                     abortController.signal.removeEventListener('abort', onMainAbort); 
                                     resolve(finalText);
                                 },
                                 (error) => { 
-                                    if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
                                     clearTimeout(timeoutId); 
                                     abortController.signal.removeEventListener('abort', onMainAbort); 
                                     reject(error); 
@@ -1771,37 +1732,22 @@ ${originalChunkTexts.join('|||')}`;
                     } catch (error) {
                         if (abortController.signal.aborted) throw error;
                         const errorMessage = error.message.toLowerCase();
-
                         if (errorMessage.includes('resource exhausted') || errorMessage.includes('quota exceeded')) {
-                             throw new Error("LIMIT_REACHED: " + error.message);
+                            throw new Error("LIMIT_REACHED: " + error.message);
                         }
-
-                        const isRetryable = errorMessage.includes('overloaded') || 
-                                          errorMessage.includes('503') || 
-                                          errorMessage.includes('524') ||
-                                          errorMessage.includes('timeout') ||
-                                          errorMessage.includes('networkerror');
+                        const isRetryable = errorMessage.includes('overloaded') || errorMessage.includes('503') || errorMessage.includes('524') || errorMessage.includes('networkerror') || errorMessage.includes('timeout');
 
                         if (isRetryable && attempt <= MAX_ATTEMPTS) {
-                             addLog(`خطای شلوغی در بخش ${chunkIndex} (تلاش ${attempt}). صبر...`, false, "yellow");
-                             updateFileStatus(fileIndex, `تلاش مجدد ${attempt} بخش ${chunkIndex}...`, currentPStart);
-                             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-
-                             thinkingStartTime = Date.now();
-                             if (!thinkingTimer) {
-                                 thinkingTimer = setInterval(() => {
-                                    const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
-                                    updateFileStatus(fileIndex, baseThinkingText + `${elapsedTime} ثانیه`, currentPStart + 2);
-                                }, 100);
-                             }
+                            addLog(`خطا در بخش ${currentChunkIndex} (تلاش ${attempt}). صبر ${RETRY_DELAY/1000} ثانیه...`, false, "yellow");
+                            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
                         } else {
                             throw error; 
                         }
                     }
-                } 
-                fullTranslatedText += chunkTranslatedText + '\n';
-            } 
-            return fullTranslatedText;
+                }
+                allTranslatedText += chunkTranslatedText + '\n';
+            }
+            return allTranslatedText;
         }
 
         for (let i = 0; i < uploadedFiles.length; i++) {
@@ -1862,8 +1808,8 @@ ${originalChunkTexts.join('|||')}`;
                 const dialogueData = originalDialogueBlocks.map((block, i) => {
                     const startFrame = timeToFrames(block.start, fps);
                     const endFrame = timeToFrames(block.end, fps);
-                    
                     let cleanText = block.text;
+
                     if (!useAssPath) {
                         cleanText = block.text.replace(/\{[^}]+\}/g, ' ').replace(/<[^>]+>/g, ' ').replace(/[\r\n]+/g, ' ').trim();
                     }
@@ -1933,9 +1879,8 @@ ${originalChunkTexts.join('|||')}`;
                      const processResult = processAssForTranslationAndMapping(content, fps);
 
                      const linesObj = processResult.microdvdForAI.split('\n').map((line, idx) => {
-                         const match = line.match(/^\s*(\{\d+\}\s*\{\d+\})\s*(.*)$/);
-                         const cleanTime = match[1].replace(/\s+/g, '');
-                         return { time: cleanTime, text: match[2], line: line, originalIndex: idx };
+                         const match = line.match(/^\s*\{(\d+)\}\s*\{(\d+)\}\s*(.*)$/);
+                         return { time: `{${match[1]}}{${match[2]}}`, text: match[3], line: line, originalIndex: idx };
                      });
 
                      if (aiDetectionToggle.checked) {
@@ -2007,7 +1952,7 @@ ${originalChunkTexts.join('|||')}`;
                          if (masterTranslationMap.has(key)) {
                              const rawVal = masterTranslationMap.get(key);
                              finalMicroDVDLines.push(`${key}${cleanAIOutput(rawVal)}`);
-                         }
+                         } 
                      });
                 } else {
                     finalMicroDVDLines = new Array(originalDialogueBlocks.length).fill('');
