@@ -42,17 +42,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // -----------------------------------------------------------
 
-    // تابع ماسک کردن: تگ‌های داخل {} را با پلیس‌هولدر شبه HTML جایگزین می‌کند
+    // [UPDATED] تابع ماسک کردن با تگ‌های شبه HTML برای درک بهتر هوش مصنوعی
     function maskTags(text) {
         const tags = [];
         let maskedText = text.replace(/\{[^}]*?\}/g, (match) => {
             tags.push(match);
-            return `<t${tags.length - 1}>`; // استفاده از تگ <t0>, <t1> و...
+            return `<t${tags.length - 1}>`; 
         });
         return { maskedText, tags };
     }
 
-    // [CRITICAL UPDATE: Robust unmaskTags with Anti-Hallucination Logic]
+    // [UPDATED] تابع برگرداندن تگ‌ها با پشتیبانی از خطاهای رایج AI در تگ‌های HTML
     function unmaskTags(text, tags) {
         if (!tags || tags.length === 0) return text;
 
@@ -64,13 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
             normalizedText = normalizedText.replace(persianNumbers[i], i).replace(arabicNumbers[i], i);
         }
 
-        // این رجکس بسیار انعطاف‌پذیر است. حالت‌های <t0>, [t0], <T0>, <t_0> و ... را پشتیبانی می‌کند
-        let unmasked = normalizedText.replace(/[<\[]\s*[tT]\s*[_:\-]?\s*(\d+)\s*[>\]]/g, (match, index) => {
+        // پیدا کردن الگوهایی مثل <t0> یا <t 0> یا <T0>
+        let unmasked = normalizedText.replace(/<\s*[tT]\s*(\d+)\s*>/gi, (match, index) => {
             const idx = parseInt(index, 10);
             if (idx >= 0 && idx < tags.length) {
                 return tags[idx];
             }
-            // اگر ایندکس نامعتبر بود (توهم هوش مصنوعی)، تگ فیک را کامل حذف کن
+            // اگر ایندکس نامعتبر بود (توهم)، تگ فیک را کامل حذف کن
             return ""; 
         });
 
@@ -88,7 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // [!!!] تابع جدید برای تمیزکاری خروجی AI (حذف بک‌تیک‌های مارک‌داون) [!!!]
     function cleanAIOutput(text) {
         if (!text) return "";
-        // حذف بلوک‌های کد شروع (مثلاً ```, ```text, ```json) و پایان
+        // حذف بلوک‌های کد شروع (مثلاً ```, 
+```text, ```json) و پایان
         return text.replace(/^```[a-zA-Z]*\n?/g, '').replace(/\n?
 ```$/g, '').trim();
     }
@@ -100,8 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isRomajiOrKanji(text) {
         if (!text) return false;
-        // [!!!] حذف تگ‌های <t0> قبل از بررسی تا به عنوان حروف انگلیسی تشخیص داده نشوند [!!!]
-        const cleanText = text.replace(/[<\[]\s*[tT]\s*[_:\-]?\s*\d+\s*[>\]]/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+        // [UPDATED] اگر متن حاوی پلیس‌هولدر تگ HTML-like باشد، آن را نادیده می‌گیریم تا باعث تشخیص اشتباه نشود
+        const cleanText = text.replace(/<t\d+>/gi, '').replace(/\{[^}]+\}/g, ' ').trim();
 
         const allowedCharsRegex = /^[a-zA-Z\s\.,!\?'"\-\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF♪\(\)\*…♡:\/]+$/;
 
@@ -194,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
 
-    // [!!!] پرامپت جدید با تمرکز بر جلوگیری از توهم و تکرار و پشتیبانی از تگ‌های شبه HTML [!!!]
+    // [UPDATED] پرامپت جدید با هماهنگی تگ‌های HTML-like
     const defaultPromptText = `
 پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (فرمت 'میکرو دی وی دی')
 
@@ -217,9 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
    - معادل فارسی پیدا کن. "No way" -> "امکان نداره".
 
 4. **مدیریت تگ‌های سیستمی (حیاتی):**
-   - در متن ورودی کدهایی شبیه به <t0> یا <t1> وجود دارد. این تگ‌ها نشان‌دهنده استایل و رنگ هستند.
+   - در متن ورودی کدهایی شبیه به <t0> یا <t1> وجود دارد که استایل‌های گرافیکی هستند. 
    - به هیچ وجه آن‌ها را ترجمه نکن، فرمتشان را تغییر نده.
-   - تگ‌های جدید از خودت اختراع نکن و آن‌ها را دقیقاً به همان شکل در خروجی و در جای مناسب کلمه معادل قرار بده.
+   - تگ‌های جدید از خودت اختراع نکن و آن‌ها را دقیقاً به همان شکل (مثلاً <t0>) در بین کلمات معادل فارسی قرار بده.
     `.trim();
 
     // مدیریت پرامپت‌ها
@@ -1166,7 +1167,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function uploadFileToGemini(processedText, originalFilename, apiKey, onProgress, signal) {
         return new Promise((resolve, reject) => {
             const proxyEnabled = proxyToggle.checked;
-            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+            const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
             const url = `${GEMINI_BASE_URL}/upload/v1beta/files?key=${apiKey}`;
 
             const formData = new FormData();
@@ -1260,6 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // [UPDATED] پرامپت تصحیح متون با پشتیبانی از تگ‌های شبه HTML
     async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt) {
 
         const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
@@ -1272,8 +1274,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
 
-            // تمیز کردن تگ‌های <t0> قبل از بررسی
-            const textForCheck = textPart.replace(/[<\[]\s*[tT]\s*[_:\-]?\s*\d+\s*[>\]]/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+            // [UPDATED] پشتیبانی از تگ‌های <t0> به جای ___TAG_0___
+            const textForCheck = textPart.replace(/<t\d+>/gi, '').replace(/\{[^}]+\}/g, ' ').trim();
 
             if (!textForCheck) continue; 
 
@@ -1309,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
 Please rewrite **each line completely** into fluent and correct Persian.
-If a line contains \`<t_n>\` placeholders (like <t0>, <t1>), you MUST preserve them exactly in the output.
+If a line contains \`<t0>\`, \`<t1>\`, etc. tags, you MUST preserve them exactly in the output.
 Do NOT split or merge lines. 
 You must return a **Valid JSON Array of Strings**.
 The array length must be exactly ${chunk.length}.
@@ -1356,7 +1358,7 @@ ${JSON.stringify(originalChunkTexts)}`;
         if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
 
         const proxyEnabled = proxyToggle.checked;
-        const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
+        const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
         const API_URL = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         const safetySettings = [];
@@ -1425,6 +1427,7 @@ ${JSON.stringify(originalChunkTexts)}`;
         throw new Error("Failed after max retries.");
     }
 
+    // [UPDATED] پرامپت اصلاح خطوط جا افتاده با پشتیبانی از تگ‌های شبه HTML
     async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt) {
         if (untranslatedData.length === 0) {
             return mergedLinesArray; 
@@ -1445,7 +1448,7 @@ ${JSON.stringify(originalChunkTexts)}`;
 
             const promptText = `خطوط انگلیسی زیر در ترجمه اولیه جا افتاده‌اند و با '|||' جدا شده‌اند.
 لطفاً **هر خط را به صورت کامل** به فارسی روان ترجمه کن.
-اگر خط حاوی تگ‌های \`<t_n>\` (مثل <t0> یا <t1>) است، حتماً آن‌ها را بدون تغییر در متن خروجی نگه دار.
+اگر خط حاوی تگ‌های \`<t0>\` یا \`<t1>\` است، حتماً آن‌ها را بدون تغییر در متن خروجی نگه دار.
 پاسخ‌ها باید **دقیقاً با همان تعداد خطوط ارسالی** و با جداکننده '|||' برگردانده شوند.
 **مهم: هرگز یک خط ورودی را به چند خط خروجی (با '|||' اضافی) تقسیم نکن.**
 
@@ -1520,7 +1523,7 @@ ${originalChunkTexts.join('|||')}`;
         const model = modelSelect.value;
 
         const proxyEnabled = proxyToggle.checked;
-        const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
+        const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
         const url = `${GEMINI_BASE_URL}/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
         try {
