@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. توابع کمکی (جدید: ماسک کردن تگ‌ها و مدیریت پرامپت) ---
@@ -1096,7 +1095,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let finalContent = newLines.join('\r\n');
             finalContent = finalContent.replace(/\[fonts\][\s\S]*$/i, '').trim();
 
-            finalContent += '\r\n\r\n[Fonts]\r\n' + fontData;
+            // FIX: بررسی اینکه آیا فایل فونت پیشوند fontname_ دارد یا خیر، در غیر اینصورت آن را اضافه می‌کنیم
+            let safeFontData = fontData.trim();
+            if (!safeFontData.startsWith('fontname_')) {
+                safeFontData = 'fontname_vazirmatn.ttf\r\n' + safeFontData;
+            }
+
+            finalContent += '\r\n\r\n[Fonts]\r\n' + safeFontData;
 
             return finalContent;
         } catch (error) {
@@ -1228,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function uploadFileToGemini(processedText, originalFilename, apiKey, onProgress, signal) {
         return new Promise((resolve, reject) => {
             const proxyEnabled = proxyToggle.checked;
-            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+            const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
             const url = `${GEMINI_BASE_URL}/upload/v1beta/files?key=${apiKey}`;
 
             const formData = new FormData();
@@ -2364,7 +2369,7 @@ PlayResY: 1080
 ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Vazirmatn Medium,55,&H00FFFFFF,&H0000FFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1R,2,1,2,30,30,30,1
+Style: Default,Vazirmatn Medium,55,&H00FFFFFF,&H0000FFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,2,1,2,30,30,30,1
 Style: OP,Vazirmatn Medium,65,&H002EFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,2.5,1.5,8,30,30,40,1
 Style: ED,Vazirmatn Medium,65,&H00FFB4FF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,2.5,1.5,2,30,30,40,1
 [Events]
