@@ -1095,7 +1095,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let finalContent = newLines.join('\r\n');
             finalContent = finalContent.replace(/\[fonts\][\s\S]*$/i, '').trim();
 
-            // FIX: بررسی اینکه آیا فایل فونت پیشوند fontname_ دارد یا خیر، در غیر اینصورت آن را اضافه می‌کنیم
             let safeFontData = fontData.trim();
             if (!safeFontData.startsWith('fontname_')) {
                 safeFontData = 'fontname_vazirmatn.ttf\r\n' + safeFontData;
@@ -1230,10 +1229,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // [!!!] توقف باگ 100٪ در این قسمت کاملاً برطرف شده است [!!!]
     function uploadFileToGemini(processedText, originalFilename, apiKey, onProgress, signal) {
         return new Promise((resolve, reject) => {
             const proxyEnabled = proxyToggle.checked;
-            // لینک اصلاح شد: براکت‌های مارک‌داون حذف شدند
             const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
             const url = `${GEMINI_BASE_URL}/upload/v1beta/files?key=${apiKey}`;
 
@@ -1243,6 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', url, true);
+            xhr.timeout = 60000; // تنظیم تایم‌اوت 60 ثانیه‌ای برای جلوگیری از گیر کردن ابدی
 
             xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable && typeof onProgress === 'function') {
@@ -1252,16 +1252,35 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             xhr.onload = async () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    if(typeof onProgress === 'function') onProgress(100);
-                    resolve(JSON.parse(xhr.responseText).file.uri);
-                } else {
-                    const errorMsg = await handleFetchError({ text: () => Promise.resolve(xhr.responseText) });
-                    reject(new Error(`خطا در آپلود فایل: ${errorMsg}`));
+                try {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        if(typeof onProgress === 'function') onProgress(100);
+                        
+                        let parsed;
+                        try {
+                            parsed = JSON.parse(xhr.responseText);
+                        } catch (e) {
+                            throw new Error("پاسخ سرور نامعتبر بود (پاسخ JSON نیست).");
+                        }
+                        
+                        if (parsed && parsed.file && parsed.file.uri) {
+                            resolve(parsed.file.uri);
+                        } else {
+                            throw new Error("آدرس فایل (URI) در پاسخ سرور یافت نشد.");
+                        }
+                    } else {
+                        const errorMsg = await handleFetchError({ text: () => Promise.resolve(xhr.responseText) });
+                        reject(new Error(`خطای آپلود (کد ${xhr.status}): ${errorMsg}`));
+                    }
+                } catch (error) {
+                    reject(error); // با این کار، ارور به جای گم شدن، به سیستم منتقل می‌شود و از گیر کردن روی ۱۰۰٪ جلوگیری می‌کند
                 }
             };
 
-            xhr.onerror = () => reject(new Error('خطای شبکه هنگام آپلود فایل رخ داد.'));
+            xhr.onerror = () => reject(new Error('خطای شبکه. آیا اینترنت پایدار است یا فیلترشکن خاموش شده؟'));
+            xhr.ontimeout = () => reject(new Error('زمان آپلود به پایان رسید (Timeout) و سرور پاسخی نداد.'));
+            xhr.onabort = () => reject(new Error('عملیات آپلود لغو شد.'));
+            
             signal.addEventListener('abort', () => xhr.abort());
             xhr.send(formData);
         });
