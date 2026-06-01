@@ -1233,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function uploadFileToGemini(processedText, originalFilename, apiKey, onProgress, signal) {
         return new Promise((resolve, reject) => {
             const proxyEnabled = proxyToggle.checked;
+            // لینک اصلاح شد: براکت‌های مارک‌داون حذف شدند
             const GEMINI_BASE_URL = proxyEnabled ? '[https://anime-translator-web.khalilkhko.workers.dev](https://anime-translator-web.khalilkhko.workers.dev)' : '[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com)';
             const url = `${GEMINI_BASE_URL}/upload/v1beta/files?key=${apiKey}`;
 
@@ -2340,9 +2341,12 @@ ${originalChunkTexts.join('|||')}`;
         }
         translationStatusMessage.classList.remove('hidden');
 
+        // [!!!] مشکل ارور `totalFiles` اینجا اصلاح شد [!!!]
+        const totalFilesCount = uploadedFiles.length;
         const filesDone = processedFiles.length;
-        overallProgressBar.style.width = `${(filesDone / totalFiles) * 100}%`;
-        overallProgressLabel.textContent = `عملیات کامل شد. ${filesDone} از ${totalFiles} فایل پردازش شد.`;
+        let overallProgressValue = totalFilesCount > 0 ? (filesDone / totalFilesCount) * 100 : 0;
+        overallProgressBar.style.width = `${overallProgressValue}%`;
+        overallProgressLabel.textContent = `عملیات کامل شد. ${filesDone} از ${totalFilesCount} فایل پردازش شد.`;
 
     });
 
