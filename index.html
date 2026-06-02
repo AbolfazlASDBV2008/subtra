@@ -429,72 +429,6 @@
                 </div>
             </details>
             
-            <details class="bg-gray-750 border border-gray-700 rounded-lg p-4 mb-4 group">
-                <summary class="font-bold text-lg text-green-400 cursor-pointer flex items-center gap-2 select-none">
-                    <span>📝 تنظیمات متن اختصاصی (شروع و پایان)</span>
-                </summary>
-                
-                <div class="mt-6 space-y-6 border-t border-gray-700 pt-4">
-                    
-                    <div class="flex items-center mb-2">
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="customTextToggle" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                            <span class="mr-3 text-sm font-medium text-gray-300">فعال‌سازی متون اختصاصی (واترمارک / تبلیغ)</span>
-                        </label>
-                    </div>
-                    <p class="text-xs text-gray-400 mb-4">با فعال کردن این گزینه، متن‌های شما به صورت خودکار به فایل نهایی زیرنویس اضافه می‌شوند.</p>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
-                        <div class="bg-gray-800/80 p-4 rounded-xl border border-gray-600/50 shadow-inner">
-                            <h3 class="text-blue-300 font-bold mb-4 flex items-center gap-2">
-                                <span>▶️</span> متن شروع انیمه
-                            </h3>
-                            
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label for="introStart" class="block text-sm font-medium text-gray-400 mb-1">شروع از (ثانیه)</label>
-                                    <input type="number" id="introStart" value="5" min="0" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 text-center" dir="ltr">
-                                </div>
-                                <div>
-                                    <label for="introEnd" class="block text-sm font-medium text-gray-400 mb-1">پایان در (ثانیه)</label>
-                                    <input type="number" id="introEnd" value="15" min="1" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 text-center" dir="ltr">
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label for="introText" class="block text-sm font-medium text-gray-400 mb-1">متن نمایشی</label>
-                                <textarea id="introText" rows="2" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 text-sm" placeholder="مثال: تیم انی پارس با افتخار تقدیم میکند"></textarea>
-                            </div>
-                        </div>
-
-                        <div class="bg-gray-800/80 p-4 rounded-xl border border-gray-600/50 shadow-inner">
-                            <h3 class="text-purple-300 font-bold mb-4 flex items-center gap-2">
-                                <span>⏹️</span> متن پایان انیمه
-                            </h3>
-                            
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label for="outroStartFromEnd" class="block text-sm font-medium text-gray-400 mb-1" title="مثلا 120 ثانیه یعنی 2 دقیقه مانده به انتهای انیمه">شروع قبل از پایان (ثانیه)</label>
-                                    <input type="number" id="outroStartFromEnd" value="120" min="0" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-purple-500 text-center" dir="ltr">
-                                </div>
-                                <div>
-                                    <label for="outroDuration" class="block text-sm font-medium text-gray-400 mb-1">مدت زمان نمایش (ثانیه)</label>
-                                    <input type="number" id="outroDuration" value="10" min="1" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-purple-500 text-center" dir="ltr">
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label for="outroText" class="block text-sm font-medium text-gray-400 mb-1">متن نمایشی</label>
-                                <textarea id="outroText" rows="2" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-purple-500 text-sm" placeholder="مثال: برای دیدن زیرنویس های بیشتر کانال انی پارس را دنبال کنید"></textarea>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </details>
-
             <div class="flex items-center gap-4 mt-4">
                 <button type="button" id="resetSettings" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-semibold transition duration-300 shadow-md">
                     بازگردانی به پیش‌فرض
@@ -589,4 +523,17 @@
     <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none; z-index: 100;">
         <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 border border-gray-700">
             <h3 class="text-2xl font-bold text-red-500 mb-4 flex items-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                خطا در عملیات
+            </h3>
+            <div id="errorMessageContainer" class="text-gray-300 mb-6 text-right max-h-96 overflow-y-auto leading-relaxed">
+            </div>
+            <button type="button" id="closeModal" class="w-full px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition duration-300">
+                بستن
+            </button>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
