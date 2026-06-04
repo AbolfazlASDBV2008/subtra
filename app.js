@@ -127,6 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const topPRange = document.getElementById('topPRange'); // اسلایدر جدید Top-P
     const topPValue = document.getElementById('topPValue'); // نمایش مقدار Top-P
     const toneSelect = document.getElementById('toneSelect');
+        // عناصر جدید: واترمارک و متن‌های شروع/پایان
+    const startTextEnabled = document.getElementById('startTextEnabled');
+    const startTextInput = document.getElementById('startTextInput');
+    const startTextStartTime = document.getElementById('startTextStartTime');
+    const startTextEndTime = document.getElementById('startTextEndTime');
+    const endTextEnabled = document.getElementById('endTextEnabled');
+    const endTextInput = document.getElementById('endTextInput');
+    const endTextStartFromEnd = document.getElementById('endTextStartFromEnd');
+    const endTextDuration = document.getElementById('endTextDuration');
 
     // دکمه‌های راهنما
     const helpButtons = document.querySelectorAll('.help-btn');
@@ -335,6 +344,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSliderBackground(topPRange);
 
         toneSelect.value = localStorage.getItem('geminiTone') || 'informal';
+        startTextEnabled.checked = localStorage.getItem('startTextEnabled') === 'true';
+        if (localStorage.getItem('startTextInput')) startTextInput.value = localStorage.getItem('startTextInput');
+        if (localStorage.getItem('startTextStartTime')) startTextStartTime.value = localStorage.getItem('startTextStartTime');
+        if (localStorage.getItem('startTextEndTime')) startTextEndTime.value = localStorage.getItem('startTextEndTime');
+
+        endTextEnabled.checked = localStorage.getItem('endTextEnabled') === 'true';
+        if (localStorage.getItem('endTextInput')) endTextInput.value = localStorage.getItem('endTextInput');
+        if (localStorage.getItem('endTextStartFromEnd')) endTextStartFromEnd.value = localStorage.getItem('endTextStartFromEnd');
+        if (localStorage.getItem('endTextDuration')) endTextDuration.value = localStorage.getItem('endTextDuration');
 
         updatePromptUI();
 
@@ -460,6 +478,15 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('geminiTemperature', creativityRange.value);
         localStorage.setItem('geminiTopP', topPRange.value);
         localStorage.setItem('geminiTone', toneSelect.value);
+        localStorage.setItem('startTextEnabled', startTextEnabled.checked);
+        localStorage.setItem('startTextInput', startTextInput.value);
+        localStorage.setItem('startTextStartTime', startTextStartTime.value);
+        localStorage.setItem('startTextEndTime', startTextEndTime.value);
+
+        localStorage.setItem('endTextEnabled', endTextEnabled.checked);
+        localStorage.setItem('endTextInput', endTextInput.value);
+        localStorage.setItem('endTextStartFromEnd', endTextStartFromEnd.value);
+        localStorage.setItem('endTextDuration', endTextDuration.value);
 
         // ذخیره وضعیت پرامپت‌ها (با سینک کردن مجدد برای اطمینان)
         syncCurrentPromptContent();
@@ -476,7 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
      proxyToggle, karaokeToggle, aiDetectionToggle, liveOutputToggle,
      safetyHarassmentToggle, safetyHateSpeechToggle, 
      safetySexuallyExplicitToggle, safetyDangerousContentToggle,
-     systemPrompt
+     systemPrompt,
+     startTextEnabled, startTextInput, startTextStartTime, startTextEndTime,
+     endTextEnabled, endTextInput, endTextStartFromEnd, endTextDuration
     ].forEach(input => {
         input.addEventListener('change', autoSaveSettings);
         input.addEventListener('input', autoSaveSettings);
@@ -513,6 +542,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSliderBackground(topPRange);
 
         toneSelect.value = 'informal';
+        startTextEnabled.checked = false;
+        startTextInput.value = "";
+        startTextStartTime.value = "5";
+        startTextEndTime.value = "15";
+
+        endTextEnabled.checked = false;
+        endTextInput.value = "";
+        endTextStartFromEnd.value = "120";
+        endTextDuration.value = "10";
 
         // Trigger auto-save to persist reset state
         autoSaveSettings();
@@ -2178,10 +2216,35 @@ ${originalChunkTexts.join('|||')}`;
 
                 const finalMicroDVDWithCorrections = microDVDSplitted.join('\n'); 
 
-                updateFileStatus(i, "در حال ساخت فایل نهایی...", 95);
-
-                let finalContent;
+                                let finalContent;
                 const outputExt = outputFormatChoice === 'srt' ? '.srt' : '.ass';
+
+                // --- [بخش اضافه شده] استخراج متون واترمارک شروع و پایان ---
+                                // --- [بخش اضافه شده] استخراج متون واترمارک شروع و پایان ---
+                let extraBlocks = [];
+                const totalVideoDurationMs = (originalLastEndFrame / fps) * 1000;
+
+                if (startTextEnabled.checked && startTextInput.value.trim()) {
+                    extraBlocks.push({
+                        // از parseFloat استفاده شده است
+                        start: msToASS((parseFloat(startTextStartTime.value) || 5) * 1000),
+                        end: msToASS((parseFloat(startTextEndTime.value) || 15) * 1000),
+                        text: startTextInput.value.trim()
+                    });
+                }
+                
+                if (endTextEnabled.checked && endTextInput.value.trim()) {
+                    // از parseFloat استفاده شده است
+                    let startMs = Math.max(0, totalVideoDurationMs - ((parseFloat(endTextStartFromEnd.value) || 120) * 1000));
+                    let endMs = startMs + ((parseFloat(endTextDuration.value) || 10) * 1000);
+                    extraBlocks.push({
+                        start: msToASS(startMs),
+                        end: msToASS(endMs),
+                        text: endTextInput.value.trim()
+                    });
+                }                
+
+                // -------------------------------------------------------------
 
                 if (useAssPath) {
                     addLog(`بازسازی فایل ${file.name} با حفظ استایل...`);
@@ -2192,6 +2255,14 @@ ${originalChunkTexts.join('|||')}`;
                     if (rebuildResult.untranslatedCount > 0) {
                         addLog(`هشدار: ${rebuildResult.untranslatedCount} خط در بازسازی ASS یافت نشد.`, false, "yellow");
                     }
+                    
+                    // --- [بخش اضافه شده] افزودن خطوط واترمارک به فایل ASS مسیر اصلی ---
+                    if (extraBlocks.length > 0) {
+                        let eventsLines = extraBlocks.map(b => `Dialogue: 0,${b.start},${b.end},Default,,0,0,0,,{\\an8}${b.text.replace(/\r?\n/g, '\\N')}`);
+                        finalContent += '\r\n' + eventsLines.join('\r\n');
+                    }
+                    // -------------------------------------------------------------------
+
                 } else {
                     const translatedMap = new Map();
                     const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
@@ -2206,14 +2277,14 @@ ${originalChunkTexts.join('|||')}`;
                         }
                     }
 
-                    const correctedTexts = originalDialogueBlocks.map((block, index) => 
-                        translatedMap.get(index) || block.text 
+                    const correctedTexts = originalDialogueBlocks.map((block, indexData) => 
+                        translatedMap.get(indexData) || block.text 
                     );
 
                     if (outputFormatChoice === 'srt') {
-                        finalContent = buildSRT(originalDialogueBlocks, correctedTexts);
+                        finalContent = buildSRT(originalDialogueBlocks, correctedTexts, extraBlocks);
                     } else {
-                        finalContent = buildASS(originalDialogueBlocks, correctedTexts, file.name, dialogueData);
+                        finalContent = buildASS(originalDialogueBlocks, correctedTexts, file.name, dialogueData, extraBlocks);
                     }
                 }
 
@@ -2336,8 +2407,9 @@ ${originalChunkTexts.join('|||')}`;
         translationStatusMessage.classList.remove('hidden');
 
         const filesDone = processedFiles.length;
-        overallProgressBar.style.width = `${(filesDone / totalFiles) * 100}%`;
-        overallProgressLabel.textContent = `عملیات کامل شد. ${filesDone} از ${totalFiles} فایل پردازش شد.`;
+        const totalFilesCount = uploadedFiles.length; // تعریف متغیر جا افتاده
+        overallProgressBar.style.width = `${(filesDone / totalFilesCount) * 100}%`;
+        overallProgressLabel.textContent = `عملیات کامل شد. ${filesDone} از ${totalFilesCount} فایل پردازش شد.`;
 
     });
 
@@ -2351,9 +2423,7 @@ ${originalChunkTexts.join('|||')}`;
 
     // --- 9. ساخت فایل .ASS و دانلود (اصلاح شده) ---
 
-        function buildASS(originalBlocks, translatedTexts, originalFileName, dialogueData) {
-        // [!!!] اضافه شدن استایل‌های OP و ED برای افکت کارائوکه [!!!]
-        // رنگ‌ها: &H00FFFFFF (سفید)، &H00FF0000 (آبی در فرمت ASS BGR)، &H009999FF (صورتی روشن)
+                    function buildASS(originalBlocks, translatedTexts, originalFileName, dialogueData, extraBlocks) {
         const header = `
 [Script Info]
 Title: ${originalFileName.replace(/\.(srt|vtt|ass)$/i, '')}_FA_Translated
@@ -2374,7 +2444,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         let events = [];
         let lastEndTime = "0:00:00.00";
 
-        // تشخیص حدودی مدت زمان ویدیو برای تفکیک OP از ED (اگر دکمه فعال باشد)
         const isKaraokeActive = document.getElementById('karaoke-toggle').checked;
         const isAiDetectionActive = document.getElementById('ai-detection-toggle').checked;
 
@@ -2390,42 +2459,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             let positionOverride = "";
             let currentStyle = block.style || 'Default';
 
-            // [!!!] منطق اعمال استایل کارائوکه [!!!]
             if (isKaraokeActive) {
-                // اگر AI Detection فعال باشد و دیتا وجود داشته باشد، اولویت با آن است
                 if (isAiDetectionActive && dialogueData && dialogueData[i]) {
-                    if (dialogueData[i].songType === 'OP') {
-                        currentStyle = 'OP';
-                    } else if (dialogueData[i].songType === 'ED') {
-                        currentStyle = 'ED';
-                    } else if (dialogueData[i].isSong) {
-                         // Fallback logic for AI generic song detection
+                    if (dialogueData[i].songType === 'OP') currentStyle = 'OP';
+                    else if (dialogueData[i].songType === 'ED') currentStyle = 'ED';
+                    else if (dialogueData[i].isSong) {
                          const blockStartSec = parseTimeToMS(block.start) / 1000;
                          if (blockStartSec < totalDurationSecs * 0.5) currentStyle = 'OP';
                          else currentStyle = 'ED';
                     }
-                } 
-                // اگر AI فعال نبود یا دیتا نداشت، از روش سنتی استفاده کن
-                else if (isRomajiOrKanji(block.text) || isRomajiOrKanji(translatedText)) {
+                } else if (isRomajiOrKanji(block.text) || isRomajiOrKanji(translatedText)) {
                     const blockStartSec = parseTimeToMS(block.start) / 1000;
-
-                    // اگر در 30% ابتدایی ویدیو باشد = OP
-                    // اگر در 30% انتهایی ویدیو باشد = ED
-                    if (blockStartSec < totalDurationSecs * 0.3) {
-                        currentStyle = 'OP';
-                    } else if (blockStartSec > totalDurationSecs * 0.7) {
-                        currentStyle = 'ED';
-                    }
+                    if (blockStartSec < totalDurationSecs * 0.3) currentStyle = 'OP';
+                    else if (blockStartSec > totalDurationSecs * 0.7) currentStyle = 'ED';
                 }
             }
 
             let assText = translatedText.replace(/\r?\n/g, '\\N');
 
-            // اضافه کردن افکت فید برای آهنگ‌ها (اختیاری برای زیبایی بیشتر)
             if (currentStyle === 'OP' || currentStyle === 'ED') {
-                 if (!assText.includes('\\fad')) {
-                     assText = `{\\fad(200,200)}${assText}`;
-                 }
+                 if (!assText.includes('\\fad')) assText = `{\\fad(200,200)}${assText}`;
             }
 
             if (currentStyle === 'Default' && compareTimestamps(block.start, lastEndTime) < 0 && !assText.includes('\\an') && !assText.includes('\\pos')) {
@@ -2442,44 +2495,71 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
             const originalRawText = block.text.replace(/<[^>]+>/g, '');
 
+            // ---> استخراج تگ‌های موقعیت‌یاب کلی و انتقال به ابتدای خط <---
             if (originalRawText && (originalRawText.includes('{') || originalRawText.includes('}'))) {
-                const originalTextOnly = originalRawText.replace(/\{[^}]+\}/g, ' ').replace(/<[^>]+>/g, ' ');
-
-                if (originalTextOnly.trim()) {
-                    assText = originalRawText.replace(originalTextOnly, assText);
-                } else {
-                    assText = originalRawText + assText;
+                 // فقط تگ‌های \an1 تا \an9 و \pos(x,y) را می‌گیرد
+                const positionTags = originalRawText.match(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g) || [];
+                if (positionTags.length > 0) {
+                    assText = positionTags.join('') + assText;
                 }
             }
 
             if (positionOverride) {
-                if (assText.startsWith('{') && assText.includes('}')) {
-                    assText = `{\\an8${assText.substring(1)}`;
-                } else {
-                    assText = `{\\an8}${assText}`;
+                // اگر از قبل تگ موقعیت ندارد، آن را اضافه کن
+                if (!assText.includes('\\an') && !assText.includes('\\pos')) {
+                    if (assText.startsWith('{') && assText.includes('}')) assText = `{\\an8${assText.substring(1)}`;
+                    else assText = `{\\an8}${assText}`;
                 }
             }
 
-            events.push(
-                `Dialogue: ${layer},${block.start},${block.end},${currentStyle},${name},${marginL},${marginR},${marginV},${effect},${assText}`
-            );
+            events.push(`Dialogue: ${layer},${block.start},${block.end},${currentStyle},${name},${marginL},${marginR},${marginV},${effect},${assText}`);
         }
+
+        // اضافه کردن متون واترمارک دلخواه
+        if (extraBlocks) {
+            for (const b of extraBlocks) {
+                let assText = b.text.replace(/\r?\n/g, '\\N');
+                events.push(`Dialogue: 0,${b.start},${b.end},Default,,0,0,0,,{\\an8}${assText}`);
+            }
+        }
+
         return header + '\n' + events.join('\n');
     }
 
-    function buildSRT(originalBlocks, translatedTexts) {
-        let srtOutput = '';
+    function buildSRT(originalBlocks, translatedTexts, extraBlocks) {
+        let allBlocks = [];
+        
+        // وارد کردن تمامی بلاک‌های اصلی به لیست جدید
         for (let i = 0; i < originalBlocks.length; i++) {
-            const block = originalBlocks[i];
             const text = translatedTexts[i] || "";
-            const startTime = msToSrtTime(parseTimeToMS(block.start));
-            const endTime = msToSrtTime(parseTimeToMS(block.end));
-
-            // متنی که از translatedTexts می‌آید ممکن است \u202B داشته باشد (به خاطر لاجیک map بالا)
-            // همچنین \n را باید به \r\n تبدیل کنیم
             const cleanText = text.replace(/\r?\n/g, '\r\n');
+            allBlocks.push({
+                startMs: parseTimeToMS(originalBlocks[i].start),
+                endMs: parseTimeToMS(originalBlocks[i].end),
+                text: cleanText
+            });
+        }
+        
+        // وارد کردن بلاک‌های واترمارک (در صورت وجود)
+        if (extraBlocks) {
+            for (const b of extraBlocks) {
+                allBlocks.push({
+                    startMs: parseTimeToMS(b.start),
+                    endMs: parseTimeToMS(b.end),
+                    text: b.text.replace(/\r?\n/g, '\r\n')
+                });
+            }
+        }
+        
+        // مرتب‌سازی زمانی دقیق برای SRT (بسیار مهم تا پلیرها قاطی نکنند)
+        allBlocks.sort((a, b) => a.startMs - b.startMs);
 
-            srtOutput += `${i + 1}\r\n${startTime} --> ${endTime}\r\n${cleanText}\r\n\r\n`;
+        let srtOutput = '';
+        for (let i = 0; i < allBlocks.length; i++) {
+            const block = allBlocks[i];
+            const startTime = msToSrtTime(block.startMs);
+            const endTime = msToSrtTime(block.endMs);
+            srtOutput += `${i + 1}\r\n${startTime} --> ${endTime}\r\n${block.text}\r\n\r\n`;
         }
         return srtOutput.trim();
     }
