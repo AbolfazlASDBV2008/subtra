@@ -295,6 +295,73 @@
                         </div>
                     </div>
 
+                    <div class="bg-gray-800/50 p-5 rounded-xl border border-gray-600/50 shadow-inner mt-6">
+                        <h3 class="text-gray-200 font-bold mb-4 text-center text-lg">واترمارک و متن‌های سفارشی (شروع و پایان)</h3>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                                <div class="flex items-center justify-between mb-3">
+                                    <label class="flex items-center gap-2 cursor-pointer text-blue-400 font-bold">
+                                        <input type="checkbox" id="startTextEnabled" class="w-4 h-4 text-blue-500 bg-gray-900 border-gray-600 rounded focus:ring-blue-600 focus:ring-2 cursor-pointer">
+                                        نمایش متن در شروع انیمه
+                                    </label>
+                                </div>
+                                <div class="space-y-3 transition-opacity duration-300" id="startTextContainer">
+                                    <div>
+                                        <label for="startTextInput" class="block text-sm font-medium text-gray-300 mb-1">متن دلخواه</label>
+                                        <textarea id="startTextInput" rows="2" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="مثلا: تیم انی پارس با افتخار تقدیم میکند"></textarea>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <div class="flex-1">
+                                            <label for="startTextStartTime" class="block text-sm font-medium text-gray-300 mb-1">ثانیه شروع</label>
+                                            <div class="relative">
+                                                <input type="number" id="startTextStartTime" value="5" min="0" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-blue-500 focus:border-blue-500" style="direction: ltr;">
+                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <label for="startTextEndTime" class="block text-sm font-medium text-gray-300 mb-1">ثانیه پایان</label>
+                                            <div class="relative">
+                                                <input type="number" id="startTextEndTime" value="15" min="1" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-blue-500 focus:border-blue-500" style="direction: ltr;">
+                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+                                <div class="flex items-center justify-between mb-3">
+                                    <label class="flex items-center gap-2 cursor-pointer text-purple-400 font-bold">
+                                        <input type="checkbox" id="endTextEnabled" class="w-4 h-4 text-purple-500 bg-gray-900 border-gray-600 rounded focus:ring-purple-600 focus:ring-2 cursor-pointer">
+                                        نمایش متن در پایان انیمه
+                                    </label>
+                                </div>
+                                <div class="space-y-3 transition-opacity duration-300" id="endTextContainer">
+                                    <div>
+                                        <label for="endTextInput" class="block text-sm font-medium text-gray-300 mb-1">متن دلخواه</label>
+                                        <textarea id="endTextInput" rows="2" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="مثلا: برای دیدن زیرنویس‌های بیشتر کانال انی پارس را دنبال کنید"></textarea>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <div class="flex-1">
+                                            <label for="endTextStartFromEnd" class="block text-sm font-medium text-gray-300 mb-1" title="چند ثانیه مانده به پایان ویدیو؟">زمان شروع (مانده به پایان)</label>
+                                            <div class="relative">
+                                                <input type="number" id="endTextStartFromEnd" value="120" min="0" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-purple-500 focus:border-purple-500" style="direction: ltr;">
+                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <label for="endTextDuration" class="block text-sm font-medium text-gray-300 mb-1">مدت زمان نمایش</label>
+                                            <div class="relative">
+                                                <input type="number" id="endTextDuration" value="10" min="1" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-purple-500 focus:border-purple-500" style="direction: ltr;">
+                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="flex items-center relative">
                         <div class="proxy-setting-container w-full flex items-center">
                             <input type="checkbox" id="proxy-toggle" class="w-5 h-5 cursor-pointer">
@@ -520,13 +587,13 @@
         </div>
     </footer>
 
-    <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none; z-index: 100;">
-        <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 border border-gray-700">
+        <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none; z-index: 100;">
+        <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 border border-gray-700 overflow-hidden">
             <h3 class="text-2xl font-bold text-red-500 mb-4 flex items-center gap-2">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 خطا در عملیات
             </h3>
-            <div id="errorMessageContainer" class="text-gray-300 mb-6 text-right max-h-96 overflow-y-auto leading-relaxed">
+            <div id="errorMessageContainer" class="text-gray-300 mb-6 text-right max-h-96 overflow-y-auto overflow-x-hidden break-all leading-relaxed w-full">
             </div>
             <button type="button" id="closeModal" class="w-full px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition duration-300">
                 بستن
@@ -534,6 +601,41 @@
         </div>
     </div>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const startCheckbox = document.getElementById('startTextEnabled');
+            const startContainer = document.getElementById('startTextContainer');
+            
+            const endCheckbox = document.getElementById('endTextEnabled');
+            const endContainer = document.getElementById('endTextContainer');
+
+            function toggleOpacity(checkbox, container) {
+                if (checkbox.checked) {
+                    container.classList.remove('opacity-50', 'pointer-events-none');
+                } else {
+                    container.classList.add('opacity-50', 'pointer-events-none');
+                }
+            }
+
+            function syncUI() {
+                toggleOpacity(startCheckbox, startContainer);
+                toggleOpacity(endCheckbox, endContainer);
+            }
+
+            // ایجاد تغییرات در زمان کلیک کاربر
+            startCheckbox.addEventListener('change', syncUI);
+            endCheckbox.addEventListener('change', syncUI);
+
+            // به دلیل اینکه فایل app.js به عنوان ماژول (module) لود می‌شود و 
+            // تنظیمات را کمی بعد از لود شدن صفحه اعمال می‌کند، 
+            // این تابع را با کمی تاخیر هم اجرا می‌کنیم تا با تنظیمات ذخیره شده سینک شود.
+            syncUI();
+            setTimeout(syncUI, 100);
+            setTimeout(syncUI, 500);
+            setTimeout(syncUI, 1000);
+        });
+    </script>
+    
     <script type="module" src="app.js"></script>
 </body>
 </html>
