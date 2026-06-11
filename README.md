@@ -1,5 +1,5 @@
 🎌 مترجم زیرنویس انیمه (Anime Subtitle Translator)
-> یک ابزار تحت وب قدرتمند و تک-فایلی (Single-Page) برای ترجمه فایل‌های زیرنویس انیمه (VTT, SRT, ASS) به زبان فارسی روان و حرفه‌ای با استفاده از Google Gemini API.
+> یک ابزار تحت وب قدرتمند و تک-فایلی  برای ترجمه فایل‌های زیرنویس انیمه (VTT, SRT, ASS) به زبان فارسی روان و حرفه‌ای با استفاده از Google Gemini API.
 
 🌐 **نسخه آنلاین و زنده (Live Demo):**
 [https://abolfazlasdbv2008.github.io/subtra](https://abolfazlasdbv2008.github.io/subtra)
