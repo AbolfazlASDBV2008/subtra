@@ -233,7 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
 قوانین حیاتی و غیرقابل نقض:
 ۱. در متن ورودی کدهایی شبیه به ***TAG_0*** وجود دارد. به هیچ وجه آن‌ها را ترجمه نکن، فرمتشان را تغییر نده و دقیقاً کنار معادل فارسی کلمه‌شان قرار بده.
 ۲. توهم تگ: فقط و فقط از تگ‌هایی که در خط ورودی می‌بینی استفاده کن. به هیچ وجه تگ جدیدی (مثل TAG_99) از خودت اختراع نکن و تگ‌های خطوط دیگر را با هم قاطی نکن.
-۳. عدم تکرار: جملات ترجمه شده را به هیچ وجه دو بار تکرار نکن (DO NOT duplicate or repeat the translated sentences). هر خط را فقط یک بار ترجمه کن.
+۳. عدم تکرار: جملات ترجمه شده را به هیچ وجه دو بار یا بیشتر تکرار نکن (DO NOT duplicate or repeat the translated sentences). هر خط را فقط یک بار ترجمه کن.
+۴. در متن ورودی عباراتی داخل کروشه [...] وجود دارند که نشان‌دهنده نام گوینده یا افکت‌های صوتی هستند (مثل [gasps] یا [Kyoichiro]). این عبارات را به هیچ‌وجه ترجمه نکن و به طور کامل از متن خروجی حذفشان کن.
     `.trim();
 
     // مدیریت پرامپت‌ها
@@ -1017,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return lookupMap;
     }
 
-    // [!!!] تابع بازسازی اصلاح شده برای بازگرداندن تگ‌ها [!!!]
+    // [!!!] تابع بازسازی اصلاح شده برای رفع مشکل راست‌چین (RTL) و علائم نگارشی [!!!]
     function rebuildAssFromTranslation(originalAssContent, mapping, translationLookup) {
         assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 
@@ -1047,14 +1048,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const parts = robustAssSplit(originalLine.substring(9).trim(), assFormatFields);
                 if (parts.length < assFormatFields.length) return;
 
-                // 1. پاکسازی کاراکترهای RTL برای پردازش راحت‌تر تگ‌ها (بعداً توسط پلیر هندل می‌شود)
-                let cleanTranslation = translatedText.replace(/\u202B/g, '').replace(/\u202C/g, '');
+                // 1. [مهم‌ترین تغییر]: کدهایی که کاراکترهای RTL (\u202B و \u202C) را حذف می‌کردند پاک شدند.
+                // این کار باعث می‌شود نقطه و علامت سوال به درستی در آخر جمله قرار بگیرند و اعداد جابجا نشوند.
+                let cleanTranslation = translatedText;
 
-                // 2. بازگرداندن \N
+                // 2. بازگرداندن \N (شکست خط)
                 cleanTranslation = cleanTranslation.replace(/\|/g, '\\N');
 
-                // 3. [!!!] بازگرداندن تگ‌های اصلی (Unmasking) [!!!]
-                const finalDialogueText = unmaskTags(cleanTranslation, tags);
+                // 3. بازگرداندن تگ‌های اصلی (Unmasking)
+                let finalDialogueText = unmaskTags(cleanTranslation, tags);
+
+                // 4. بهینه‌سازی استایل: تگ‌های موقعیت (مثل \an8 یا \pos) برای احتیاط از داخل بلاک RTL 
+                // خارج شده و به ابتدای خط منتقل می‌شوند تا باعث به هم ریختگی کادر زیرنویس در پلیرها نشوند.
+                const positionTags = finalDialogueText.match(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g) || [];
+                if (positionTags.length > 0) {
+                    // حذف تگ‌های موقعیت از داخل متن
+                    finalDialogueText = finalDialogueText.replace(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g, '');
+                    // چسباندن مجدد به ابتدای مطلق خط
+                    finalDialogueText = positionTags.join('') + finalDialogueText;
+                }
 
                 const dialogueObjRebuild = {};
                 assFormatFields.forEach((field, i) => { dialogueObjRebuild[field] = parts[i]; });
@@ -1071,7 +1083,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             rebuiltAss: originalLines.join('\r\n'),
             untranslatedCount: untranslatedInRebuild,
-            styleReplacementFailureCount: 0 // دیگر کاربردی ندارد چون روش masking استفاده شده
+            styleReplacementFailureCount: 0 
         };
     }
 
@@ -1369,99 +1381,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 7. منطق خود-اصلاح‌گری (شامل پرامپت‌های اصلاح شده) ---
     async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt) {
+    const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
+    const englishRegex = /[a-zA-Z]/;
+    const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
 
-        const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
-        const englishRegex = /[a-zA-Z]/;
-        const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
+    let linesToRetry = [];
+    for (let i = 0; i < texts.length; i++) {
+        if (typeof texts[i] !== 'string') continue; 
+        const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
+        const textForCheck = textPart.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
 
-        let linesToRetry = [];
-        for (let i = 0; i < texts.length; i++) {
-            if (typeof texts[i] !== 'string') continue; 
+        if (!textForCheck) continue; 
+        if (isRomajiOrKanji(textForCheck)) continue; 
 
-            const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
+        if (foreignScriptRegex.test(textForCheck) || badCharacterRegex.test(textForCheck) || englishRegex.test(textForCheck)) {
+            linesToRetry.push({ index: i, text: textPart });
+        } 
+    }
 
-            // [!!!] قبل از بررسی، پلیس‌هولدرهای تگ را حذف می‌کنیم تا انگلیسی تشخیص داده نشوند [!!!]
-            const textForCheck = textPart.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+    if (linesToRetry.length === 0) return texts; 
 
-            if (!textForCheck) continue; 
+    addLog(`تعداد ${linesToRetry.length} خطای ترجمه یافت شد. در حال اصلاح ...`, false, "yellow"); 
+    updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
 
-            const isSong = isRomajiOrKanji(textForCheck);
-            if (isSong) continue; 
+    const RETRY_CHUNK_SIZE = 10;
+    const totalChunks = Math.ceil(linesToRetry.length / RETRY_CHUNK_SIZE);
+    let correctedCount = 0;
 
-            const hasForeign = foreignScriptRegex.test(textForCheck);
-            const hasEnglish = englishRegex.test(textForCheck);
-            const hasBadChars = badCharacterRegex.test(textForCheck);
+    for (let i = 0; i < totalChunks; i++) {
+        if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+        const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
 
-            if (hasForeign || hasBadChars || hasEnglish) {
-                linesToRetry.push({ index: i, text: textPart });
-            } 
-        }
-
-        if (linesToRetry.length === 0) {
-            addLog("بررسی کامل شد. خطای ترجمه ناقص یا خراب یافت نشد."); 
-            return texts; 
-        }
-
-        addLog(`تعداد ${linesToRetry.length} خطای ترجمه (انگلیسی، ترکیبی، خارجی یا خراب) یافت شد. در حال تلاش برای اصلاح...`, false, "yellow"); 
-        updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
-
-        const RETRY_CHUNK_SIZE = 10;
-        const totalChunks = Math.ceil(linesToRetry.length / RETRY_CHUNK_SIZE);
-        let correctedCount = 0;
-
-        for (let i = 0; i < totalChunks; i++) {
-            if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
-
-            const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
-            const originalChunkTexts = chunk.map(l => l.text);
-
-            // [Modified] Use JSON format prompt
-            const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
+        const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
 Please rewrite **each line completely** into fluent and correct Persian.
 If a line contains \`___TAG_n___\` placeholders, you MUST preserve them exactly in the output.
-Do NOT split or merge lines. 
-You must return a **Valid JSON Array of Strings**.
-The array length must be exactly ${chunk.length}.
+You must return a **Valid JSON Array of Objects**, where each object has the SAME "id" as the input, and a "text" field with the translation.
+Example: [{"id": 0, "text": "متن فارسی"}]
 
 Input JSON Array:
-${JSON.stringify(originalChunkTexts)}`;
+${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
 
-            try {
-                const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
+        try {
+            const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
+            let jsonStr = response.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
 
-                // [Modified] Parse JSON response
-                let jsonStr = response.trim();
-                // Remove markdown code blocks if present
-                jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
+            let correctedChunk;
+            try { 
+                correctedChunk = JSON.parse(jsonStr); 
+            } catch(e) { 
+                addLog(`خطای فرمت پاسخ در اصلاح بخش ${i + 1}.`, true); 
+                continue; 
+            }
 
-                let correctedChunk;
-                try {
-                    correctedChunk = JSON.parse(jsonStr);
-                } catch(e) {
-                    console.error("JSON Parse Error:", e, jsonStr);
-                    addLog(`خطای فرمت پاسخ در اصلاح بخش ${i + 1}.`, true);
-                    continue;
-                }
-
-                if (Array.isArray(correctedChunk) && correctedChunk.length === chunk.length) {
-                    for (let j = 0; j < chunk.length; j++) {
-                        const originalIndex = chunk[j].index;
-                        const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                        if (timePartMatch) {
-                            texts[originalIndex] = `${timePartMatch[0]}${correctedChunk[j]}`; 
-                            correctedCount++;
+            if (Array.isArray(correctedChunk)) {
+                // اعمال تغییرات صرفاً روی IDهایی که با موفقیت برگشته‌اند
+                for (let j = 0; j < correctedChunk.length; j++) {
+                    const resObj = correctedChunk[j];
+                    if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
+                        const originalIndex = chunk[resObj.id]?.index;
+                        if (originalIndex !== undefined) {
+                            const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                            if (timePartMatch) {
+                                texts[originalIndex] = `${timePartMatch[0]}${resObj.text}`; 
+                                correctedCount++;
+                            }
                         }
                     }
-                } else { 
-                    addLog(`خطا در اصلاح بخش ${i + 1}. عدم تطابق تعداد. ارسالی: ${chunk.length}، دریافتی: ${Array.isArray(correctedChunk) ? correctedChunk.length : 'نامعتبر'}`, true); 
                 }
-            } catch (error) { 
-                addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); 
             }
+        } catch (error) { 
+            addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); 
         }
-        addLog(`اصلاح ${correctedCount} خط کامل شد.`);
-        return texts;
     }
+    addLog(`اصلاح ${correctedCount} خط کامل شد.`);
+    return texts;
+}
 
     async function callSimpleGeminiAPI(systemInstruction, userPrompt, model, apiKey) {
         if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
@@ -1538,92 +1532,65 @@ ${JSON.stringify(originalChunkTexts)}`;
     }
 
     async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt) {
-        if (untranslatedData.length === 0) {
-            return mergedLinesArray; 
-        }
+    if (untranslatedData.length === 0) return mergedLinesArray; 
 
-        addLog(`تعداد ${untranslatedData.length} خط جا افتاده (ترجمه نشده) یافت شد. در حال تلاش برای ترجمه...`, false, "yellow");
-        updateFileStatus(fileIndex, `در حال ترجمه ${untranslatedData.length} خط جا افتاده...`, 82); 
+    addLog(`تعداد ${untranslatedData.length} خط جا افتاده یافت شد. در حال تلاش برای ترجمه ...`, false, "yellow");
+    updateFileStatus(fileIndex, `در حال ترجمه ${untranslatedData.length} خط جا افتاده...`, 82); 
 
-        const RETRY_CHUNK_SIZE = 10;
-        const totalChunks = Math.ceil(untranslatedData.length / RETRY_CHUNK_SIZE);
-        let correctedCount = 0;
+    const RETRY_CHUNK_SIZE = 10;
+    const totalChunks = Math.ceil(untranslatedData.length / RETRY_CHUNK_SIZE);
+    let correctedCount = 0;
 
-        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-            if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
 
-            const chunk = untranslatedData.slice(chunkIndex * RETRY_CHUNK_SIZE, (chunkIndex + 1) * RETRY_CHUNK_SIZE);
-            const originalChunkTexts = chunk.map(l => l.originalText);
+        const chunk = untranslatedData.slice(chunkIndex * RETRY_CHUNK_SIZE, (chunkIndex + 1) * RETRY_CHUNK_SIZE);
 
-            const promptText = `خطوط انگلیسی زیر در ترجمه اولیه جا افتاده‌اند و با '|||' جدا شده‌اند.
-لطفاً **هر خط را به صورت کامل** به فارسی روان ترجمه کن.
-اگر خط حاوی تگ‌های \`___TAG_n___\` است، حتماً آن‌ها را بدون تغییر در متن خروجی نگه دار.
-پاسخ‌ها باید **دقیقاً با همان تعداد خطوط ارسالی** و با جداکننده '|||' برگردانده شوند.
-**مهم: هرگز یک خط ورودی را به چند خط خروجی (با '|||' اضافی) تقسیم نکن.**
+        const promptText = `The following JSON array contains subtitle lines that were skipped in the initial translation.
+Please translate **each line completely** into fluent Persian.
+If a line contains \`___TAG_n___\` placeholders, you MUST preserve them exactly in the output.
+You must return a **Valid JSON Array of Objects**, where each object has the SAME "id" as the input, and a "text" field with the Persian translation.
+Example: [{"id": 0, "text": "ترجمه فارسی"}]
 
-خطوط برای ترجمه:
-${originalChunkTexts.join('|||')}`;
+Input JSON Array:
+${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })))}`;
 
-            try {
-                const response = await callSimpleGeminiAPI(systemPrompt, promptText, model, apiKey);
-               const correctedChunk = response.split('|||').map(t => t.trim()).filter(t => t.length > 0);
+        try {
+            const response = await callSimpleGeminiAPI(systemPrompt, promptText, model, apiKey);
+            let jsonStr = response.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
 
-                if (correctedChunk.length === chunk.length) {
-                    for (let j = 0; j < chunk.length; j++) {
-                        const originalData = chunk[j];
-                        const originalLineIndex = originalData.indexInMerged;
-
-                        const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                        if (timePartMatch) {
-                            const timePart = timePartMatch[0];
-                            mergedLinesArray[originalLineIndex] = `${timePart}${correctedChunk[j]}`; 
-                            correctedCount++;
-                        }
-                    }
-                } else if (chunk.length === 1 && correctedChunk.length > 1) {
-                    addLog(`اصلاح ویژه: 1 خط به ${correctedChunk.length} خط تبدیل شد (مورد کردیت‌ها).`, false, "yellow");
-                    const originalData = chunk[0];
-                    const originalLineIndex = originalData.indexInMerged;
-                    const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
-
-                    if (timePartMatch) {
-                        const timePart = timePartMatch[0];
-                        const newText = correctedChunk.join('|'); 
-                        mergedLinesArray[originalLineIndex] = `${timePart}${newText}`;
-                        correctedCount++;
-                    }
-                } else if (chunk.length > 1 && correctedChunk.length > chunk.length) {
-                    addLog(`اصلاح ویژه: عدم تطابق (${chunk.length} به ${correctedChunk.length}). در حال ادغام همه خطوط در خط اول...`, false, "yellow");
-
-                    const newText = correctedChunk.join('|'); 
-
-                    const firstOriginalData = chunk[0];
-                    const firstLineIndex = firstOriginalData.indexInMerged;
-                    const firstTimePartMatch = mergedLinesArray[firstLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
-
-                    if (firstTimePartMatch) {
-                        mergedLinesArray[firstLineIndex] = `${firstTimePartMatch[0]}${newText}`;
-                        correctedCount++;
-                    }
-                    for (let j = 1; j < chunk.length; j++) {
-                        const subData = chunk[j];
-                        const subLineIndex = subData.indexInMerged;
-                        const subTimePartMatch = mergedLinesArray[subLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                        if (subTimePartMatch) {
-                            mergedLinesArray[subLineIndex] = `${subTimePartMatch[0]}`; 
-                        }
-                    }
-                } else {
-                    addLog(`خطا در ترجمه خطوط جا افتاده (بخش ${chunkIndex + 1}). تعداد خطوط ارسالی: ${chunk.length}, تعداد خطوط دریافتی: ${correctedChunk.length}.`, true);
-                }
-            } catch (error) {
-                addLog(`خطا در API هنگام ترجمه خطوط جا افتاده بخش ${chunkIndex + 1}: ${error.message}`, true);
+            let correctedChunk;
+            try { 
+                correctedChunk = JSON.parse(jsonStr); 
+            } catch(e) { 
+                addLog(`خطای فرمت پاسخ در ترجمه خطوط جا افتاده بخش ${chunkIndex + 1}.`, true); 
+                continue; 
             }
-        }
-        addLog(`ترجمه ${correctedCount} خط جا افتاده کامل شد.`);
-        return mergedLinesArray;
-    }
 
+            if (Array.isArray(correctedChunk)) {
+                // نگاشت دقیق بر اساس ID بدون وابستگی به طول آرایه
+                for (let j = 0; j < correctedChunk.length; j++) {
+                    const resObj = correctedChunk[j];
+                    if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
+                        const originalData = chunk[resObj.id];
+                        if (originalData) {
+                            const originalLineIndex = originalData.indexInMerged;
+                            const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                            if (timePartMatch) {
+                                mergedLinesArray[originalLineIndex] = `${timePartMatch[0]}${resObj.text}`; 
+                                correctedCount++;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) { 
+            addLog(`خطا در API هنگام ترجمه جا افتاده: ${error.message}`, true); 
+        }
+    }
+    addLog(`ترجمه ${correctedCount} خط جا افتاده کامل شد.`);
+    return mergedLinesArray;
+}
 
     // --- 8. منطق اصلی ترجمه (بازنویسی و ارتقا یافته) ---
 
@@ -2263,17 +2230,36 @@ ${originalChunkTexts.join('|||')}`;
                     }
                     // -------------------------------------------------------------------
 
-                } else {
+                              } else {
                     const translatedMap = new Map();
                     const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
-                    let lineIndex = 0;
+                    
+                    // 1. ساخت یک دیکشنری دقیق برای پیدا کردن ایندکس اصلی از روی فریم زمانی
+                    const frameToIndexMap = new Map();
+                    dialogueData.forEach(d => {
+                        const timeKey = `{${d.startFrame}}{${d.endFrame}}`;
+                        frameToIndexMap.set(timeKey, d.i);
+                    });
+
+                    // 2. نگاشت دقیق هر ترجمه به خط اصلی بر اساس فریم، نه بر اساس ترتیب
                     for (const line of finalMicroDVDWithCorrections.split('\n')) {
                         const match = line.match(microDVDLineRegex);
-                        if (match && lineIndex < originalDialogueBlocks.length) {
+                        if (match) {
+                            const timeKey = `{${match[1]}}{${match[2]}}`;
                             let text = match[3];
+                            // اعمال راست‌چین (RTL)
                             text = text.split('|').map(part => `\u202B${part.trim()}\u202C`).join('\n');
-                            translatedMap.set(lineIndex, text);
-                            lineIndex++;
+                            
+                            // فقط در صورتی که این فریم زمانی در فایل اصلی وجود داشته باشد
+                            if (frameToIndexMap.has(timeKey)) {
+                                const originalIndex = frameToIndexMap.get(timeKey);
+                                // جلوگیری از بازنویسی اگر هوش مصنوعی یک خط را دو تکه کرده باشد
+                                if (translatedMap.has(originalIndex)) {
+                                    translatedMap.set(originalIndex, translatedMap.get(originalIndex) + '\\N' + text);
+                                } else {
+                                    translatedMap.set(originalIndex, text);
+                                }
+                            }
                         }
                     }
 
