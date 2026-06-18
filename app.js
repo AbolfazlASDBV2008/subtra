@@ -1380,39 +1380,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 7. منطق خود-اصلاح‌گری (شامل پرامپت‌های اصلاح شده) ---
-    async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt) {
-    const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
-    const englishRegex = /[a-zA-Z]/;
-    const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
+        async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt, masterTranslationMap, fileId) {
+        const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
+        const englishRegex = /[a-zA-Z]/;
+        const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
 
-    let linesToRetry = [];
-    for (let i = 0; i < texts.length; i++) {
-        if (typeof texts[i] !== 'string') continue; 
-        const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
-        const textForCheck = textPart.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+        let linesToRetry = [];
+        for (let i = 0; i < texts.length; i++) {
+            if (typeof texts[i] !== 'string') continue; 
+            const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
+            const textForCheck = textPart.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
 
-        if (!textForCheck) continue; 
-        if (isRomajiOrKanji(textForCheck)) continue; 
+            if (!textForCheck) continue; 
+            if (isRomajiOrKanji(textForCheck)) continue; 
 
-        if (foreignScriptRegex.test(textForCheck) || badCharacterRegex.test(textForCheck) || englishRegex.test(textForCheck)) {
-            linesToRetry.push({ index: i, text: textPart });
-        } 
-    }
+            if (foreignScriptRegex.test(textForCheck) || badCharacterRegex.test(textForCheck) || englishRegex.test(textForCheck)) {
+                // پیدا کردن آیدی از مپ اصلی برای آپدیت صحیح (بر اساس محتوا)
+                let foundId = -1;
+                masterTranslationMap.forEach((val, key) => { if (val === textPart) foundId = key; });
+                linesToRetry.push({ index: i, text: textPart, originalId: foundId });
+            } 
+        }
 
-    if (linesToRetry.length === 0) return texts; 
+        if (linesToRetry.length === 0) return { lines: texts, unresolvedCount: 0 }; 
 
-    addLog(`تعداد ${linesToRetry.length} خطای ترجمه یافت شد. در حال اصلاح ...`, false, "yellow"); 
-    updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
+        addLog(`تعداد ${linesToRetry.length} خطای نگارشی یافت شد. در حال اصلاح ...`, false, "yellow"); 
+        updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
 
-    const RETRY_CHUNK_SIZE = 10;
-    const totalChunks = Math.ceil(linesToRetry.length / RETRY_CHUNK_SIZE);
-    let correctedCount = 0;
+        const RETRY_CHUNK_SIZE = 10;
+        const totalChunks = Math.ceil(linesToRetry.length / RETRY_CHUNK_SIZE);
+        let correctedCount = 0;
 
-    for (let i = 0; i < totalChunks; i++) {
-        if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
-        const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
+        for (let i = 0; i < totalChunks; i++) {
+            if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+            const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
 
-        const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
+            const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
 Please rewrite **each line completely** into fluent and correct Persian.
 If a line contains \`___TAG_n___\` placeholders, you MUST preserve them exactly in the output.
 You must return a **Valid JSON Array of Objects**, where each object has the SAME "id" as the input, and a "text" field with the translation.
@@ -1421,41 +1424,42 @@ Example: [{"id": 0, "text": "متن فارسی"}]
 Input JSON Array:
 ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
 
-        try {
-            const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
-            let jsonStr = response.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
+            try {
+                const response = await callSimpleGeminiAPI(prompt, promptText, model, apiKey);
+                let jsonStr = response.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
 
-            let correctedChunk;
-            try { 
-                correctedChunk = JSON.parse(jsonStr); 
-            } catch(e) { 
-                addLog(`خطای فرمت پاسخ در اصلاح بخش ${i + 1}.`, true); 
-                continue; 
-            }
+                let correctedChunk;
+                try { 
+                    correctedChunk = JSON.parse(jsonStr); 
+                } catch(e) { continue; }
 
-            if (Array.isArray(correctedChunk)) {
-                // اعمال تغییرات صرفاً روی IDهایی که با موفقیت برگشته‌اند
-                for (let j = 0; j < correctedChunk.length; j++) {
-                    const resObj = correctedChunk[j];
-                    if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
-                        const originalIndex = chunk[resObj.id]?.index;
-                        if (originalIndex !== undefined) {
-                            const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                            if (timePartMatch) {
-                                texts[originalIndex] = `${timePartMatch[0]}${resObj.text}`; 
-                                correctedCount++;
+                if (Array.isArray(correctedChunk)) {
+                    for (let j = 0; j < correctedChunk.length; j++) {
+                        const resObj = correctedChunk[j];
+                        if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
+                            const originalIndex = chunk[resObj.id]?.index;
+                            if (originalIndex !== undefined) {
+                                const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                                if (timePartMatch) {
+                                    texts[originalIndex] = `${timePartMatch[0]}${resObj.text}`; 
+                                    if (chunk[resObj.id].originalId !== -1) {
+                                        masterTranslationMap.set(chunk[resObj.id].originalId, resObj.text);
+                                    }
+                                    correctedCount++;
+                                }
                             }
                         }
                     }
+                    saveProgress(fileId, masterTranslationMap);
                 }
+            } catch (error) { 
+                addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); 
+                break;
             }
-        } catch (error) { 
-            addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); 
         }
+        addLog(`اصلاح ${correctedCount} خط کامل شد.`);
+        return { lines: texts, unresolvedCount: linesToRetry.length - correctedCount };
     }
-    addLog(`اصلاح ${correctedCount} خط کامل شد.`);
-    return texts;
-}
 
     async function callSimpleGeminiAPI(systemInstruction, userPrompt, model, apiKey) {
         if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
@@ -1531,22 +1535,22 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
         throw new Error("Failed after max retries.");
     }
 
-    async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt) {
-    if (untranslatedData.length === 0) return mergedLinesArray; 
+        async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt, masterTranslationMap, fileId) {
+        if (untranslatedData.length === 0) return { lines: mergedLinesArray, unresolvedCount: 0 }; 
 
-    addLog(`تعداد ${untranslatedData.length} خط جا افتاده یافت شد. در حال تلاش برای ترجمه ...`, false, "yellow");
-    updateFileStatus(fileIndex, `در حال ترجمه ${untranslatedData.length} خط جا افتاده...`, 82); 
+        addLog(`تعداد ${untranslatedData.length} خط جا افتاده یافت شد. در حال تلاش برای ترجمه ...`, false, "yellow");
+        updateFileStatus(fileIndex, `در حال ترجمه ${untranslatedData.length} خط جا افتاده...`, 82); 
 
-    const RETRY_CHUNK_SIZE = 10;
-    const totalChunks = Math.ceil(untranslatedData.length / RETRY_CHUNK_SIZE);
-    let correctedCount = 0;
+        const RETRY_CHUNK_SIZE = 10;
+        const totalChunks = Math.ceil(untranslatedData.length / RETRY_CHUNK_SIZE);
+        let correctedCount = 0;
 
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
 
-        const chunk = untranslatedData.slice(chunkIndex * RETRY_CHUNK_SIZE, (chunkIndex + 1) * RETRY_CHUNK_SIZE);
+            const chunk = untranslatedData.slice(chunkIndex * RETRY_CHUNK_SIZE, (chunkIndex + 1) * RETRY_CHUNK_SIZE);
 
-        const promptText = `The following JSON array contains subtitle lines that were skipped in the initial translation.
+            const promptText = `The following JSON array contains subtitle lines that were skipped in the initial translation.
 Please translate **each line completely** into fluent Persian.
 If a line contains \`___TAG_n___\` placeholders, you MUST preserve them exactly in the output.
 You must return a **Valid JSON Array of Objects**, where each object has the SAME "id" as the input, and a "text" field with the Persian translation.
@@ -1555,42 +1559,45 @@ Example: [{"id": 0, "text": "ترجمه فارسی"}]
 Input JSON Array:
 ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })))}`;
 
-        try {
-            const response = await callSimpleGeminiAPI(systemPrompt, promptText, model, apiKey);
-            let jsonStr = response.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
+            try {
+                const response = await callSimpleGeminiAPI(systemPrompt, promptText, model, apiKey);
+                let jsonStr = response.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
 
-            let correctedChunk;
-            try { 
-                correctedChunk = JSON.parse(jsonStr); 
-            } catch(e) { 
-                addLog(`خطای فرمت پاسخ در ترجمه خطوط جا افتاده بخش ${chunkIndex + 1}.`, true); 
-                continue; 
-            }
+                let correctedChunk;
+                try { 
+                    correctedChunk = JSON.parse(jsonStr); 
+                } catch(e) { 
+                    addLog(`خطای فرمت پاسخ در ترجمه خطوط جا افتاده بخش ${chunkIndex + 1}.`, true); 
+                    continue; 
+                }
 
-            if (Array.isArray(correctedChunk)) {
-                // نگاشت دقیق بر اساس ID بدون وابستگی به طول آرایه
-                for (let j = 0; j < correctedChunk.length; j++) {
-                    const resObj = correctedChunk[j];
-                    if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
-                        const originalData = chunk[resObj.id];
-                        if (originalData) {
-                            const originalLineIndex = originalData.indexInMerged;
-                            const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                            if (timePartMatch) {
-                                mergedLinesArray[originalLineIndex] = `${timePartMatch[0]}${resObj.text}`; 
-                                correctedCount++;
+                if (Array.isArray(correctedChunk)) {
+                    for (let j = 0; j < correctedChunk.length; j++) {
+                        const resObj = correctedChunk[j];
+                        if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
+                            const originalData = chunk[resObj.id];
+                            if (originalData) {
+                                const originalLineIndex = originalData.indexInMerged;
+                                const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                                if (timePartMatch) {
+                                    mergedLinesArray[originalLineIndex] = `${timePartMatch[0]}${resObj.text}`; 
+                                    // ثبت در حافظه با استفاده از originalId
+                                    masterTranslationMap.set(originalData.originalId, resObj.text);
+                                    correctedCount++;
+                                }
                             }
                         }
                     }
+                    saveProgress(fileId, masterTranslationMap);
                 }
+            } catch (error) { 
+                addLog(`خطا در API هنگام ترجمه جا افتاده: ${error.message}`, true); 
+                break;
             }
-        } catch (error) { 
-            addLog(`خطا در API هنگام ترجمه جا افتاده: ${error.message}`, true); 
         }
+        addLog(`ترجمه ${correctedCount} خط جا افتاده کامل شد.`);
+        return { lines: mergedLinesArray, unresolvedCount: untranslatedData.length - correctedCount };
     }
-    addLog(`ترجمه ${correctedCount} خط جا افتاده کامل شد.`);
-    return mergedLinesArray;
-}
 
     // --- 8. منطق اصلی ترجمه (بازنویسی و ارتقا یافته) ---
 
@@ -1805,31 +1812,29 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                                     isFirstChunk = false; 
                                 }
 
-                                const lines = currentFullText.split('\n');
-                                // فیلتر کردن خطوط خالی یا بدون فرمت MicroDVD برای جلوگیری از ایجاد فاصله خالی در ابتدای لایو باکس
+                                                               const lines = currentFullText.split('\n');
                                 const extractedTexts = lines
                                     .map(line => {
-                                        const match = line.match(/^(\{\d+\}\{\d+\})(.*)$/);
+                                        // استخراج ایمن خطوط با استفاده از کدملی (ID)
+                                        const match = line.match(/^\[ID:\s*(\d+)\]\s*(\{\d+\}\{\d+\})(.*)$/i);
                                         if (match) {
-                                            // --- [NEW] Real-time Progress Saving (Debounced) ---
-                                            // Save the translated line immediately to localStorage (memory map)
                                             if (accumulatedMap) {
-                                                const key = match[1]; // {start}{end}
-                                                const text = match[2]; // Translated Text
-                                                accumulatedMap.set(key, text);
+                                                const id = parseInt(match[1], 10); // ID به عنوان کلید یکتا
+                                                const text = match[3].trim();
+                                                
+                                                // ذخیره متن به همراه ID در حافظه
+                                                accumulatedMap.set(id, text);
 
-                                                // [!!!] Debounce Logic: Wait 1.5s before writing to disk
                                                 if (saveProgressTimeout) clearTimeout(saveProgressTimeout);
                                                 saveProgressTimeout = setTimeout(() => {
                                                     saveProgress(fileId, accumulatedMap);
                                                 }, 1500);
                                             }
-                                            return match[2]; // Return only text for Live Output
+                                            return match[3].trim(); // ارسال فقط متن برای نمایش زنده
                                         }
                                         return null;
                                     })
-                                    .filter(text => text !== null); // حذف خطوطی که مچ نشدند
-
+                                    .filter(text => text !== null);
                                 // [!!!] تغییر: آپدیت DOM فقط در صورت فعال بودن تاگل [!!!]
                                 if (liveOutputToggle.checked) {
                                     liveOutput.style.display = 'block';
@@ -2029,171 +2034,108 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 }
 
 
-                const mainLines = dialogueData.filter(d => !d.isSong);
-                const romajiLines = dialogueData.filter(d => d.isSong);
-
-                // برای مسیر ASS، ما از خروجی processAssForTranslationAndMapping استفاده می‌کنیم که دقیق‌تر است
-                let mainMicroDVD, romajiMicroDVD;
+                // --- ارسال یکپارچه با سیستم ضد-توهم (ID Tracking) ---
+                let fullMicroDVD = '';
+                let linesObjArray = [];
 
                 if (useAssPath) {
-                     // [!!!] جدا کردن خطوط بر اساس ایندکس مپینگ [!!!]
-                     // راه ساده‌تر: استفاده از رشته تولید شده توسط تابع process
                      const processResult = processAssForTranslationAndMapping(content, fps);
-
-                     const linesObj = processResult.microdvdForAI.split('\n').map((line, idx) => {
-                         // نکته: اینجا idx ممکن است دقیقاً با dialogueData یکی نباشد اگر فیلتر شده باشند
-                         // اما چون هر دو از یک منطق فیلتر رد شده‌اند، باید هماهنگ باشند.
-                         // برای اطمینان بیشتر، از منطق isSong که روی dialogueData اعمال شده استفاده می‌کنیم.
-
+                     linesObjArray = processResult.microdvdForAI.split('\n').map((line, idx) => {
                          const match = line.match(/^(\{\d+\}\{\d+\})(.*)$/);
-                         return { time: match[1], text: match[2], line: line, originalIndex: idx };
-                     });
-
-                     // اگر AI Detection فعال باشد، باید بر اساس ایندکس تصمیم بگیریم نه متن
-                     // اما مپینگ بین dialogueData و linesObj ممکن است چالش برانگیز باشد.
-                     // ساده‌ترین کار: اگر AI Detection فعال بود، از روی ایندکس dialogueData تصمیم بگیریم.
-
-                     if (aiDetectionToggle.checked) {
-                         // بازسازی بر اساس فلگ isSong در dialogueData
-                         // فرض بر این است که dialogueData دقیقاً متناظر با linesObj است (چون هر دو فیلترهای مشابه داشتند)
-                         // --- [NEW] Filter based on MasterMap ---
-                         mainMicroDVD = linesObj
-                            .filter((l, idx) => dialogueData[idx] && !dialogueData[idx].isSong)
-                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
-                            .map(l => l.line).join('\n');
-
-                         romajiMicroDVD = linesObj
-                            .filter((l, idx) => dialogueData[idx] && dialogueData[idx].isSong)
-                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
-                            .map(l => l.line).join('\n');
-                     } else {
-                         // --- [NEW] Filter based on MasterMap ---
-                         mainMicroDVD = linesObj
-                            .filter(l => !isRomajiOrKanji(l.text))
-                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
-                            .map(l => l.line).join('\n');
-
-                         romajiMicroDVD = linesObj
-                            .filter(l => isRomajiOrKanji(l.text))
-                            .filter(l => !masterTranslationMap.has(l.time)) // Resume Check
-                            .map(l => l.line).join('\n');
-                     }
-
+                         if (match) {
+                             const origId = processResult.map[idx].lineNumber;
+                             return { id: origId, time: match[1], text: match[2], line: `[ID:${origId}]${line}` };
+                         }
+                         return null;
+                     }).filter(l => l !== null);
                 } else {
-                    // --- [NEW] Filter based on MasterMap (Standard SRT Path) ---
-                    mainMicroDVD = mainLines
-                        .filter(d => {
-                             const key = `{${d.startFrame}}{${d.endFrame}}`;
-                             return !masterTranslationMap.has(key);
-                        })
-                        .map(d => d.microLine).join('\n');
-
-                    romajiMicroDVD = romajiLines
-                        .filter(d => {
-                             const key = `{${d.startFrame}}{${d.endFrame}}`;
-                             return !masterTranslationMap.has(key);
-                        })
-                        .map(d => d.microLine).join('\n');
+                     linesObjArray = dialogueData.map(d => {
+                         return { id: d.i, time: `{${d.startFrame}}{${d.endFrame}}`, text: d.cleanText, line: `[ID:${d.i}]${d.microLine}` };
+                     });
                 }
 
-                const mainLinesCount = mainMicroDVD ? mainMicroDVD.split('\n').filter(l=>l).length : 0;
-                const romajiLinesCount = romajiMicroDVD ? romajiMicroDVD.split('\n').filter(l=>l).length : 0;
-                addLog(`تفکیک شد: ${mainLinesCount} خط دیالوگ اصلی، ${romajiLinesCount} خط آهنگ/روماجی .`);
+                // فیلتر کردن خطوطی که از قبل در حافظه ترجمه شده‌اند (سیستم Resume)
+                fullMicroDVD = linesObjArray
+                    .filter(l => !masterTranslationMap.has(l.id)) 
+                    .map(l => l.line).join('\n');
 
-                const originalMicroDVDForMerge = dialogueData.map(d => d.microLine).join('\n');
+                const pendingLinesCount = fullMicroDVD ? fullMicroDVD.split('\n').filter(l=>l).length : 0;
+                addLog(`فایل یکپارچه شد: ${pendingLinesCount} خط دیالوگ برای ارسال آماده است.`);
 
-                // --- [NEW] Pass masterTranslationMap and fileId to translateChunk ---
-                if (mainLinesCount > 0) {
-                    await translateChunk(mainMicroDVD, "این فایل فقط شامل دیالوگ‌های اصلی است. لطفاً آن‌ها را به فارسی روان ترجمه کن.", `${file.name}-main`, 10, 45, i, masterTranslationMap, fileId);
+                if (pendingLinesCount > 0) {
+                    const unifiedPrompt = systemPrompt.value + 
+                    "\n\n[قانون حیاتی و غیرقابل نقض]: فایل ورودی شامل کل زیرنویس است و در ابتدای هر خط یک شناسه منحصربه‌فرد (مانند [ID:12]) وجود دارد. شما موظف هستید دقیقاً این شناسه و فرمت زمانی را در ابتدای هر خط خروجی حفظ کنید (مثال خروجی صحیح: [ID:12]{100}{200}سلام). تحت هیچ شرایطی خطوط را ادغام نکنید و هیچ خطی را جا نیندازید. خطوط آواز (OP/ED) را شاعرانه و بقیه را محاوره‌ای ترجمه کنید.";
+
+                    await translateChunk(fullMicroDVD, unifiedPrompt, file.name, 10, 80, i, masterTranslationMap, fileId);
                 }
 
-                // [!!!] FIX: اضافه کردن تاکید بر ترجمه خط اول برای رفع باگ نمایش داده نشدن خط اول آهنگ [!!!]
-                const romajiPrompt = `این فایل فقط شامل خطوط آهنگ (OP/ED) به زبان انگلیسی یا روماجی است. 
-لطفاً به فارسی **روان، آهنگین، و شاعرانه** ترجمه کنید. 
-**از ترجمه تحت‌اللفظی پرهیز کن.** حس و ریتم آهنگ را حفظ کن.
-**نکته بسیار مهم:** تمام خطوط را دقیقاً خط به خط ترجمه کن. **حتی خط اول را هم حتماً ترجمه کن و جا نینداز.**
-تعداد خطوط خروجی باید دقیقاً با تعداد خطوط ورودی برابر باشد.`;
-
-                if (romajiLinesCount > 0) {
-                    await translateChunk(romajiMicroDVD, romajiPrompt, `${file.name}-romaji`, 45, 80, i, masterTranslationMap, fileId);
-                }
-
-                addLog("ترجمه‌ها دریافت شد . در حال ادغام...");
+                addLog("در حال پردازش و چینش قطعات بر اساس ID...");
                 updateFileStatus(i, "در حال ادغام نتایج...", 80);
 
-                // --- [NEW] Reconstruct Arrays from MasterMap ---
-                // Instead of using just the returned string, we pull everything from the Map
-                // This handles both new translations AND recovered ones.
+                let microDVDSplitted = [];
+                let untranslatedLinesData = [];
+                let totalUnresolvedErrors = 0;
 
-                let finalMicroDVDLines = [];
+                // چیدن دقیق خطوط سر جای خود (بدون امکان به هم ریختن زمان‌ها)
+                linesObjArray.forEach(l => {
+                    const id = l.id;
+                    const timeKey = l.time;
+                    let pushIndex = microDVDSplitted.length; 
 
-                if (useAssPath) {
-                     // برای ASS از assMapping استفاده می‌کنیم
-                     assMapping.forEach(m => {
-                         const key = m.microdvdTime;
-                         if (masterTranslationMap.has(key)) {
-                             // Clean any potential markdown from values stored in map (just in case)
-                             const rawVal = masterTranslationMap.get(key);
-                             finalMicroDVDLines.push(`${key}${cleanAIOutput(rawVal)}`);
-                         } else {
-                             // If not in map, it wasn't translated (handled in rebuildAss)
-                         }
-                     });
-                     // Note: finalMicroDVDLines is now populated directly from the map, ensuring order.
-                } else {
-                    // منطق قبلی برای SRT
-                    // Iterate original dialogue blocks and fetch from Map
-                    finalMicroDVDLines = new Array(originalDialogueBlocks.length).fill('');
+                    if (masterTranslationMap.has(id)) {
+                        const transText = cleanAIOutput(masterTranslationMap.get(id)).replace(/\n/g, '|');
+                        microDVDSplitted.push(`${timeKey}${transText}`);
+                    } else {
+                        // اگر به خاطر ارور لیمیت در اینترنت قطع شد، نسخه اصلی رو بذار سر جاش و برای توابع اصلاحی ثبت کن
+                        microDVDSplitted.push(`${timeKey}${l.text.replace(/\n/g, '|')}`);
+                        untranslatedLinesData.push({ originalId: id, indexInMerged: pushIndex, originalText: l.text });
+                    }
+                });
 
-                    dialogueData.forEach(line => {
-                         const key = `{${line.startFrame}}{${line.endFrame}}`;
-                         if (masterTranslationMap.has(key)) {
-                              const trans = masterTranslationMap.get(key);
-                              // We need to store it back in MicroDVD format: {start}{end}Text
-                              finalMicroDVDLines[line.i] = `${key}${cleanAIOutput(trans).replace(/\n/g, '|')}`;
-                         } else {
-                              // Keep original if not translated
-                              finalMicroDVDLines[line.i] = line.microLine;
-                         }
-                    });
-                }
+                const isComplete = untranslatedLinesData.length === 0;
+                if (!isComplete) addLog("هشدار: بخش‌هایی از فایل ترجمه نشده است.", false, "yellow");
 
-                const finalTranslatedMicroDVD = finalMicroDVDLines.filter(l => l).join('\n');
-
-                const mergeResult = mergeTrustedFramesWithAiText(originalMicroDVDForMerge, finalTranslatedMicroDVD);
-                let microDVDSplitted = mergeResult.mergedTextLines; 
-
-                const isComplete = checkTranslationCompleteness(microDVDSplitted.join('\n'), originalLastEndFrame);
-                if (!isComplete) addLog("هشدار: ترجمه ممکن است ناقص باشد (خط پایانی مطابقت ندارد).", false, "yellow");
-
-                if (mergeResult.untranslatedCount > 0) {
-                    addLog(`هشدار: ${mergeResult.untranslatedCount} خط در ترجمه اولیه جا افتاده بود.`, false, "yellow");
-                    microDVDSplitted = await performMissingLineCorrection(
+                if (untranslatedLinesData.length > 0) {
+                    addLog(`ارسال ${untranslatedLinesData.length} خط جا افتاده به توابع اصلاحی...`, false, "yellow");
+                    const missingResult = await performMissingLineCorrection(
                         microDVDSplitted, 
-                        mergeResult.untranslatedLinesData, 
+                        untranslatedLinesData, 
                         i, 
                         model, 
                         apiKey, 
-                        prompt
+                        prompt,
+                        masterTranslationMap, 
+                        fileId                
                     );
+                    microDVDSplitted = missingResult.lines;
+                    totalUnresolvedErrors += missingResult.unresolvedCount;
                 }
 
-                updateFileStatus(i, "در حال اصلاح ترجمه...", 85);
-                microDVDSplitted = await performSelfCorrection(microDVDSplitted, i, model, apiKey, prompt); 
+                updateFileStatus(i, "در حال بررسی خطاهای نگارشی...", 85);
+                const selfResult = await performSelfCorrection(
+                    microDVDSplitted, 
+                    i, 
+                    model, 
+                    apiKey, 
+                    prompt,
+                    masterTranslationMap, 
+                    fileId                
+                ); 
+                microDVDSplitted = selfResult.lines;
+                totalUnresolvedErrors += selfResult.unresolvedCount;
 
                 const finalMicroDVDWithCorrections = microDVDSplitted.join('\n'); 
 
-                                let finalContent;
+
+                let finalContent;
                 const outputExt = outputFormatChoice === 'srt' ? '.srt' : '.ass';
 
-                // --- [بخش اضافه شده] استخراج متون واترمارک شروع و پایان ---
-                                // --- [بخش اضافه شده] استخراج متون واترمارک شروع و پایان ---
+                // --- استخراج متون واترمارک شروع و پایان ---
                 let extraBlocks = [];
                 const totalVideoDurationMs = (originalLastEndFrame / fps) * 1000;
 
                 if (startTextEnabled.checked && startTextInput.value.trim()) {
                     extraBlocks.push({
-                        // از parseFloat استفاده شده است
                         start: msToASS((parseFloat(startTextStartTime.value) || 5) * 1000),
                         end: msToASS((parseFloat(startTextEndTime.value) || 15) * 1000),
                         text: startTextInput.value.trim()
@@ -2201,7 +2143,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 }
                 
                 if (endTextEnabled.checked && endTextInput.value.trim()) {
-                    // از parseFloat استفاده شده است
                     let startMs = Math.max(0, totalVideoDurationMs - ((parseFloat(endTextStartFromEnd.value) || 120) * 1000));
                     let endMs = startMs + ((parseFloat(endTextDuration.value) || 10) * 1000);
                     extraBlocks.push({
@@ -2210,8 +2151,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                         text: endTextInput.value.trim()
                     });
                 }                
-
-                // -------------------------------------------------------------
 
                 if (useAssPath) {
                     addLog(`بازسازی فایل ${file.name} با حفظ استایل...`);
@@ -2223,37 +2162,30 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                         addLog(`هشدار: ${rebuildResult.untranslatedCount} خط در بازسازی ASS یافت نشد.`, false, "yellow");
                     }
                     
-                    // --- [بخش اضافه شده] افزودن خطوط واترمارک به فایل ASS مسیر اصلی ---
                     if (extraBlocks.length > 0) {
                         let eventsLines = extraBlocks.map(b => `Dialogue: 0,${b.start},${b.end},Default,,0,0,0,,{\\an8}${b.text.replace(/\r?\n/g, '\\N')}`);
                         finalContent += '\r\n' + eventsLines.join('\r\n');
                     }
-                    // -------------------------------------------------------------------
 
-                              } else {
+                } else {
                     const translatedMap = new Map();
                     const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
                     
-                    // 1. ساخت یک دیکشنری دقیق برای پیدا کردن ایندکس اصلی از روی فریم زمانی
                     const frameToIndexMap = new Map();
                     dialogueData.forEach(d => {
                         const timeKey = `{${d.startFrame}}{${d.endFrame}}`;
                         frameToIndexMap.set(timeKey, d.i);
                     });
 
-                    // 2. نگاشت دقیق هر ترجمه به خط اصلی بر اساس فریم، نه بر اساس ترتیب
                     for (const line of finalMicroDVDWithCorrections.split('\n')) {
                         const match = line.match(microDVDLineRegex);
                         if (match) {
                             const timeKey = `{${match[1]}}{${match[2]}}`;
                             let text = match[3];
-                            // اعمال راست‌چین (RTL)
                             text = text.split('|').map(part => `\u202B${part.trim()}\u202C`).join('\n');
                             
-                            // فقط در صورتی که این فریم زمانی در فایل اصلی وجود داشته باشد
                             if (frameToIndexMap.has(timeKey)) {
                                 const originalIndex = frameToIndexMap.get(timeKey);
-                                // جلوگیری از بازنویسی اگر هوش مصنوعی یک خط را دو تکه کرده باشد
                                 if (translatedMap.has(originalIndex)) {
                                     translatedMap.set(originalIndex, translatedMap.get(originalIndex) + '\\N' + text);
                                 } else {
@@ -2284,12 +2216,15 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     content: finalContent 
                 });
 
-                // --- [NEW] Cleanup on Success ---
-                clearProgress(fileId);
-                // ------------------------------
-
-                updateFileStatus(i, "کامل شد", 100);
-                addLog(`--- پردازش فایل ${file.name} کامل شد. ---`);
+                // --- [NEW] Cleanup ONLY on True Success ---
+                if (totalUnresolvedErrors === 0) {
+                    clearProgress(fileId);
+                    updateFileStatus(i, "کامل شد", 100);
+                    addLog(`--- پردازش فایل ${file.name} با موفقیت کامل شد. ---`, false, "green");
+                } else {
+                    updateFileStatus(i, "تکمیل با خطا (نیازمند ادامه)", 100);
+                    addLog(`--- پردازش پایان یافت اما ${totalUnresolvedErrors} خط به دلیل محدودیت API ترجمه یا اصلاح نشد! فایل خروجی موقتاً ساخته شد. کلید API را تغییر دهید و دوباره دکمه ترجمه را بزنید تا ادامه یابد. ---`, false, "yellow");
+                }
 
             } catch (error) {
                 liveOutput.style.display = 'none'; 
