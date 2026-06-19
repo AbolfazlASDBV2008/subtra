@@ -745,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return parts;
     }
 
-    function parseSRT(data) {
+        function parseSRT(data) {
         const blocks = [];
         const lines = data.split(/\r?\n/);
         let i = 0;
@@ -760,7 +760,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     i++;
                     let text = [];
                     while (lines[i] && lines[i].trim() !== '') {
-                        text.push(lines[i].trim());
+                        // پاکسازی کدهای مخرب HTML از ریشه همینجا انجام می‌شود
+                        let cleanLine = lines[i].trim().replace(/<[^>]+>/g, '');
+                        text.push(cleanLine);
                         i++;
                     }
 
@@ -993,33 +995,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function createTranslationLookupMap(translatedMicroDVD) {
-        const lookupMap = new Map();
-        const lines = translatedMicroDVD.split(/\r?\n/);
-        const lineRegex = /^\{(\d+)\}\{(\d+)\}(.*)$/;
-
-        for (const line of lines) {
-            const match = line.trim().match(lineRegex);
-            if (match) {
-                const timeKey = `{${match[1]}}{${match[2]}}`;
-                let text = match[3];
-
-                // [!!!] مهم: هنگام پردازش RTL، مراقب پلیس‌هولدرها باشید که خراب نشوند [!!!]
-                // فعلاً RTL را ساده اعمال می‌کنیم، اما در rebuildAss آن را مدیریت می‌کنیم
-                text = text.split('|').map(part => `\u202B${part.trim()}\u202C`).join('|');
-
-                if (lookupMap.has(timeKey)) {
-                    lookupMap.get(timeKey).push(text);
-                } else {
-                    lookupMap.set(timeKey, [text]);
-                }
-            }
-        }
-        return lookupMap;
-    }
-
-    // [!!!] تابع بازسازی اصلاح شده برای رفع مشکل راست‌چین (RTL) و علائم نگارشی [!!!]
-    function rebuildAssFromTranslation(originalAssContent, mapping, translationLookup) {
+    // [!!!] تابع بازسازی قطعی ASS (بدون نیاز به جستجوی زمانی، نگاشت ۱ به ۱) [!!!]
+    function rebuildAssFromTranslation(originalAssContent, mapping, translatedArray) {
         assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 
         const originalLines = originalAssContent.split(/\r?\n/);
@@ -1036,35 +1013,35 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         }
 
-        mapping.forEach(mapItem => {
-            const { lineNumber, microdvdTime, tags } = mapItem;
+        mapping.forEach((mapItem, index) => {
+            const { lineNumber, tags } = mapItem;
 
-            if (translationLookup.has(microdvdTime) && translationLookup.get(microdvdTime).length > 0) {
-                let translatedText = translationLookup.get(microdvdTime).shift(); 
+            let translatedText = "";
+            // مستقیماً از روی ایندکس آرایه خط ترجمه‌شده را برمی‌داریم (بدون امکان جابه‌جایی)
+            const aiLine = translatedArray[index];
+            if (aiLine) {
+                const match = aiLine.match(/^{(\d+)}{(\d+)}(.*)$/);
+                if (match) {
+                    // اعمال کدهای راست‌چین (RTL) برای حفظ علائم نگارشی
+                    translatedText = match[3].split('|').map(part => `\u202B${part.trim()}\u202C`).join('|');
+                }
+            }
 
+            if (translatedText) {
                 const originalLine = originalLines[lineNumber];
                 if (!originalLine || !originalLine.toLowerCase().startsWith('dialogue:')) return;
 
                 const parts = robustAssSplit(originalLine.substring(9).trim(), assFormatFields);
                 if (parts.length < assFormatFields.length) return;
 
-                // 1. [مهم‌ترین تغییر]: کدهایی که کاراکترهای RTL (\u202B و \u202C) را حذف می‌کردند پاک شدند.
-                // این کار باعث می‌شود نقطه و علامت سوال به درستی در آخر جمله قرار بگیرند و اعداد جابجا نشوند.
                 let cleanTranslation = translatedText;
-
-                // 2. بازگرداندن \N (شکست خط)
                 cleanTranslation = cleanTranslation.replace(/\|/g, '\\N');
 
-                // 3. بازگرداندن تگ‌های اصلی (Unmasking)
                 let finalDialogueText = unmaskTags(cleanTranslation, tags);
 
-                // 4. بهینه‌سازی استایل: تگ‌های موقعیت (مثل \an8 یا \pos) برای احتیاط از داخل بلاک RTL 
-                // خارج شده و به ابتدای خط منتقل می‌شوند تا باعث به هم ریختگی کادر زیرنویس در پلیرها نشوند.
                 const positionTags = finalDialogueText.match(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g) || [];
                 if (positionTags.length > 0) {
-                    // حذف تگ‌های موقعیت از داخل متن
                     finalDialogueText = finalDialogueText.replace(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g, '');
-                    // چسباندن مجدد به ابتدای مطلق خط
                     finalDialogueText = positionTags.join('') + finalDialogueText;
                 }
 
@@ -1962,17 +1939,19 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 addLog(`تعداد ${originalDialogueBlocks.length} دیالوگ (پس از فیلتر شدن) یافت شد.`);
                 originalLastEndFrame = timeToFrames(originalDialogueBlocks[originalDialogueBlocks.length-1].end, fps);
 
-                const dialogueData = originalDialogueBlocks.map((block, i) => {
+                                const dialogueData = originalDialogueBlocks.map((block, i) => {
                     const startFrame = timeToFrames(block.start, fps);
                     const endFrame = timeToFrames(block.end, fps);
-                    // [!!!] نکته: برای ASS، متن microLine ممکن است حاوی پلیس‌هولدر ___TAG_n___ باشد [!!!]
+                    
                     let cleanText = block.text;
 
-                    // اگر مسیر ASS نیست، تگ‌ها را تمیز کن، در غیر این صورت اگر مسیر ASS است، maskTags قبلاً انجام شده و در microdvdForAI استفاده می‌شود
                     if (!useAssPath) {
-                        cleanText = block.text.replace(/\{[^}]+\}/g, ' ').replace(/<[^>]+>/g, ' ').replace(/[\r\n]+/g, ' ').trim();
+                        // فقط تگ‌های احتمالی ASS را پاک می‌کنیم. 
+                        // تگ‌های HTML قبلا پاک شده‌اند. خطوط جدید (\n) باید حفظ شوند تا هوش مصنوعی جملات را درست تشخیص دهد.
+                        cleanText = block.text.replace(/\{[^}]+\}/g, ' ').trim();
                     }
 
+                    // کاراکتر \n در اینجا با | جایگزین می‌شود تا برای هوش مصنوعی قابل فهم باشد
                     const microLine = `{${startFrame}}{${endFrame}}${cleanText.replace(/\n/g, '|')}`;
                     return { i, microLine, cleanText, startFrame, endFrame, block, isSong: false, songType: null };
                 });
@@ -2152,10 +2131,10 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     });
                 }                
 
-                if (useAssPath) {
+                                if (useAssPath) {
                     addLog(`بازسازی فایل ${file.name} با حفظ استایل...`);
-                    const translationLookup = createTranslationLookupMap(finalMicroDVDWithCorrections);
-                    const rebuildResult = rebuildAssFromTranslation(originalAssContentForFile, assMapping, translationLookup);
+                    // با سیستم جدید، آرایه microDVDSplitted را مستقیم می‌دهیم و نیازی به توابع واسطه نداریم
+                    const rebuildResult = rebuildAssFromTranslation(originalAssContentForFile, assMapping, microDVDSplitted);
                     finalContent = rebuildResult.rebuiltAss;
 
                     if (rebuildResult.untranslatedCount > 0) {
@@ -2167,37 +2146,24 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                         finalContent += '\r\n' + eventsLines.join('\r\n');
                     }
 
-                } else {
-                    const translatedMap = new Map();
+                              } else {
                     const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
                     
-                    const frameToIndexMap = new Map();
-                    dialogueData.forEach(d => {
-                        const timeKey = `{${d.startFrame}}{${d.endFrame}}`;
-                        frameToIndexMap.set(timeKey, d.i);
-                    });
-
-                    for (const line of finalMicroDVDWithCorrections.split('\n')) {
-                        const match = line.match(microDVDLineRegex);
-                        if (match) {
-                            const timeKey = `{${match[1]}}{${match[2]}}`;
-                            let text = match[3];
-                            text = text.split('|').map(part => `\u202B${part.trim()}\u202C`).join('\n');
-                            
-                            if (frameToIndexMap.has(timeKey)) {
-                                const originalIndex = frameToIndexMap.get(timeKey);
-                                if (translatedMap.has(originalIndex)) {
-                                    translatedMap.set(originalIndex, translatedMap.get(originalIndex) + '\\N' + text);
-                                } else {
-                                    translatedMap.set(originalIndex, text);
-                                }
+                    // به لطف سیستم ID-based، آرایه microDVDSplitted دقیقاً 1 به 1 متناظر با فایل اصلی است
+                    const correctedTexts = originalDialogueBlocks.map((block, indexData) => {
+                        const aiLine = microDVDSplitted[indexData]; 
+                        let text = block.text; // پیش‌فرض: متن اصلی (اگر به خاطر لیمیت ترجمه نشده باشد)
+                        
+                        if (aiLine) {
+                            const match = aiLine.match(microDVDLineRegex);
+                            if (match) {
+                                text = match[3];
+                                // اعمال راست‌چین (RTL) و بازگرداندن شکستگی‌های خط
+                                text = text.split('|').map(part => `\u202B${part.trim()}\u202C`).join('\n');
                             }
                         }
-                    }
-
-                    const correctedTexts = originalDialogueBlocks.map((block, indexData) => 
-                        translatedMap.get(indexData) || block.text 
-                    );
+                        return text;
+                    });
 
                     if (outputFormatChoice === 'srt') {
                         finalContent = buildSRT(originalDialogueBlocks, correctedTexts, extraBlocks);
