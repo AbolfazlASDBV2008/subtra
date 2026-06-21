@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. توابع کمکی (جدید: ماسک کردن تگ‌ها و مدیریت پرامپت) ---
@@ -378,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // گزینه دیفالت
         const defaultOpt = document.createElement('option');
         defaultOpt.value = 'default';
-        defaultOpt.textContent = 'پیش‌فرض (نسخه پیشرفته)';
+        defaultOpt.textContent = 'پرامت پیش فرض';
         promptSelector.appendChild(defaultOpt);
 
         // گزینه‌های سفارشی
@@ -394,16 +393,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPromptId === 'default') {
             systemPrompt.value = defaultPromptText;
             systemPrompt.readOnly = true;
-            systemPrompt.classList.add('bg-gray-700', 'opacity-75'); // ظاهر غیرفعال
-            systemPrompt.classList.remove('bg-gray-800');
+            systemPrompt.disabled = true; // غیرفعال کامل تا ظاهر :disabled در CSS اعمال شود (مچ با تم لایت/دارک)
             deletePromptBtn.classList.add('hidden');
             promptReadOnlyMsg.classList.remove('hidden');
         } else {
             const prompt = customPrompts.find(p => p.id === currentPromptId);
             systemPrompt.value = prompt ? prompt.content : '';
             systemPrompt.readOnly = false;
-            systemPrompt.classList.remove('bg-gray-700', 'opacity-75');
-            systemPrompt.classList.add('bg-gray-800');
+            systemPrompt.disabled = false;
             deletePromptBtn.classList.remove('hidden');
             promptReadOnlyMsg.classList.add('hidden');
         }
@@ -454,6 +451,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- [FIX] هایلایت کردن کادر (بوردر آبی) فرمت خروجی انتخاب‌شده ---
+    // قبلاً وقتی کاربر روی SRT کلیک می‌کرد، رادیو درست تیک می‌خورد ولی بوردر آبی دور کادر
+    // همچنان روی ASS می‌ماند چون هیچ منطقی برای سینک کردن ظاهر با انتخاب واقعی وجود نداشت.
+    const outputFormatRadios = document.querySelectorAll('input[name="output-format"]');
+
+    function syncOutputFormatHighlight() {
+        outputFormatRadios.forEach(radio => {
+            const labelEl = radio.closest('label');
+            if (!labelEl) return;
+            if (radio.checked) {
+                labelEl.classList.remove('border-slate-200', 'dark:border-slate-700', 'hover:border-slate-300', 'dark:hover:border-slate-600');
+                labelEl.classList.add('border-blue-400', 'dark:border-blue-600');
+            } else {
+                labelEl.classList.remove('border-blue-400', 'dark:border-blue-600');
+                labelEl.classList.add('border-slate-200', 'dark:border-slate-700', 'hover:border-slate-300', 'dark:hover:border-slate-600');
+            }
+        });
+    }
+
+    outputFormatRadios.forEach(radio => {
+        radio.addEventListener('change', syncOutputFormatHighlight);
+    });
+
+    // اعمال وضعیت اولیه (هماهنگ با مقداری که از قبل checked هست، مثلاً بعد از بازگردانی پیش‌فرض‌ها)
+    syncOutputFormatHighlight();
 
     function saveSafetySettings() {
         const settings = {
@@ -614,16 +636,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const fileElement = document.createElement('div');
             fileElement.id = elementId;
-            fileElement.className = 'bg-gray-700 p-3 rounded-lg flex items-center justify-between';
+            fileElement.className = 'bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between transition-colors';
             // [!!!] FIX: added overflow-hidden to rounded-full container for aesthetic safety [!!!]
             fileElement.innerHTML = `
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-white break-words leading-tight">${escapeHTML(file.name)}</p>
-                    <p class="text-xs text-gray-400 mt-1" id="file-status-${index}">در صف</p>
+                    <p class="text-sm font-bold text-slate-800 dark:text-white break-words leading-tight">${escapeHTML(file.name)}</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" id="file-status-${index}">در صف</p>
                 </div>
-                <div class="w-24 ml-4 flex-shrink-0">
-                    <div class="w-full bg-gray-600 rounded-full h-2.5 overflow-hidden">
-                        <div id="file-progress-${index}" class="bg-blue-500 h-2.5 rounded-full progress-bar-inner" style="width: 0%"></div>
+                <div class="w-24 mr-4 flex-shrink-0">
+                    <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                        <div id="file-progress-${index}" class="bg-gradient-to-l from-blue-500 to-indigo-500 h-2 rounded-full progress-bar-inner" style="width: 0%"></div>
                     </div>
                 </div>
             `;
@@ -670,6 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const outputFormatRadio = document.querySelector('input[name="output-format"][value="ass"]');
         if (outputFormatRadio) outputFormatRadio.checked = true;
+        syncOutputFormatHighlight(); // چون ست‌کردن دستی .checked رویداد change را اجرا نمی‌کند
         outputFormatSelector.style.display = 'none';
 
         overallProgressSection.style.display = 'none';
@@ -1673,8 +1696,8 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
         abortController = new AbortController(); 
 
         isTranslating = true;
-        startTranslation.style.display = 'none';
-        stopTranslation.style.display = 'block';
+        startTranslation.classList.add('hidden');
+        stopTranslation.classList.remove('hidden');
         downloadFiles.disabled = true;
         clearFileList.style.display = 'none'; 
         processedFiles = [];
@@ -2230,20 +2253,20 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     break; 
 
                 } else if (error.name === 'AbortError' || errorMessageText.includes("لغو شد") || errorMessageText.includes("Timeout")) {
-                    userFriendlyMessage = `<p class="font-bold">عملیات متوقف شد (خطای مرورگر یا شبکه).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">مرورگر ممکن است عملیات را به دلیل رفتن به پس‌زمینه (خروج از برنامه) یا ناپایداری شبکه متوقف کرده باشد.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>در حین ترجمه، برنامه را در پس‌زمینه نبرید.</li><li>دوباره تلاش کنید.</li></ol>`;
+                    userFriendlyMessage = `<p class="font-bold">عملیات متوقف شد (خطای مرورگر یا شبکه).</p><pre class="error-pre bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">مرورگر ممکن است عملیات را به دلیل رفتن به پس‌زمینه (خروج از برنامه) یا ناپایداری شبکه متوقف کرده باشد.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>در حین ترجمه، برنامه را در پس‌زمینه نبرید.</li><li>دوباره تلاش کنید.</li></ol>`;
                     translationStatusMessage.innerHTML = '⚠️ عملیات متوقف شد (خطای مرورگر).';
                     translationStatusMessage.className = 'status-message status-incomplete'; 
 
                 } else if (errorMessageText.toLowerCase().includes('location') || errorMessageText.toLowerCase().includes('permission denied')) {
-                    userFriendlyMessage = `<p class="font-bold">خطا در دسترسی (مشکل تحریم یا فیلترشکن).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">سرور گوگل به دلیل موقعیت جغرافیایی شما اجازه دسترسی نمی‌دهد.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>گزینه "استفاده از پراکسی" را در تنظیمات فعال کنید.</li><li>یا، از یک فیلترشکن قوی استفاده کنید.</li></ol>`;
+                    userFriendlyMessage = `<p class="font-bold">خطا در دسترسی (مشکل تحریم یا فیلترشکن).</p><pre class="error-pre bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">سرور گوگل به دلیل موقعیت جغرافیایی شما اجازه دسترسی نمی‌دهد.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>گزینه "استفاده از پراکسی" را در تنظیمات فعال کنید.</li><li>یا، از یک فیلترشکن قوی استفاده کنید.</li></ol>`;
                     translationStatusMessage.innerHTML = '❌ خطای دسترسی/فیلترشکن.';
                     translationStatusMessage.className = 'status-message status-aborted';
                 } else if (errorMessageText.toLowerCase().includes('networkerror') || errorMessageText.includes('522') || errorMessageText.includes('524')) {
-                    userFriendlyMessage = `<p class="font-bold">خطای شبکه (NetworkError یا خطای پراکسی).</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</Epre><p class="mt-2">اتصال به سرور (یا پراکسی) ناپایدار است یا قطع شده.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>از پایداری اینترنت خود مطمئن شوید.</li><li>اگر از پراکسی استفاده نمی‌کنید، فیلترشکن را بررسی کنید.</li><li>اگر از پراکسی استفاده می‌کنید، اتصال اینترنت خود را بررسی کنید.</li></ol>`;
+                    userFriendlyMessage = `<p class="font-bold">خطای شبکه (NetworkError یا خطای پراکسی).</p><pre class="error-pre bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">اتصال به سرور (یا پراکسی) ناپایدار است یا قطع شده.</p><p class="font-bold mt-4">راه حل:</p><ol class="list-decimal list-inside pr-4 mt-2"><li>از پایداری اینترنت خود مطمئن شوید.</li><li>اگر از پراکسی استفاده نمی‌کنید، فیلترشکن را بررسی کنید.</li><li>اگر از پراکسی استفاده می‌کنید، اتصال اینترنت خود را بررسی کنید.</li></ol>`;
                     translationStatusMessage.innerHTML = '❌ خطای شبکه.';
                     translationStatusMessage.className = 'status-message status-aborted';
                 } else if (errorMessageText.toLowerCase().includes('api key not valid')) {
-                    userFriendlyMessage = `<p class="font-bold">کلید API نامعتبر است.</p><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">کلید وارد شده صحیح نیست یا منقضی شده است.</p>`;
+                    userFriendlyMessage = `<p class="font-bold">کلید API نامعتبر است.</p><pre class="error-pre bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre><p class="mt-2">کلید وارد شده صحیح نیست یا منقضی شده است.</p>`;
                     translationStatusMessage.innerHTML = '❌ کلید API نامعتبر.';
                     translationStatusMessage.className = 'status-message status-aborted';
 
@@ -2252,7 +2275,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     translationStatusMessage.innerHTML = '⚠️ مدل شلوغ است.';
                     translationStatusMessage.className = 'status-message status-incomplete';
                 } else {
-                    userFriendlyMessage = `<b>یک خطای پیش‌بینی‌نشده رخ داد:</b><pre class="bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre>`;
+                    userFriendlyMessage = `<b>یک خطای پیش‌بینی‌نشده رخ داد:</b><pre class="error-pre bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre>`;
                     translationStatusMessage.innerHTML = '❌ خطایی در ترجمه رخ داد.';
                     translationStatusMessage.className = 'status-message status-aborted';
                 }
@@ -2271,8 +2294,8 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
         } 
 
         isTranslating = false;
-        startTranslation.style.display = 'block';
-        stopTranslation.style.display = 'none';
+        startTranslation.classList.remove('hidden');
+        stopTranslation.classList.add('hidden');
         if (uploadedFiles.length > 0) { 
              clearFileList.style.display = 'block';
         }
@@ -2480,11 +2503,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     // --- 10. توابع کمکی UI (لاگ و خطا) ---
 
     function addLog(message, isError = false, color = "gray") {
-        const logEntry = document.createElement('p');
-        if (isError) logEntry.className = 'text-red-400';
-        else if (color === 'green') logEntry.className = 'text-green-400';
-        else if (color === 'yellow') logEntry.className = 'text-yellow-400';
-        else logEntry.className = 'text-gray-300';
+        const logEntry = document.createElement('div');
+        if (isError) logEntry.className = 'text-red-600 dark:text-red-400';
+        else if (color === 'green') logEntry.className = 'text-emerald-600 dark:text-green-400';
+        else if (color === 'yellow') logEntry.className = 'text-amber-600 dark:text-yellow-400';
+        else logEntry.className = 'text-slate-600 dark:text-gray-300';
         logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${escapeHTML(message)}`;
         statusLog.appendChild(logEntry);
         statusLog.scrollTop = statusLog.scrollHeight;
