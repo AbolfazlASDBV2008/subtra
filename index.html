@@ -1,626 +1,1040 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مترجم زیرنویس انیمه</title>
+    <title>مترجم زیرنویس انیمه | حرفه‌ای</title>
     
     <link rel="icon" type="image/jpeg" href="image-logo.jpg">
     <link rel="apple-touch-icon" href="image-logo.jpg">
     
     <meta name="theme-color" content="#3b82f6">
+    
+    <!-- تنظیمات Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Vazirmatn', 'sans-serif'] },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                        'fade-in': 'fadeIn 0.4s ease-out',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-    <link rel="stylesheet" href="/index.css">
     
     <style>
-        /* اعمال فونت وزیرمتن به کل صفحه */
-        body {
-            font-family: 'Vazirmatn', sans-serif;
+        body { font-family: 'Vazirmatn', sans-serif; }
+        
+        /* اسکرول‌بار اختصاصی و شیک */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        input[type="file"] { display: none; }
+        
+        #dropZone { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #dropZone.drag-over { 
+            background-color: rgba(59, 130, 246, 0.1); 
+            border-color: #3b82f6; 
+            transform: scale(1.02);
         }
         
-        input[type="file"] { display: none; }
-        .file-upload-label { cursor: pointer; transition: all 0.3s ease; }
-        #dropZone { border-style: dashed; transition: all 0.3s ease; }
-        #dropZone.drag-over { background-color: #374151; border-color: #60a5fa; }
-        .progress-bar-inner { transition: width 0.4s ease; }
+        .progress-bar-inner { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         
+        /* استایل‌های آکاردئون */
         details summary { list-style: none; cursor: pointer; }
         details summary::-webkit-details-marker { display: none; }
-        details summary::before { content: '◀'; display: inline-block; transition: transform 0.2s; margin-left: 0.5rem; }
-        details[open] summary::before { transform: rotate(-90deg); }
         
-        /* استایل برای رنج اسلایدر پیشرفته */
+        details[open] summary ~ * {
+            animation: accordionSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes accordionSlideDown {
+            0% { opacity: 0; transform: translateY(-10px) scale(0.98); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        
+        /* رنج اسلایدر */
         input[type=range] {
-            -webkit-appearance: none; 
-            background: transparent; 
-            height: 6px;
-            border-radius: 5px;
-            cursor: pointer;
-            /* گرادینت پیش‌فرض - توسط JS آپدیت می‌شود */
+            -webkit-appearance: none; background: transparent; height: 6px; border-radius: 5px; cursor: pointer;
+            background-image: linear-gradient(to right, #3b82f6 0%, #3b82f6 0%, #e2e8f0 0%, #e2e8f0 100%);
+        }
+        .dark input[type=range] {
             background-image: linear-gradient(to right, #3b82f6 0%, #3b82f6 0%, #374151 0%, #374151 100%);
-            background-repeat: no-repeat;
         }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #93c5fd; /* blue-300 */
-            cursor: pointer;
-            box-shadow: 0 0 4px rgba(0,0,0,0.5);
-            margin-top: -5px; /* تراز عمودی */
+            -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
+            background: #fff; border: 2px solid #3b82f6; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-top: -6px; transition: transform 0.1s;
         }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            background: transparent; 
-            border-radius: 5px;
-        }
-        input[type=range]:focus {
-            outline: none; 
-        }
-        
-        /* تولتیپ / مدال راهنما */
-        .help-tooltip {
-            display: none;
-            position: absolute;
-            z-index: 50;
-            background-color: #374151; /* gray-700 */
-            border: 1px solid #4b5563;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            width: 300px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            color: #e5e7eb;
-            font-size: 0.85rem;
-            line-height: 1.6;
-        }
-        .help-tooltip.show {
-            display: block;
-        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: transparent; border-radius: 5px; }
+        input[type=range]:focus { outline: none; }
 
-        .safety-settings-content {
-            margin-top: 1rem;
-            padding: 1rem 1.5rem;
-            border: 1px solid #4b5563; /* gray-600 */
-            border-radius: 0.5rem;
-            background-color: #1f2937; /* gray-800 */
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        
-        .proxy-setting-container {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-top: 1rem;
-            padding: 0.5rem;
-            border: 1px dashed #4b5563; /* gray-600 */
-            border-radius: 0.5rem;
-        }
-
-        .status-message {
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            margin-top: 1rem;
-            font-weight: bold;
+        /* اصلاح چیدمان کادرهای عددی (ثانیه شروع/پایان واترمارک) در صفحه‌ی RTL
+           استفاده از style="direction:ltr" روی خود input باعث به‌هم‌ریختن فاصله‌گذاری flex در کروم موبایل می‌شد؛
+           به‌جاش این‌جا با CSS مجزا کنترل می‌کنیم که چیدمان flex والد دست‌نخورده بمونه.
+           box-sizing: border-box هم صریحاً ست شده تا padding داخلی باعث سرریز عرض از کادر والد نشه */
+        input[type="number"].watermark-time-input {
+            direction: ltr;
             text-align: center;
+            box-sizing: border-box;
         }
-        .status-complete { background-color: #166534; border: 1px solid #22c55e; color: #dcfce7; } /* green */
-        .status-incomplete { background-color: #854d0e; border: 1px solid #f59e0b; color: #fefce8; } /* amber */
-        .status-aborted { background-color: #991b1b; border: 1px solid #ef4444; color: #fee2e2; } /* red */
 
-        #liveOutput {
-            background-color: #111827; /* gray-900 */
-            border: 1px solid #4b5563; /* gray-600 */
-            border-radius: 0.5rem;
-            padding: 1rem;
-            height: 200px; /* ارتفاع ثابت */
-            max-height: 40vh; /* حداکثر ارتفاع */
-            overflow-y: auto; /* اسکرول عمودی */
-            white-space: pre-wrap; /* شکستن خطوط */
-            word-break: break-word; /* شکستن کلمات */
-            overflow-wrap: anywhere; /* جلوگیری از بیرون زدگی متن طولانی */
-            font-size: 0.9rem; /* کمی کوچکتر */
-            line-height: 1.7;
-            color: #d1d5db; /* gray-300 */
-            margin-top: 1rem;
+        /* استایل قطعی برای کادر پرامپت سیستمی (هم در حالت فعال و هم غیرفعال)
+           با !important نوشته شده تا مستقل از ترتیب لود کلاس‌های Tailwind CDN، همیشه درست اعمال بشه
+           نکته: پس‌زمینه کمی متفاوت از کارت سفید بیرونیه تا کادر گم نشه و عمق بصری داشته باشه */
+        #systemPrompt {
+            background-color: #f8fafc !important; /* slate-50 - یک پله روشن‌تر از کارت سفید بیرونی */
+            border-color: #e2e8f0 !important; /* slate-200 */
+        }
+        .dark #systemPrompt {
+            background-color: #0f172a !important; /* slate-900 */
+            border-color: #475569 !important; /* slate-600 */
+        }
+        #systemPrompt:disabled {
+            background-color: #f1f5f9 !important; /* slate-100 - کمی متمایزتر برای نشون دادن قفل بودن */
+            color: #334155 !important; /* slate-700 */
+            -webkit-text-fill-color: #334155;
+            opacity: 1;
+            cursor: not-allowed;
+        }
+        .dark #systemPrompt:disabled {
+            background-color: #0f172a !important; /* slate-900 */
+            color: #cbd5e1 !important; /* slate-300 */
+            -webkit-text-fill-color: #cbd5e1;
+        }
+        /* دستگیره‌ی تغییر اندازه‌ی بومی مرورگر را با ظاهری ملایم‌تر هماهنگ می‌کنیم */
+        #systemPrompt {
+            resize: vertical;
+        }
+
+        /* جلوگیری از تغییر اندازه‌ی ناگهانی دکمه‌های عملیات (شروع/توقف ترجمه)
+           قبلاً چون این دکمه‌ها داخل یک flex مشترک با flex-1 بودن، با مخفی‌شدن یکی،
+           فضا بین تعداد کمتری دکمه تقسیم می‌شد و باعث جهش بصری ناگهانی در اندازه می‌شد.
+           حالا start/stop در یک سلول grid مستقل و با عرض ثابت جا گرفته‌اند */
+        .action-btn-stack {
+            display: grid;
+        }
+        .action-btn-stack > .action-btn {
+            grid-area: 1 / 1;
+            width: 100%;
+        }
+        .action-btn-stack > .action-btn.hidden {
+            display: none;
+        }
+        /* تضمین قطعی: صرف‌نظر از ترتیب لود کلاس‌های Tailwind CDN، اگر hidden باشه باید مخفی بمونه */
+        .action-btn-stack > .action-btn.hidden {
+            display: none !important;
+        }
+
+        /* رفع مشکل بریده‌شدن/اسکرول‌افقی پیام‌های خطای طولانی
+           تگ <pre> به‌صورت پیش‌فرض white-space:pre دارد که هرگز خط نمی‌شکند؛
+           برای پیام‌های خطای فنی طولانی (مثلاً خطاهای API) این باعث می‌شد فقط بخشی از متن دیده شود */
+        #errorMessageContainer {
+            overflow-x: hidden;
+        }
+        #errorMessageContainer .error-pre,
+        #errorMessageContainer pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            text-align: left;
+            direction: ltr;
+            max-width: 100%;
+            box-sizing: border-box;
+            color: #f1f5f9 !important; /* پس‌زمینه bg-gray-900 همیشه تیره است، پس متن باید همیشه روشن بماند (مستقل از تم) */
         }
         
-        /* جلوگیری از بیرون زدگی متن در لاگ و خطاها */
-        #statusLog, #errorMessageContainer, .break-words {
-            overflow-wrap: anywhere;
-            word-break: break-word;
+        /* مدال راهنما (تولتیپ) */
+        .help-tooltip {
+            display: none; position: absolute; z-index: 50;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.2rem;
+            width: max-content; max-width: 320px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            color: #334155; font-size: 0.85rem; line-height: 1.7;
+            animation: fadeIn 0.2s ease-out forwards;
+        }
+        .dark .help-tooltip {
+            background: rgba(30, 41, 59, 0.95); border-color: #475569; color: #cbd5e1;
+        }
+        .help-tooltip.show { display: block; }
+
+        /* ===================== انیمیشن جوهر برای تغییر تم ===================== */
+        #inkThemeCanvas {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+        }
+        #inkThemeCanvas.active { opacity: 1; }
+
+        /* دکمه هنگام کلیک کمی فشرده و قطره مانند بشه */
+        #theme-toggle.ink-pressed {
+            animation: inkButtonPress 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes inkButtonPress {
+            0% { transform: scale(1); }
+            30% { transform: scale(0.78) rotate(-8deg); }
+            55% { transform: scale(1.12) rotate(4deg); }
+            75% { transform: scale(0.96) rotate(-2deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+
+        /* خروجی زنده */
+        #liveOutput {
+            background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 0.75rem;
+            padding: 1rem; height: 250px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+            font-size: 0.9rem; line-height: 1.9; color: #0f172a; 
+            margin-top: 1rem; font-family: 'Vazirmatn', sans-serif; box-shadow: inset 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .dark #liveOutput {
+            background-color: #0f172a; border-color: #334155; color: #f1f5f9;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .break-words { overflow-wrap: anywhere; word-break: break-word; }
+
+        /* پیام نهایی وضعیت ترجمه (موفق/ناقص/لغو‌شده) - باکس رنگی متمایز بر اساس نتیجه */
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.9rem 1.25rem;
+            border-radius: 1rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-align: center;
+            border: 1px solid transparent;
+        }
+        .status-message.status-complete {
+            background-color: #ecfdf5; color: #047857; border-color: #a7f3d0;
+        }
+        .dark .status-message.status-complete {
+            background-color: rgba(16, 185, 129, 0.12); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.3);
+        }
+        .status-message.status-aborted {
+            background-color: #fef2f2; color: #b91c1c; border-color: #fecaca;
+        }
+        .dark .status-message.status-aborted {
+            background-color: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(239, 68, 68, 0.3);
+        }
+        .status-message.status-incomplete {
+            background-color: #fffbeb; color: #b45309; border-color: #fde68a;
+        }
+        .dark .status-message.status-incomplete {
+            background-color: rgba(245, 158, 11, 0.12); color: #fcd34d; border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        /* لاگ وضعیت عملیات - فونت اصلی فارسی به‌جای مونوسپیس برای خوانایی بهتر متن فارسی */
+        .status-log {
+            font-family: 'Vazirmatn', sans-serif;
+            line-height: 2;
+            font-variant-numeric: tabular-nums;
+        }
+        .status-log > div {
+            padding: 0.2rem 0;
+        }
+
+        /* ===== مودال خطا با افکت شیشه‌ای (Glassmorphism) ===== */
+        .glass-modal {
+            background:
+                linear-gradient(135deg, rgba(219, 234, 254, 0.45), rgba(243, 232, 255, 0.35) 50%, rgba(204, 251, 241, 0.4)),
+                rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(28px) saturate(220%);
+            -webkit-backdrop-filter: blur(28px) saturate(220%);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow:
+                0 25px 50px -12px rgba(15, 23, 42, 0.25),
+                0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.9) inset;
+        }
+        .dark .glass-modal {
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            box-shadow:
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.08) inset;
+        }
+        .glass-modal-inner {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .dark .glass-modal-inner {
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid rgba(71, 85, 105, 0.4);
+        }
+
+        /* ===================================================================
+           بهینه‌سازی کارایی برای موبایل و دستگاه‌های ضعیف
+           بلور پس‌زمینه (backdrop-filter) و انیمیشن مداوم بلوب‌های بزرگ رنگی
+           سنگین‌ترین عملیات گرافیکی این صفحه هستند. روی گوشی‌های ضعیف، این
+           موارد می‌توانند باعث لگ شدید یا حتی هنگ مرورگر حین پردازش ترجمه شوند،
+           چون CPU/GPU باید همزمان هم استریم شبکه را پردازش کند و هم این افکت‌ها را.
+           =================================================================== */
+
+        /* روی موبایل: انیمیشن بلوب‌ها کاملاً غیرفعال و فقط ۲ بلوب (نه ۴ تا) نمایش داده می‌شود */
+        @media (max-width: 768px) {
+            .bg-decor-blob {
+                animation: none !important;
+                filter: blur(28px) !important;
+                opacity: 0.45 !important;
+            }
+            .bg-decor-blob:nth-child(3),
+            .bg-decor-blob:nth-child(4) {
+                display: none;
+            }
+            /* کاهش شدت بلور شیشه‌ای روی کارت‌های اصلی؛ بلور سنگین‌ترین بخش رندر این صفحه است */
+            .backdrop-blur-lg, .backdrop-blur-md, .backdrop-blur-xl {
+                backdrop-filter: blur(8px) !important;
+                -webkit-backdrop-filter: blur(8px) !important;
+            }
+            .glass-modal {
+                backdrop-filter: blur(14px) saturate(160%) !important;
+                -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+            }
+            .glass-modal-inner {
+                backdrop-filter: blur(4px) !important;
+                -webkit-backdrop-filter: blur(4px) !important;
+            }
+        }
+
+        /* اگر کاربر در تنظیمات سیستم/مرورگر "کاهش انیمیشن" را فعال کرده باشد
+           (معمولاً برای صرفه‌جویی باتری یا کارایی روی دستگاه ضعیف)، تمام
+           انیمیشن‌های تزئینی این صفحه به‌طور کامل خاموش می‌شوند */
+        @media (prefers-reduced-motion: reduce) {
+            .bg-decor-blob, .animate-blob, .animate-fade-in, .animate-fade-in-fast {
+                animation: none !important;
+            }
+            * {
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white p-4 md:p-8 min-h-screen antialiased">
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-500 min-h-screen relative overflow-x-hidden">
 
-    <div class="max-w-5xl mx-auto">
+    <!-- پس‌زمینه‌های بلوری (تزئینی) -->
+    <div class="bg-decor fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div class="bg-decor-blob absolute top-[-15%] left-[-15%] w-[32rem] h-[32rem] bg-blue-400/70 dark:bg-blue-600/20 dark:mix-blend-multiply rounded-full filter blur-3xl opacity-80 dark:opacity-70 animate-blob"></div>
+        <div class="bg-decor-blob absolute top-[10%] right-[-20%] w-[32rem] h-[32rem] bg-purple-400/70 dark:bg-purple-600/20 dark:mix-blend-multiply rounded-full filter blur-3xl opacity-80 dark:opacity-70 animate-blob animation-delay-2000"></div>
+        <div class="bg-decor-blob absolute bottom-[-25%] left-[10%] w-[32rem] h-[32rem] bg-teal-400/70 dark:bg-teal-600/20 dark:mix-blend-multiply rounded-full filter blur-3xl opacity-80 dark:opacity-70 animate-blob animation-delay-4000"></div>
+        <div class="bg-decor-blob absolute top-[55%] right-[15%] w-[28rem] h-[28rem] bg-pink-400/60 dark:bg-pink-600/10 dark:mix-blend-multiply rounded-full filter blur-3xl opacity-70 dark:opacity-50 animate-blob animation-delay-2000"></div>
+    </div>
+
+    <!-- دکمه تغییر تم -->
+    <button id="theme-toggle" type="button" class="fixed bottom-6 left-6 z-50 p-3 rounded-full bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all hover:scale-110 focus:outline-none">
+        <svg id="theme-toggle-dark-icon" class="hidden w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+        <svg id="theme-toggle-light-icon" class="hidden w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+    </button>
+
+    <!-- بوم (Canvas) انیمیشن جوهر برای تغییر تم -->
+    <canvas id="inkThemeCanvas"></canvas>
+
+        <!-- اضافه کردن px-5 md:px-8 برای ایجاد فاصله از لبه‌های گوشی -->
+    <div class="max-w-5xl mx-auto px-5 md:px-8 relative z-10 pt-8 pb-16">
         
-        <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
-                مترجم زیرنویس انیمه
+        <header class="text-center mb-10 animate-fade-in">
+            <div class="inline-block p-3 rounded-2xl bg-white/50 dark:bg-slate-800/50 shadow-sm border border-slate-200 dark:border-slate-700 backdrop-blur-md mb-4">
+                <svg class="w-10 h-10 text-blue-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path></svg>
+            </div>
+            <h1 class="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 tracking-tight">
+                مترجم هوشمند زیرنویس
             </h1>
-            <p class="text-gray-400 mt-2">
-                فایل‌های VTT, SRT, یا ASS خود را به فارسی روان ترجمه کنید و با فرمت ASS تحویل بگیرید.
+            <!-- اضافه کردن px-4 و leading-relaxed برای تنفس بهتر متن -->
+            <p class="text-slate-600 dark:text-slate-400 mt-4 font-medium max-w-xl mx-auto px-4 leading-relaxed">
+                فایل‌های VTT, SRT یا ASS خود را با قدرت هوش مصنوعی به فارسی روان ترجمه کنید و با بالاترین کیفیت تحویل بگیرید.
             </p>
         </header>
 
-        <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
-            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">تنظیمات اصلی</h2>
+        <!-- کارت تنظیمات اصلی -->
+        <div class="bg-white/55 dark:bg-slate-800/70 backdrop-blur-lg border border-slate-200 dark:border-slate-700 rounded-3xl p-6 md:p-8 mb-8 shadow-xl animate-fade-in transition-all">
+            <div class="flex items-center gap-3 mb-6 border-b border-slate-200 dark:border-slate-700 pb-4">
+                <span class="p-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></span>
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">تنظیمات اصلی</h2>
+            </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4">
                 <div>
-                    <div class="mb-4 relative">
+                    <div class="relative">
                         <div class="flex items-center gap-2 mb-2">
-                            <label for="apiKey" class="text-sm font-medium text-gray-300">
-                                کلید API گوگل (Gemini)
-                            </label>
-                            <button type="button" aria-label="راهنمای کلید API" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="apiKeyHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <label for="apiKey" class="text-sm font-bold text-slate-700 dark:text-slate-300">کلید API گوگل (Gemini)</label>
+                            <button type="button" aria-label="راهنمای کلید API" class="text-slate-400 hover:text-blue-500 focus:outline-none help-btn" data-target="apiKeyHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
-                        <div class="relative">
-                            <input type="password" id="apiKey" class="w-full p-2.5 pl-10 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 font-mono text-sm" placeholder="کلید API خود را اینجا وارد کنید...">
-                            <div class="absolute left-0 top-0 h-full px-3 flex items-center pointer-events-none">
-                                <svg id="apiKeyLockIcon" aria-hidden="true" class="w-5 h-5 text-red-500 transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20">
+                        <div class="relative group">
+                            <input type="password" id="apiKey" class="w-full p-3 pl-12 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm transition-all shadow-inner" placeholder="AIzaSy...">
+                            <div class="absolute left-0 top-0 h-full px-4 flex items-center pointer-events-none">
+                                <svg id="apiKeyLockIcon" class="w-5 h-5 text-red-500 transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
                                 </svg>
                             </div>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">کلید API باید با "AIza" شروع شود.</p>
+                        <p class="text-xs text-slate-500 mt-2">ذخیره امن در مرورگر شما.</p>
                         
-                        <div id="apiKeyHelp" class="help-tooltip top-8 right-0 z-50">
-                            <p class="font-bold mb-1 text-blue-300">کلید API گوگل</p>
-                            <p>این کلید شخصی شما برای ارتباط با سرورهای هوش مصنوعی گوگل است. برای دریافت آن به سایت <a href="https://aistudio.google.com/" target="_blank" class="text-blue-400 hover:underline">Google AI Studio</a> مراجعه کنید. این کلید در مرورگر شما ذخیره می‌شود و به جایی ارسال نمی‌گردد.</p>
+                        <div id="apiKeyHelp" class="help-tooltip top-8 right-0">
+                            <p class="font-bold mb-1 text-blue-500 dark:text-blue-400">کلید API گوگل</p>
+                            <p>این کلید شخصی شما برای ارتباط با سرورهای هوش مصنوعی است. برای دریافت رایگان آن به <a href="https://aistudio.google.com/" target="_blank" class="text-blue-500 hover:underline">Google AI Studio</a> مراجعه کنید.</p>
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <div class="mb-4 relative">
+                    <div class="relative">
                         <div class="flex items-center gap-2 mb-2">
-                            <label for="modelSelect" class="text-sm font-medium text-gray-300">انتخاب مدل هوش مصنوعی</label>
-                            <button type="button" aria-label="راهنمای مدل هوش مصنوعی" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="modelHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                            <label for="modelSelect" class="text-sm font-bold text-slate-700 dark:text-slate-300">مدل پردازشی</label>
+                            <button type="button" aria-label="راهنمای مدل" class="text-slate-400 hover:text-blue-500 focus:outline-none help-btn" data-target="modelHelp">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                             </button>
                         </div>
-                        <select id="modelSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
-                            <option value="gemini-3.5-flash">Gemini 3.5 Flash (جدیدترین مدل، سرعت و هوش بالا)</option>
-                            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (مدل جدید، فوق‌سریع و اقتصادی)</option>
-                            <option value="gemini-3-pro-preview">Gemini 3 Pro (در طرح رایگان فعال نیست)</option>
-                            <option value="gemini-3-flash-preview">Gemini 3 Flash (سریع)</option>
-                            <option value="gemini-2.5-pro">Gemini 2.5 Pro (قدرتمند و پایدار)</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash (سریع‌ترین نسل قبل)</option>                            
-                        </select>
+                        <div class="relative">
+                            <select id="modelSelect" class="w-full p-3 pr-4 pl-12 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner cursor-pointer font-medium text-sm md:text-base text-ellipsis overflow-hidden whitespace-nowrap">
+    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option>
+    <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
+    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>                            
+</select>
+                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-slate-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                        </div>
                         
-                         <div id="modelHelp" class="help-tooltip top-8 right-0 z-50">
-                            <p class="font-bold mb-1 text-blue-300">مدل هوش مصنوعی</p>
-                            <p>موتوری که ترجمه را انجام می‌دهد.<br>
-                            <b>3.5 Flash:</b> جدیدترین مدل معرفی‌شده در ۲۰۲۶ با دقت بالا و سرعت عالی.<br>
-                            <b>3.1 Flash-Lite:</b> مدل فوق‌سریع و اقتصادی ۲۰۲۶، مناسب برای پردازش‌های حجیم.<br>
-                            <b>2.5 Pro:</b> تعادل عالی بین کیفیت و سرعت.<br>
-                            <b>2.5 Flash:</b> سرعت بسیار بالا در نسل دوم، مناسب فایل‌های معمولی.<br>
-                            <b>3 Pro:</b> هوشمندترین مدل (ممکن است در حالت رایگان محدود باشد).</p>
+                         <div id="modelHelp" class="help-tooltip top-8 right-0">
+                            <p class="font-bold mb-1 text-blue-500 dark:text-blue-400">مدل هوش مصنوعی</p>
+                            <p>موتوری که کار ترجمه و درک کانتکست را انجام می‌دهد. توصیه می‌شود از جدیدترین مدل‌های سری Flash استفاده کنید.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <details class="bg-gray-750 border border-gray-700 rounded-lg p-4 mb-4 group">
-                <summary class="font-bold text-lg text-blue-400 cursor-pointer flex items-center gap-2 select-none">
-                    <span>⚙️ تنظیمات پیشرفته</span>
+            <!-- بخش تنظیمات پیشرفته -->
+            <details class="group mt-6 bg-white/40 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 backdrop-blur-xl rounded-3xl transition-all duration-500 overflow-hidden shadow-sm hover:shadow-md open:shadow-lg open:bg-white/70 dark:open:bg-slate-800/80">
+                <summary class="font-bold text-base text-slate-700 dark:text-slate-200 cursor-pointer flex items-center justify-between p-5 select-none outline-none transition-all duration-300 relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <div class="flex items-center gap-3 relative z-10 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <div class="p-2.5 bg-blue-100/80 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        </div>
+                        <span class="tracking-wide">تنظیمات پیشرفته تخصصی</span>
+                    </div>
+                    
+                    <div class="relative z-10 w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors duration-300">
+                        <svg class="w-5 h-5 transition-transform duration-500 transform group-open:-rotate-180 text-slate-500 group-hover:text-blue-600 dark:text-slate-400 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
                 </summary>
                 
-                <div class="mt-6 space-y-6 border-t border-gray-700 pt-4">
+                <div class="p-6 pt-4 space-y-8 border-t border-slate-200/50 dark:border-slate-700/50">
                     
-                    <div class="bg-gray-800/50 p-5 rounded-xl border border-gray-600/50 shadow-inner">
-                        <h3 class="text-gray-200 font-bold mb-4 text-center text-lg">پارامترهای مدل هوش مصنوعی</h3>
-                        
-                        <div class="grid grid-cols-1 gap-8">
-                            <div class="relative">
-                                <div class="flex justify-between mb-2 items-center">
-                                    <div class="flex items-center gap-2">
-                                        <label for="creativityRange" class="text-sm font-medium text-gray-300">
-                                            دما (Temperature)
-                                        </label>
-                                        <button type="button" aria-label="راهنمای دما" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="tempHelp">
-                                            <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                                        </button>
-                                    </div>
-                                    <span id="creativityValue" class="text-blue-400 font-mono font-bold text-lg">0.2</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-6">
+                            <div class="relative bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                                <div class="flex justify-between mb-4 items-center">
+                                    <label for="creativityRange" class="text-sm font-bold text-slate-700 dark:text-slate-300">دما (Temperature)</label>
+                                    <span id="creativityValue" class="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 py-1 px-3 rounded-lg font-mono text-sm font-bold shadow-inner">0.2</span>
                                 </div>
                                 <input type="range" id="creativityRange" min="0" max="2" step="0.1" value="0.2" class="w-full" style="direction: ltr;">
-                                
-                                <div id="tempHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
-                                    <p class="font-bold mb-1 text-blue-300">Temperature (دما)</p>
-                                    <p>میزان خلاقیت یا تصادفی بودن متن خروجی را تعیین می‌کند. مقادیر پایین‌تر (نزدیک به ۰) باعث تولید متنی قابل پیش‌بینی‌تر و متمرکزتر می‌شود، در حالی که مقادیر بالاتر (نزدیک به ۱ یا ۲) متنی متنوع‌تر و خلاقانه‌تر ایجاد می‌کند.<br>مقدار پیش‌فرض: 0.2</p>
-                                </div>
                             </div>
 
-                            <div class="relative">
-                                <div class="flex justify-between mb-2 items-center">
-                                    <div class="flex items-center gap-2">
-                                        <label for="topPRange" class="text-sm font-medium text-gray-300">
-                                            Top-P
-                                        </label>
-                                        <button type="button" aria-label="راهنمای Top-P" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="topPHelp">
-                                            <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                                        </button>
-                                    </div>
-                                    <span id="topPValue" class="text-blue-400 font-mono font-bold text-lg">0.9</span>
+                            <div class="relative bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
+                                <div class="flex justify-between mb-4 items-center">
+                                    <label for="topPRange" class="text-sm font-bold text-slate-700 dark:text-slate-300">محدوده درک (Top-P)</label>
+                                    <span id="topPValue" class="bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 py-1 px-3 rounded-lg font-mono text-sm font-bold shadow-inner">0.9</span>
                                 </div>
                                 <input type="range" id="topPRange" min="0" max="1" step="0.01" value="0.9" class="w-full" style="direction: ltr;">
-                                
-                                <div id="topPHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
-                                    <p class="font-bold mb-1 text-blue-300">Top-P (هسته نمونه‌برداری)</p>
-                                    <p>یک روش نمونه‌برداری است که در آن مدل، مجموعه‌ای از محتمل‌ترین کلمات را که مجموع احتمال آن‌ها به عدد TopP می‌رسد، در نظر می‌گیرد. برای مثال، مقدار 0.9 باعث می‌شود فقط کلماتی که در 90% بالای توزیع احتمال قرار دارند، انتخاب شوند.<br>مقدار پیش‌فرض: 0.9</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="relative bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                                <label for="toneSelect" class="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-3">لحن خروجی ترجمه</label>
+                                <div class="relative">
+                                    <select id="toneSelect" class="w-full p-3 pr-4 pl-12 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer text-sm md:text-base text-ellipsis overflow-hidden whitespace-nowrap">
+                                        <option value="informal">محاوره‌ای و دوستانه (پیشنهاد انیمه)</option>
+                                        <option value="formal">رسمی و کتابی (مستند و جدی)</option>
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-slate-500">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div class="relative">
-                            <div class="flex items-center gap-2 mb-2">
-                                <label for="toneSelect" class="text-sm font-medium text-gray-300">لحن ترجمه</label>
-                                <button type="button" aria-label="راهنمای لحن ترجمه" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="toneHelp">
-                                    <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                                </button>
-                            </div>
-                            <select id="toneSelect" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500">
-                                <option value="informal">محاوره‌ای / دوستانه (مناسب انیمه)</option>
-                                <option value="formal">رسمی / کتابی</option>
-                            </select>
-                            
-                            <div id="toneHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
-                                <p class="font-bold mb-1 text-blue-300">لحن ترجمه</p>
-                                <p>تعیین می‌کند هوش مصنوعی با چه سبکی ترجمه کند.<br><b>محاوره‌ای:</b> مناسب فیلم و انیمه (زبان شکسته‌نویسی).<br><b>رسمی:</b> مناسب مستند یا متون جدی (زبان معیار).</p>
-                            </div>
-                        </div>
-
-                        <div class="relative">
-                            <div class="flex items-center gap-2 mb-2">
-                                <label for="fpsInput" class="text-sm font-medium text-gray-300">
-                                    نرخ فریم (FPS)
-                                </label>
-                                <button type="button" aria-label="راهنمای نرخ فریم" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="fpsHelp">
-                                    <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                                </button>
-                            </div>
-                            <input type="number" id="fpsInput" step="0.001" value="23.976" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500" style="direction: ltr; text-align: left;">
-                            
-                            <div id="fpsHelp" class="help-tooltip bottom-12 right-0 md:right-auto md:left-0">
-                                <p class="font-bold mb-1 text-blue-300">نرخ فریم (FPS)</p>
-                                <p>این عدد برای هماهنگی دقیق زمان‌بندی زیرنویس با ویدیو حیاتی است. اکثر انیمه‌ها 23.976 هستند. اگر زیرنویس شما هماهنگ نیست، این عدد را تغییر دهید (مثلاً به 24 یا 25).</p>
+                            <div class="relative bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                                <label for="fpsInput" class="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-3">نرخ فریم ویدیو (FPS)</label>
+                                <input type="number" id="fpsInput" step="0.001" value="23.976" class="w-full p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono" style="direction: ltr; text-align: left;">
                             </div>
                         </div>
                     </div>
 
-                    <div class="bg-gray-800/50 p-5 rounded-xl border border-gray-600/50 shadow-inner mt-6">
-                        <h3 class="text-gray-200 font-bold mb-4 text-center text-lg">واترمارک و متن‌های سفارشی (شروع و پایان)</h3>
+                    <!-- بخش واترمارک‌ها -->
+                    <div class="bg-slate-50/80 dark:bg-slate-900/30 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm mt-8">
+                        <h3 class="text-slate-800 dark:text-white font-bold mb-6 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            درج واترمارک اختصاصی
+                        </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
-                                <div class="flex items-center justify-between mb-3">
-                                    <label class="flex items-center gap-2 cursor-pointer text-blue-400 font-bold">
-                                        <input type="checkbox" id="startTextEnabled" class="w-4 h-4 text-blue-500 bg-gray-900 border-gray-600 rounded focus:ring-blue-600 focus:ring-2 cursor-pointer">
-                                        نمایش متن در شروع انیمه
+                            <!-- واترمارک شروع -->
+                            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm">
+                                <div class="flex items-center justify-between mb-5">
+                                    <span class="font-bold text-sm text-slate-700 dark:text-slate-200">تبلیغ ابتدای ویدیو</span>
+                                    <label for="startTextEnabled" class="flex items-center cursor-pointer">
+                                        <div class="relative">
+                                            <!-- کدهای اصلاح شده سوئیچ بر اساس Tailwind -->
+                                            <input type="checkbox" id="startTextEnabled" class="sr-only peer">
+                                            <div class="w-11 h-6 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-blue-500 transition-all duration-300"></div>
+                                            <div class="absolute right-1 top-1 bg-white w-4 h-4 rounded-full transition-all duration-300 peer-checked:-translate-x-5 shadow-sm"></div>
+                                        </div>
                                     </label>
                                 </div>
-                                <div class="space-y-3 transition-opacity duration-300" id="startTextContainer">
-                                    <div>
-                                        <label for="startTextInput" class="block text-sm font-medium text-gray-300 mb-1">متن دلخواه</label>
-                                        <textarea id="startTextInput" rows="2" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="مثلا: تیم انی پارس با افتخار تقدیم میکند"></textarea>
-                                    </div>
-                                    <div class="flex gap-4">
-                                        <div class="flex-1">
-                                            <label for="startTextStartTime" class="block text-sm font-medium text-gray-300 mb-1">ثانیه شروع</label>
-                                            <div class="relative">
-                                                <input type="number" id="startTextStartTime" value="5" min="0" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-blue-500 focus:border-blue-500" style="direction: ltr;">
-                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
-                                            </div>
+                                <div class="space-y-4 transition-all duration-300 opacity-50 grayscale pointer-events-none" id="startTextContainer">
+                                    <textarea id="startTextInput" rows="2" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 placeholder-slate-400" placeholder="متن تبلیغ (مثلا: اختصاصی انی پارس)"></textarea>
+                                    <div class="flex gap-3 items-end">
+                                        <div class="flex-1 relative">
+                                            <label class="flex items-end min-h-[2.25rem] text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 leading-tight">ثانیه شروع</label>
+                                            <input type="number" id="startTextStartTime" value="5" min="0" inputmode="numeric" class="watermark-time-input w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500">
                                         </div>
-                                        <div class="flex-1">
-                                            <label for="startTextEndTime" class="block text-sm font-medium text-gray-300 mb-1">ثانیه پایان</label>
-                                            <div class="relative">
-                                                <input type="number" id="startTextEndTime" value="15" min="1" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-blue-500 focus:border-blue-500" style="direction: ltr;">
-                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
-                                            </div>
+                                        <div class="flex-1 relative">
+                                            <label class="flex items-end min-h-[2.25rem] text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 leading-tight">ثانیه پایان</label>
+                                            <input type="number" id="startTextEndTime" value="15" min="1" inputmode="numeric" class="watermark-time-input w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-center focus:ring-2 focus:ring-blue-500">
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
-                                <div class="flex items-center justify-between mb-3">
-                                    <label class="flex items-center gap-2 cursor-pointer text-purple-400 font-bold">
-                                        <input type="checkbox" id="endTextEnabled" class="w-4 h-4 text-purple-500 bg-gray-900 border-gray-600 rounded focus:ring-purple-600 focus:ring-2 cursor-pointer">
-                                        نمایش متن در پایان انیمه
+                            <!-- واترمارک پایان -->
+                            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm">
+                                <div class="flex items-center justify-between mb-5">
+                                    <span class="font-bold text-sm text-slate-700 dark:text-slate-200">تبلیغ انتهای ویدیو</span>
+                                    <label for="endTextEnabled" class="flex items-center cursor-pointer">
+                                        <div class="relative">
+                                            <input type="checkbox" id="endTextEnabled" class="sr-only peer">
+                                            <div class="w-11 h-6 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-purple-500 transition-all duration-300"></div>
+                                            <div class="absolute right-1 top-1 bg-white w-4 h-4 rounded-full transition-all duration-300 peer-checked:-translate-x-5 shadow-sm"></div>
+                                        </div>
                                     </label>
                                 </div>
-                                <div class="space-y-3 transition-opacity duration-300" id="endTextContainer">
-                                    <div>
-                                        <label for="endTextInput" class="block text-sm font-medium text-gray-300 mb-1">متن دلخواه</label>
-                                        <textarea id="endTextInput" rows="2" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="مثلا: برای دیدن زیرنویس‌های بیشتر کانال انی پارس را دنبال کنید"></textarea>
-                                    </div>
-                                    <div class="flex gap-4">
-                                        <div class="flex-1">
-                                            <label for="endTextStartFromEnd" class="block text-sm font-medium text-gray-300 mb-1" title="چند ثانیه مانده به پایان ویدیو؟">زمان شروع (مانده به پایان)</label>
-                                            <div class="relative">
-                                                <input type="number" id="endTextStartFromEnd" value="120" min="0" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-purple-500 focus:border-purple-500" style="direction: ltr;">
-                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
-                                            </div>
+                                <div class="space-y-4 transition-all duration-300 opacity-50 grayscale pointer-events-none" id="endTextContainer">
+                                    <textarea id="endTextInput" rows="2" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 placeholder-slate-400" placeholder="متن پایانی (مثلا: حمایت یادتون نره)"></textarea>
+                                    <div class="flex gap-3 items-end">
+                                        <div class="flex-1 relative">
+                                            <label class="flex items-end min-h-[2.25rem] text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 leading-tight" title="مانده به آخر">شروع (ثانیه به آخر)</label>
+                                            <input type="number" id="endTextStartFromEnd" value="120" min="0" inputmode="numeric" class="watermark-time-input w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-center focus:ring-2 focus:ring-purple-500">
                                         </div>
-                                        <div class="flex-1">
-                                            <label for="endTextDuration" class="block text-sm font-medium text-gray-300 mb-1">مدت زمان نمایش</label>
-                                            <div class="relative">
-                                                <input type="number" id="endTextDuration" value="10" min="1" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm text-center focus:ring-purple-500 focus:border-purple-500" style="direction: ltr;">
-                                                <span class="absolute left-3 top-2 text-xs text-gray-400 font-sans">s</span>
-                                            </div>
+                                        <div class="flex-1 relative">
+                                            <label class="flex items-end min-h-[2.25rem] text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 leading-tight">مدت نمایش</label>
+                                            <input type="number" id="endTextDuration" value="10" min="1" inputmode="numeric" class="watermark-time-input w-full p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-center focus:ring-2 focus:ring-purple-500">
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center relative">
-                        <div class="proxy-setting-container w-full flex items-center">
-                            <input type="checkbox" id="proxy-toggle" class="w-5 h-5 cursor-pointer">
-                            <label for="proxy-toggle" class="font-medium text-gray-300 cursor-pointer select-none mr-2">
-                                استفاده از پراکسی (دور زدن تحریم)
-                            </label>
-                            
-                            <button type="button" aria-label="راهنمای پراکسی" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="proxyHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                            </button>
-                        </div>
-                        
-                         <div id="proxyHelp" class="help-tooltip bottom-14 left-0 z-50">
-                            <p class="font-bold mb-1 text-blue-300">پراکسی (Proxy)</p>
-                            <p>به دلیل تحریم‌های گوگل، دسترسی مستقیم از ایران ممکن نیست. با فعال کردن این گزینه، درخواست‌ها از طریق یک سرور واسط (Worker) ارسال می‌شوند تا مشکل دسترسی حل شود.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center relative mt-4">
-                        <div class="proxy-setting-container w-full flex items-center">
-                            <input type="checkbox" id="karaoke-toggle" class="w-5 h-5 cursor-pointer" checked>
-                            <label for="karaoke-toggle" class="font-medium text-gray-300 cursor-pointer select-none mr-2">
-                                افکت کارائوکه OP/ED (استایل‌دهی آهنگ‌ها)
-                            </label>
-                            
-                            <button type="button" aria-label="راهنمای افکت کارائوکه" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="karaokeHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                            </button>
-                        </div>
-                        
-                         <div id="karaokeHelp" class="help-tooltip bottom-14 left-0 z-50">
-                            <p class="font-bold mb-1 text-blue-300">افکت کارائوکه</p>
-                            <p>اگر فعال باشد، خطوط آهنگ‌های آغازین (OP) و پایانی (ED) با رنگ‌ها و فونت‌های خاص (آبی و صورتی) در فایل خروجی ASS استایل‌دهی می‌شوند.</p>
-                        </div>
-                    </div>
 
-                    <div class="flex items-center relative mt-4">
-                        <div class="proxy-setting-container w-full flex items-center">
-                            <input type="checkbox" id="ai-detection-toggle" class="w-5 h-5 cursor-pointer">
-                            <label for="ai-detection-toggle" class="font-medium text-gray-300 cursor-pointer select-none mr-2">
-                                تشخیص هوشمند OP/ED با AI (پیشنهادی)
-                            </label>
-                            
-                            <button type="button" aria-label="راهنمای تشخیص هوشمند آهنگ" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="aiDetectionHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                            </button>
-                        </div>
-                        
-                         <div id="aiDetectionHelp" class="help-tooltip bottom-14 left-0 z-50">
-                            <p class="font-bold mb-1 text-blue-300">تشخیص هوشمند آهنگ</p>
-                            <p>در این حالت، هوش مصنوعی ۱۰ دقیقه اول و ۱۰ دقیقه آخر ویدیو را اسکن می‌کند تا دقیق‌ترین محل شروع و پایان آهنگ‌ها را پیدا کند. عالی برای فایل‌های بدون تگ.</p>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center relative mt-4">
-                        <div class="proxy-setting-container w-full flex items-center">
-                            <input type="checkbox" id="live-output-toggle" class="w-5 h-5 cursor-pointer" checked>
-                            <label for="live-output-toggle" class="font-medium text-gray-300 cursor-pointer select-none mr-2">
-                                نمایش زنده متن (Live Output) - <span class="text-xs text-yellow-500">در صورت کرش در موبایل خاموش کنید</span>
-                            </label>
-                            
-                            <button type="button" aria-label="راهنمای نمایش زنده متن" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn mr-auto ml-2" data-target="liveOutputHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                            </button>
-                        </div>
-                        
-                         <div id="liveOutputHelp" class="help-tooltip bottom-14 left-0 z-50">
-                            <p class="font-bold mb-1 text-blue-300">نمایش زنده متن</p>
-                            <p>متن ترجمه شده را همزمان با دریافت نمایش می‌دهد. در گوشی‌های موبایل یا فایل‌های حجیم، این کار ممکن است باعث پر شدن حافظه و کرش کردن مرورگر شود. اگر با خطای "Aw Snap" مواجه شدید، این گزینه را خاموش کنید.</p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <details class="safety-settings-details" role="region">
-                            <summary class="font-medium text-gray-300 bg-gray-900 p-3 rounded-lg border border-gray-700 hover:bg-gray-800 transition-colors" aria-expanded="false" aria-controls="safety-settings-content">
-                                تنظیمات ایمنی (Safety Filters)
-                            </summary>
-                            <div class="safety-settings-content mt-2" id="safety-settings-content">
-                                <p class="text-xs text-gray-400">غیرفعال کردن فیلترها برای جلوگیری از سانسور محتوا.</p>
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
-                                    <input type="checkbox" id="safety-harassment-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
-                                    آزار و اذیت (Harassment)
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
-                                    <input type="checkbox" id="safety-hate-speech-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
-                                    سخنان نفرت‌پراکن (Hate Speech)
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
-                                    <input type="checkbox" id="safety-sexually-explicit-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
-                                    محتوای جنسی (Sexually Explicit)
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
-                                    <input type="checkbox" id="safety-dangerous-content-toggle" class="w-4 h-4 text-red-500 focus:ring-red-500">
-                                    محتوای خطرناک (Dangerous)
-                                </label>
+                    <!-- بخش سوئیچ‌های امکانات (طراحی جدید) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                        <label for="proxy-toggle" class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-600 flex items-center justify-between cursor-pointer hover:shadow-md hover:border-blue-400 transition-all">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm text-slate-800 dark:text-slate-200">استفاده از پراکسی (Worker)</span>
+                                <span class="text-xs text-slate-500 dark:text-slate-400 mt-1">جهت دور زدن تحریم‌های API گوگل</span>
                             </div>
-                        </details>
+                            <div class="relative">
+                                <input type="checkbox" id="proxy-toggle" class="sr-only peer">
+                                <div class="w-12 h-7 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-blue-500 transition-colors"></div>
+                                <div class="absolute right-1 top-1 bg-white w-5 h-5 rounded-full transition-transform peer-checked:-translate-x-5 shadow-sm"></div>
+                            </div>
+                        </label>
+
+                        <label for="karaoke-toggle" class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-600 flex items-center justify-between cursor-pointer hover:shadow-md hover:border-pink-400 transition-all">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm text-slate-800 dark:text-slate-200">افکت کارائوکه آهنگ (OP/ED)</span>
+                                <span class="text-xs text-slate-500 dark:text-slate-400 mt-1">استایل‌دهی رنگی به آهنگ‌ها در ASS</span>
+                            </div>
+                            <div class="relative">
+                                <input type="checkbox" id="karaoke-toggle" class="sr-only peer" checked>
+                                <div class="w-12 h-7 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-pink-500 transition-colors"></div>
+                                <div class="absolute right-1 top-1 bg-white w-5 h-5 rounded-full transition-transform peer-checked:-translate-x-5 shadow-sm"></div>
+                            </div>
+                        </label>
+
+                        <label for="ai-detection-toggle" class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-600 flex items-center justify-between cursor-pointer hover:shadow-md hover:border-indigo-400 transition-all">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm text-slate-800 dark:text-slate-200">اسکن هوشمند آهنگ با AI</span>
+                                <span class="text-xs text-slate-500 dark:text-slate-400 mt-1">تشخیص دقیق شروع/پایان آهنگ‌ها</span>
+                            </div>
+                            <div class="relative">
+                                <input type="checkbox" id="ai-detection-toggle" class="sr-only peer">
+                                <div class="w-12 h-7 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-indigo-500 transition-colors"></div>
+                                <div class="absolute right-1 top-1 bg-white w-5 h-5 rounded-full transition-transform peer-checked:-translate-x-5 shadow-sm"></div>
+                            </div>
+                        </label>
+
+                        <label for="live-output-toggle" class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-600 flex items-center justify-between cursor-pointer hover:shadow-md hover:border-teal-400 transition-all">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm text-slate-800 dark:text-slate-200">نمایش زنده خروجی (Live)</span>
+                                <span class="text-xs text-amber-500 mt-1">در موبایل‌های ضعیف خاموش شود</span>
+                            </div>
+                            <div class="relative">
+                                <input type="checkbox" id="live-output-toggle" class="sr-only peer" checked>
+                                <div class="w-12 h-7 bg-slate-300 dark:bg-slate-600 rounded-full peer-checked:bg-teal-500 transition-colors"></div>
+                                <div class="absolute right-1 top-1 bg-white w-5 h-5 rounded-full transition-transform peer-checked:-translate-x-5 shadow-sm"></div>
+                            </div>
+                        </label>
                     </div>
 
-                    <div class="relative">
-                        <div class="flex items-center gap-2 mb-2">
-                            <label for="promptSelector" class="text-sm font-medium text-gray-300">پرامپت سیستم (System Prompt)</label>
-                            <button type="button" aria-label="راهنمای پرامپت سیستم" class="text-gray-500 hover:text-gray-300 focus:outline-none help-btn" data-target="promptHelp">
-                                <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 111.731.999A.999.999 0 0010 10a1 1 0 110 2 1 1 0 010-2.204 3.004 3.004 0 10-1.37-5.83A2.99 2.99 0 0010 4zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                            </button>
+                    <!-- تنظیمات ایمنی (Accordion دوم) -->
+                    <details class="bg-red-50/80 dark:bg-red-900/10 border border-red-200 dark:border-red-900/40 rounded-2xl mt-8 group overflow-hidden transition-all duration-300 open:shadow-md">
+                        <summary class="font-bold text-sm text-red-600 dark:text-red-400 cursor-pointer p-5 select-none outline-none flex justify-between items-center hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                تنظیمات ایمنی (جلوگیری از سانسور)
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                <svg class="w-4 h-4 transition-transform duration-500 transform group-open:-rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                        </summary>
+                        <div class="details-content p-5 border-t border-red-200 dark:border-red-900/40 bg-white/50 dark:bg-slate-900/20 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <p class="text-xs text-slate-600 dark:text-slate-400 col-span-full mb-1">تیک زدن این گزینه‌ها فیلترهای اخلاقی هوش مصنوعی را خاموش می‌کند.</p>
+                            
+                            <label class="flex items-center p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 cursor-pointer transition-colors shadow-sm">
+                                <input type="checkbox" id="safety-harassment-toggle" class="w-4 h-4 text-red-600 bg-slate-100 border-slate-300 rounded focus:ring-red-500 focus:ring-2">
+                                <span class="mr-3 text-sm font-medium text-slate-700 dark:text-slate-300">خاموشی فیلتر آزار (Harassment)</span>
+                            </label>
+                            <label class="flex items-center p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 cursor-pointer transition-colors shadow-sm">
+                                <input type="checkbox" id="safety-hate-speech-toggle" class="w-4 h-4 text-red-600 bg-slate-100 border-slate-300 rounded focus:ring-red-500 focus:ring-2">
+                                <span class="mr-3 text-sm font-medium text-slate-700 dark:text-slate-300">خاموشی فیلتر کلمات رکیک</span>
+                            </label>
+                            <label class="flex items-center p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 cursor-pointer transition-colors shadow-sm">
+                                <input type="checkbox" id="safety-sexually-explicit-toggle" class="w-4 h-4 text-red-600 bg-slate-100 border-slate-300 rounded focus:ring-red-500 focus:ring-2">
+                                <span class="mr-3 text-sm font-medium text-slate-700 dark:text-slate-300">خاموشی فیلتر جنسی</span>
+                            </label>
+                            <label class="flex items-center p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 cursor-pointer transition-colors shadow-sm">
+                                <input type="checkbox" id="safety-dangerous-content-toggle" class="w-4 h-4 text-red-600 bg-slate-100 border-slate-300 rounded focus:ring-red-500 focus:ring-2">
+                                <span class="mr-3 text-sm font-medium text-slate-700 dark:text-slate-300">خاموشی فیلتر خطرناک</span>
+                            </label>
                         </div>
+                    </details>
+
+                    <!-- پرامپت -->
+                    <div class="mt-8 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
+                        <label class="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                            پرامپت سیستمی (مغز مترجم)
+                        </label>
                         
-                        <div class="flex gap-2 mb-2 items-center">
-                            <select id="promptSelector" class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <div class="flex gap-3 mb-4 items-center">
+                            <div class="relative flex-1">
+                                <select id="promptSelector" class="w-full p-3 pr-4 pl-12 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none cursor-pointer font-medium text-ellipsis overflow-hidden whitespace-nowrap">
                                 </select>
-                            <button type="button" id="addPromptBtn" aria-label="افزودن پرامپت سفارشی" class="p-2 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors" title="افزودن پرامپت سفارشی">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" aria-hidden="true" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                                </svg>
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-slate-500">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
+                            </div>
+                            <button type="button" id="addPromptBtn" class="p-3 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-white shadow-md shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95" title="افزودن پرامپت سفارشی">
+                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
                             </button>
-                            <button type="button" id="deletePromptBtn" aria-label="حذف این پرامپت" class="p-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition-colors hidden" title="حذف این پرامپت">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" aria-hidden="true" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
+                            <button type="button" id="deletePromptBtn" class="p-3 bg-rose-500 hover:bg-rose-600 rounded-xl text-white shadow-md shadow-rose-500/30 transition-all hover:scale-105 active:scale-95 hidden" title="حذف این پرامپت">
+                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                             </button>
                         </div>
 
-                        <textarea id="systemPrompt" aria-label="متن پرامپت سیستم" rows="6" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500 text-sm" style="text-align: right; direction: rtl;"></textarea>
-                        <p id="promptReadOnlyMsg" class="text-xs text-yellow-500 mt-1 hidden">این پرامپت سیستمی ثابت است و قابل ویرایش نیست. برای تغییر، یک پرامپت سفارشی ایجاد کنید.</p>
-                        
-                         <div id="promptHelp" class="help-tooltip bottom-full right-0 mb-2 z-50">
-                            <p class="font-bold mb-1 text-blue-300">پرامپت سیستم</p>
-                            <p>دستورالعمل اصلی که رفتار هوش مصنوعی را تعیین می‌کند. پرامپت پیش‌فرض برای ترجمه انیمه بهینه شده است. شما می‌توانید پرامپت‌های سفارشی خود را بسازید تا سبک ترجمه را به دلخواه خود تغییر دهید.</p>
-                        </div>
+                        <textarea id="systemPrompt" rows="6" class="w-full p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-2xl text-slate-900 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 text-sm font-mono leading-relaxed shadow-sm transition-colors" style="text-align: right; direction: rtl;"></textarea>
+                        <p id="promptReadOnlyMsg" class="text-xs text-amber-600 dark:text-amber-400 mt-3 font-bold hidden flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            این پرامپت قفل است. برای تغییرات، یک پرامپت جدید بسازید.
+                        </p>
                     </div>
 
                 </div>
             </details>
             
-            <div class="flex items-center gap-4 mt-4">
-                <button type="button" id="resetSettings" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-semibold transition duration-300 shadow-md">
-                    بازگردانی به پیش‌فرض
+            <div class="flex items-center gap-4 mt-6">
+                <button type="button" id="resetSettings" class="group px-5 py-2.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl text-sm font-bold transition-all shadow-sm hover:shadow-md flex items-center gap-2 active:scale-95">
+                    <svg class="w-4 h-4 transition-transform duration-500 group-hover:-rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    بازگردانی پیش‌فرض‌ها
                 </button>
-                <span id="settingsReset" class="text-amber-400 hidden">تنظیمات به پیش‌فرض بازگردانی شد!</span>
+                <span id="settingsReset" class="text-emerald-500 font-bold text-sm hidden animate-fade-in bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">انجام شد!</span>
             </div>
         </div>
 
-        <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
-            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">۱. انتخاب فایل‌ها</h2>
-            <div id="dropZone" class="border-2 border-gray-600 rounded-lg p-10 text-center text-gray-400">
-                <p class="mb-4">فایل‌های زیرنویس خود را اینجا بکشید و رها کنید</p>
-                <p class="mb-4 text-sm">(فرمت‌های .vtt, .srt, .ass)</p>
-                <label for="fileInput" class="inline-block cursor-pointer text-white px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors shadow-md">
-                    یا برای انتخاب فایل کلیک کنید
-                </label>
-                <input type="file" id="fileInput" multiple accept=".vtt,.srt,.ass">
+        <!-- کارت آپلود فایل -->
+        <div class="bg-white/55 dark:bg-slate-800/70 backdrop-blur-lg border border-slate-200 dark:border-slate-700 rounded-3xl p-6 md:p-8 mb-8 shadow-xl animate-fade-in" style="animation-delay: 0.1s;">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="p-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg></span>
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">انتخاب فایل‌های زیرنویس</h2>
             </div>
-            <div id="fileList" class="mt-6 space-y-3">
+            
+            <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-900/30 rounded-3xl p-12 text-center text-slate-500 dark:text-slate-400 cursor-pointer flex flex-col items-center justify-center group" onclick="document.getElementById('fileInput').click()">
+                <div class="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-full flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 transition-all duration-300 shadow-sm">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <p class="font-extrabold text-xl text-slate-700 dark:text-slate-300 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">فایل‌ها را اینجا رها کنید</p>
+                <p class="text-sm mb-5 font-medium">یا برای انتخاب فایل کلیک کنید</p>
+                <div class="flex gap-3 text-xs font-bold font-mono bg-white dark:bg-slate-800 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <span class="text-blue-500">.ass</span>
+                    <div class="w-px h-4 bg-slate-200 dark:bg-slate-600"></div>
+                    <span class="text-emerald-500">.srt</span>
+                    <div class="w-px h-4 bg-slate-200 dark:bg-slate-600"></div>
+                    <span class="text-purple-500">.vtt</span>
+                </div>
+                <input type="file" id="fileInput" multiple accept=".vtt,.srt,.ass" class="hidden">
             </div>
-            <button type="button" id="clearFileList" class="mt-4 w-full md:w-auto px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-xs font-medium transition duration-300 disabled:opacity-50" style="display: none;">
-                پاک کردن لیست فایل‌ها
+
+            <div id="fileList" class="mt-6 space-y-3 empty:hidden"></div>
+            
+            <button type="button" id="clearFileList" class="mt-4 px-5 py-2.5 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl text-sm font-bold transition-all shadow-sm hover:shadow-md hidden items-center gap-2 active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                پاک کردن لیست
             </button>
         </div>
 
-        <div class="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
-            <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">۲. شروع عملیات</h2>
+        <!-- کارت عملیات و خروجی -->
+        <div class="bg-white/55 dark:bg-slate-800/70 backdrop-blur-lg border border-slate-200 dark:border-slate-700 rounded-3xl p-6 md:p-8 shadow-xl animate-fade-in" style="animation-delay: 0.2s;">
+            <div class="flex items-center gap-3 mb-6 border-b border-slate-200 dark:border-slate-700 pb-4">
+                <span class="p-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></span>
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">عملیات و پردازش</h2>
+            </div>
             
-            <div id="outputFormatSelector" class="mt-6" style="display: none;">
-                <label class="block mb-2 text-sm font-medium text-gray-300">فرمت فایل خروجی</label>
-                <p class="text-xs text-gray-400 mb-3">فرمت مورد نظر برای فایل نهایی را انتخاب کنید.</p>
-                <div class="flex flex-col sm:flex-row gap-4 p-3 bg-gray-900 rounded-lg">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="output-format" value="ass" checked class="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-600 ring-offset-gray-800 focus:ring-2">
-                        ASS (فرمت پیشرفته - فونت و استایل)
+            <div id="outputFormatSelector" class="mb-8 p-5 bg-slate-50/80 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hidden">
+                <label class="block mb-4 text-sm font-bold text-slate-800 dark:text-slate-200">فرمت نهایی فایل خروجی</label>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <label class="flex-1 flex items-center p-4 bg-white dark:bg-slate-800 border-2 border-blue-400 dark:border-blue-600 rounded-xl cursor-pointer transition-all shadow-sm">
+                        <input type="radio" name="output-format" value="ass" checked class="w-5 h-5 text-blue-600 bg-slate-100 border-slate-300 focus:ring-blue-500 focus:ring-2">
+                        <div class="mr-3">
+                            <span class="block font-bold text-sm text-slate-800 dark:text-white">فرمت پیشرفته (ASS)</span>
+                            <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">حفظ کامل فونت‌ها و رنگ‌ها</span>
+                        </div>
                     </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="output-format" value="srt" class="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 focus:ring-blue-600 ring-offset-gray-800 focus:ring-2">
-                        SRT (فرمت ساده - متن خالی)
+                    <label class="flex-1 flex items-center p-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all shadow-sm">
+                        <input type="radio" name="output-format" value="srt" class="w-5 h-5 text-blue-600 bg-slate-100 border-slate-300 focus:ring-blue-500 focus:ring-2">
+                        <div class="mr-3">
+                            <span class="block font-bold text-sm text-slate-800 dark:text-white">فرمت ساده (SRT)</span>
+                            <span class="block text-xs text-slate-500 dark:text-slate-400 mt-1">متن خام و سبک برای پلیرهای قدیمی</span>
+                        </div>
                     </label>
                 </div>
             </div>
 
-            <div class="flex flex-col md:flex-row gap-4 mt-6">
-                <button type="button" id="startTranslation" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    شروع ترجمه
-                </button>
-                <button type="button" id="stopTranslation" class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition duration-300" style="display: none;">
-                    ⛔ توقف عملیات
-                </button>
-                <button type="button" id="downloadFiles" class="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    دانلود فایل(ها)
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="action-btn-stack">
+                    <button type="button" id="startTranslation" class="action-btn flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-lg" disabled>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        شروع ترجمه
+                    </button>
+                    <button type="button" id="stopTranslation" class="action-btn flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-l from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-red-500/30 transition-all hover:scale-[1.02] active:scale-95 hidden text-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>
+                        توقف عملیات
+                    </button>
+                </div>
+                <button type="button" id="downloadFiles" class="flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-lg" disabled>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    دریافت زیرنویس‌ها
                 </button>
             </div>
 
-            <div class="mt-6" id="overallProgressSection" style="display: none;">
-                <label class="block mb-2 text-sm font-medium text-gray-300 break-words leading-relaxed" id="overallProgressLabel">پیشرفت کلی</label>
-                <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
-                    <div id="overallProgressBar" class="bg-blue-500 h-4 rounded-full progress-bar-inner" style="width: 0%"></div>
+            <!-- بخش پیشرفت و ترمینال -->
+            <div class="mt-8 hidden animate-fade-in" id="overallProgressSection">
+                <div class="flex justify-between items-end mb-3">
+                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300" id="overallProgressLabel">وضعیت پیشرفت</label>
                 </div>
-                <pre id="liveOutput" style="display: none; direction: rtl; text-align: right;"></pre>
+                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 mb-4 overflow-hidden shadow-inner border border-slate-300 dark:border-slate-600">
+                    <div id="overallProgressBar" class="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 h-full rounded-full progress-bar-inner relative">
+                        <div class="absolute inset-0 w-full h-full" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem; animation: progress-stripes 1s linear infinite;"></div>
+                    </div>
+                </div>
                 
+                <pre id="liveOutput" class="hidden"></pre>
                 <p id="translationStatusMessage" class="status-message hidden"></p>
             </div>
             
-            <div id="statusLog" class="mt-4 p-4 bg-gray-900 rounded-lg max-h-48 overflow-y-auto text-sm text-gray-300" style="display: none;">
+            <div id="statusLog" class="status-log mt-6 p-5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl max-h-48 overflow-y-auto text-xs text-slate-600 dark:text-slate-400 shadow-inner hidden">
             </div>
         </div>
         
     </div>
 
-    <footer class="text-center mt-12 pb-8">
-        <p class="text-gray-400 text-sm mb-2">
-            توسعه دهنده : Abolfazl_ASDBV
+    <!-- فوتر -->
+    <footer class="text-center relative z-10 pb-8 mt-auto">
+        <div class="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full mb-6 opacity-50"></div>
+        <p class="text-slate-500 dark:text-slate-400 text-sm mb-4 font-medium">
+            توسعه و طراحی با ❤️ توسط <span class="font-bold text-slate-700 dark:text-slate-300">Abolfazl_ASDBV</span>
         </p>
-        <div class="flex justify-center gap-4">
-            <a href="https://t.me/anime_sub_Persian" target="_blank" rel="noopener noreferrer" title="Telegram" class="text-gray-400 hover:text-blue-400 transition-colors">
-                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Telegram icon">
-                    <title>تلگرام</title>
-                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-1.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-                </svg>
+        <div class="flex justify-center gap-5">
+            <a href="https://t.me/anime_sub_Persian" target="_blank" rel="noopener noreferrer" class="p-3 bg-white dark:bg-slate-800 rounded-full text-blue-500 hover:text-white hover:bg-blue-500 transition-all shadow-md hover:scale-110">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-1.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
             </a>
-            <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" title="Instagram" class="text-gray-400 hover:text-purple-400 transition-colors">
-                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" role="img" aria-label="Instagram icon">
-                    <title>اینستاگرام</title>
-                    <path d="M7.8,2H16.2C19.4,2 22,4.6 22,7.8V16.2A5.8,5.8 0 0,1 16.2,22H7.8C4.6,22 2,19.4 2,16.2V7.8A5.8,5.8 0 0,1 7.8,2M7.6,4A3.6,3.6 0 0,0 4,7.6V16.4C4,18.39 5.61,20 7.6,20H16.4A3.6,3.6 0 0,0 20,16.4V7.6C20,5.61 18.39,4 16.4,4H7.6M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M18,5A1,1 0 0,1 19,6A1,1 0 0,1 18,7A1,1 0 0,1 17,6A1,1 0 0,1 18,5Z"/>
-                </svg>
+            <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" class="p-3 bg-white dark:bg-slate-800 rounded-full text-pink-600 hover:text-white hover:bg-gradient-to-tr hover:from-yellow-400 hover:via-pink-500 hover:to-purple-600 transition-all shadow-md hover:scale-110">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7.8,2H16.2C19.4,2 22,4.6 22,7.8V16.2A5.8,5.8 0 0,1 16.2,22H7.8C4.6,22 2,19.4 2,16.2V7.8A5.8,5.8 0 0,1 7.8,2M7.6,4A3.6,3.6 0 0,0 4,7.6V16.4C4,18.39 5.61,20 7.6,20H16.4A3.6,3.6 0 0,0 20,16.4V7.6C20,5.61 18.39,4 16.4,4H7.6M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M18,5A1,1 0 0,1 19,6A1,1 0 0,1 18,7A1,1 0 0,1 17,6A1,1 0 0,1 18,5Z"/></svg>
             </a>
         </div>
     </footer>
 
-    <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none; z-index: 100;">
-        <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full p-6 border border-gray-700">
-            <h3 class="text-2xl font-bold text-red-500 mb-4 flex items-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                خطا در عملیات
-            </h3>
-            <div id="errorMessageContainer" class="text-gray-300 mb-6 text-right max-h-96 overflow-y-auto leading-relaxed">
+    <!-- مدال خطاها با افکت شیشه‌ای -->
+    <div id="errorModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm items-center justify-center p-4 z-[100] hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-modal rounded-3xl max-w-lg w-full p-8 transform scale-95 transition-transform duration-300 relative overflow-hidden">
+            <!-- نوار قرمز تزئینی بالای ارور -->
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-l from-red-500 via-rose-400 to-red-500"></div>
+
+            <div class="w-16 h-16 bg-red-500/10 dark:bg-red-500/15 text-red-500 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-5 ring-1 ring-red-500/20">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             </div>
-            <button type="button" id="closeModal" class="w-full px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition duration-300">
-                بستن
+            <h3 class="text-2xl font-extrabold text-slate-800 dark:text-white mb-3 text-center">خطایی رخ داد</h3>
+            <div id="errorMessageContainer" class="glass-modal-inner text-slate-700 dark:text-slate-300 mb-8 text-center text-sm max-h-60 overflow-y-auto leading-relaxed p-5 rounded-2xl font-medium"></div>
+            <button type="button" id="closeModal" class="w-full px-6 py-4 bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/30">
+                متوجه شدم
             </button>
         </div>
     </div>
 
+    <!-- استایل مخصوص انیمیشن راه راه پروگرس بار -->
+    <style>
+        @keyframes progress-stripes {
+            from { background-position: 1rem 0; }
+            to { background-position: 0 0; }
+        }
+    </style>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // ===================== منطق Dark/Light Mode با انیمیشن جوهر =====================
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const darkIcon = document.getElementById('theme-toggle-dark-icon');
+            const lightIcon = document.getElementById('theme-toggle-light-icon');
+            const inkCanvas = document.getElementById('inkThemeCanvas');
+            const inkCtx = inkCanvas.getContext('2d');
+
+            let isAnimating = false;
+
+            // بررسی تم ذخیره شده یا سیستم
+            if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                lightIcon.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                darkIcon.classList.remove('hidden');
+            }
+
+            function resizeInkCanvas() {
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                inkCanvas.width = window.innerWidth * dpr;
+                inkCanvas.height = window.innerHeight * dpr;
+                inkCanvas.style.width = window.innerWidth + 'px';
+                inkCanvas.style.height = window.innerHeight + 'px';
+                inkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            resizeInkCanvas();
+            window.addEventListener('resize', resizeInkCanvas);
+
+            // رنگ پس‌زمینه‌ی تم مقصد (همون رنگی که جوهر باید داشته باشه)
+            function getTargetInkColor(goingDark) {
+                return goingDark ? '#0f172a' /* slate-900 */ : '#f8fafc' /* slate-50 */;
+            }
+
+            // تابع ایجاد یک لکه‌ی جوهر آلی (نه دایره‌ی کامل) با استفاده از چند موج نویزی روی شعاع
+            function drawInkBlob(ctx, cx, cy, radius, wobbleSeed, progress) {
+                const points = 64;
+                ctx.beginPath();
+                for (let i = 0; i <= points; i++) {
+                    const angle = (i / points) * Math.PI * 2;
+                    // چند هارمونیک سینوسی برای حس آلی و نامنظم جوهر
+                    const wobble =
+                        Math.sin(angle * 3 + wobbleSeed) * 0.06 +
+                        Math.sin(angle * 5 - wobbleSeed * 1.7) * 0.035 +
+                        Math.sin(angle * 9 + wobbleSeed * 2.3) * 0.02;
+                    // هر چه انیمیشن جلوتر بره، لبه‌ها صاف‌تر و یکدست‌تر میشن (جوهر پخش‌شده آروم میشه)
+                    const wobbleAmount = wobble * (1 - progress * 0.7);
+                    const r = radius * (1 + wobbleAmount);
+                    const x = cx + Math.cos(angle) * r;
+                    const y = cy + Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            function runInkThemeTransition(originX, originY, goingDark) {
+                if (isAnimating) return;
+                isAnimating = true;
+
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+
+                // حداکثر فاصله از نقطه‌ی شروع تا دورترین گوشه‌ی صفحه
+                const maxRadius = Math.hypot(
+                    Math.max(originX, w - originX),
+                    Math.max(originY, h - originY)
+                ) * 1.15;
+
+                const inkColor = getTargetInkColor(goingDark);
+                const duration = 850; // میلی‌ثانیه - نرم و روون
+                let startTime = null;
+                let themeSwapped = false;
+
+                // اطمینان از ریست کامل استایل بوم قبل از شروع موج جدید (جلوگیری از گیر کردن opacity در اجراهای بعدی)
+                inkCanvas.style.transition = 'none';
+                inkCanvas.style.opacity = '';
+                inkCanvas.classList.add('active');
+
+                function ease(t) {
+                    // easeInOutCubic برای حرکت نرم جوهر
+                    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                }
+
+                function frame(now) {
+                    if (!startTime) startTime = now;
+                    const rawT = Math.min((now - startTime) / duration, 1);
+                    const t = ease(rawT);
+
+                    inkCtx.clearRect(0, 0, w, h);
+                    inkCtx.fillStyle = inkColor;
+
+                    // شعاع اصلی جوهر که از دکمه به بیرون پخش میشه
+                    const radius = maxRadius * t;
+                    drawInkBlob(inkCtx, originX, originY, radius, 12.4, t);
+
+                    // چند قطره‌ی کوچک جوهر که جلوتر از موج اصلی می‌پاشن (افکت پاشش)
+                    if (rawT > 0.05 && rawT < 0.75) {
+                        const splatterCount = 6;
+                        for (let i = 0; i < splatterCount; i++) {
+                            const splatterAngle = (i / splatterCount) * Math.PI * 2 + 0.7;
+                            const splatterDist = radius * (1.03 + 0.05 * Math.sin(i * 3 + rawT * 10));
+                            const sx = originX + Math.cos(splatterAngle) * splatterDist;
+                            const sy = originY + Math.sin(splatterAngle) * splatterDist;
+                            const splatterSize = maxRadius * 0.025 * (1 - rawT) * (0.6 + 0.4 * Math.sin(i * 5));
+                            if (splatterSize > 0.5) {
+                                inkCtx.beginPath();
+                                inkCtx.arc(sx, sy, splatterSize, 0, Math.PI * 2);
+                                inkCtx.fill();
+                            }
+                        }
+                    }
+
+                    // در میانه‌ی انیمیشن، وقتی جوهر بخش زیادی از صفحه رو پوشونده، تم واقعی رو عوض می‌کنیم
+                    // این کار باعث میشه تعویض تم زیر جوهر مخفی بمونه و کاربر فقط جوهر پخش‌شونده رو ببینه
+                    if (!themeSwapped && rawT >= 0.42) {
+                        themeSwapped = true;
+                        applyTheme(goingDark);
+                    }
+
+                    if (rawT < 1) {
+                        requestAnimationFrame(frame);
+                    } else {
+                        // محو شدن نرم بوم بعد از تکمیل پخش جوهر
+                        inkCanvas.style.transition = 'opacity 0.35s ease-out';
+                        inkCanvas.style.opacity = '0';
+                        setTimeout(() => {
+                            inkCanvas.classList.remove('active');
+                            // مهم: پاک کردن استایل‌های inline تا دفعه‌ی بعد کلاس CSS اصلی (opacity:0 پیش‌فرض) درست اعمال بشه
+                            inkCanvas.style.transition = '';
+                            inkCanvas.style.opacity = '';
+                            inkCtx.clearRect(0, 0, w, h);
+                            isAnimating = false;
+                        }, 350);
+                    }
+                }
+
+                requestAnimationFrame(frame);
+            }
+
+            function applyTheme(goingDark) {
+                darkIcon.classList.toggle('hidden');
+                lightIcon.classList.toggle('hidden');
+
+                if (goingDark) {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('color-theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('color-theme', 'light');
+                }
+            }
+
+            themeToggleBtn.addEventListener('click', function(e) {
+                if (isAnimating) return;
+
+                const goingDark = !document.documentElement.classList.contains('dark');
+
+                // مختصات دکمه به عنوان نقطه‌ی شروع جوهر (همون‌جایی که "ظرف جوهر" قرار داره)
+                const rect = themeToggleBtn.getBoundingClientRect();
+                const originX = rect.left + rect.width / 2;
+                const originY = rect.top + rect.height / 2;
+
+                // افکت کوچک فشردگی روی خود دکمه، مثل ریخته شدن جوهر از ظرف
+                themeToggleBtn.classList.remove('ink-pressed');
+                void themeToggleBtn.offsetWidth; // ریست انیمیشن
+                themeToggleBtn.classList.add('ink-pressed');
+
+                runInkThemeTransition(originX, originY, goingDark);
+            });
+
+            // منطق مدال ارور با انیمیشن
+            const errorModal = document.getElementById('errorModal');
+            const modalContent = errorModal.querySelector('div');
+            
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.attributeName === 'style') {
+                        if (errorModal.style.display === 'flex') {
+                            errorModal.classList.remove('hidden');
+                            setTimeout(() => {
+                                errorModal.classList.add('opacity-100');
+                                modalContent.classList.remove('scale-95');
+                                modalContent.classList.add('scale-100');
+                            }, 10);
+                        }
+                    }
+                });
+            });
+            observer.observe(errorModal, { attributes: true });
+
+            document.getElementById('closeModal').addEventListener('click', () => {
+                errorModal.classList.remove('opacity-100');
+                modalContent.classList.remove('scale-100');
+                modalContent.classList.add('scale-95');
+                setTimeout(() => {
+                    errorModal.style.display = 'none';
+                    errorModal.classList.add('hidden');
+                }, 300);
+            });
+
+            // منطق نمایش/مخفی‌سازی واترمارک‌ها
             const startCheckbox = document.getElementById('startTextEnabled');
             const startContainer = document.getElementById('startTextContainer');
-            
             const endCheckbox = document.getElementById('endTextEnabled');
             const endContainer = document.getElementById('endTextContainer');
 
             function toggleOpacity(checkbox, container) {
                 if (checkbox.checked) {
-                    container.classList.remove('opacity-50', 'pointer-events-none');
+                    container.classList.remove('opacity-50', 'pointer-events-none', 'grayscale');
                 } else {
-                    container.classList.add('opacity-50', 'pointer-events-none');
+                    container.classList.add('opacity-50', 'pointer-events-none', 'grayscale');
                 }
             }
 
@@ -629,17 +1043,12 @@
                 toggleOpacity(endCheckbox, endContainer);
             }
 
-            // ایجاد تغییرات در زمان کلیک کاربر
             startCheckbox.addEventListener('change', syncUI);
             endCheckbox.addEventListener('change', syncUI);
 
-            // به دلیل اینکه فایل app.js به عنوان ماژول (module) لود می‌شود و 
-            // تنظیمات را کمی بعد از لود شدن صفحه اعمال می‌کند، 
-            // این تابع را با کمی تاخیر هم اجرا می‌کنیم تا با تنظیمات ذخیره شده سینک شود.
             syncUI();
             setTimeout(syncUI, 100);
             setTimeout(syncUI, 500);
-            setTimeout(syncUI, 1000);
         });
     </script>
     
