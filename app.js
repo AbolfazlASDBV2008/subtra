@@ -1062,6 +1062,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let finalDialogueText = unmaskTags(cleanTranslation, tags);
 
+                // --- [FIX] حل مشکل جدا شدن حروف فارسی بخاطر تگ‌های استایل‌دهی ---
+                // این حلقه تمام تگ‌هایی که بین حروف فارسی افتاده‌اند را به ابتدای کلمه هل می‌دهد
+                // تا حروف کلمه از هم جدا نشوند (مثلا زمس{\c...}تان تبدیل میشه به {\c...}زمستان)
+                let previousText = "";
+                while(previousText !== finalDialogueText) {
+                     previousText = finalDialogueText;
+                     // انتقال تگ به قبل از حرف فارسی
+                     finalDialogueText = finalDialogueText.replace(/([\u0600-\u06FF])(\{[^}]+\})([\u0600-\u06FF])/g, '$2$1$3');
+                }
+                // ----------------------------------------------------------------
+
                 const positionTags = finalDialogueText.match(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g) || [];
                 if (positionTags.length > 0) {
                     finalDialogueText = finalDialogueText.replace(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g, '');
@@ -1838,7 +1849,11 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                                 // [!!!] تغییر: آپدیت DOM فقط در صورت فعال بودن تاگل [!!!]
                                 if (liveOutputToggle.checked) {
                                     liveOutput.style.display = 'block';
-                                    liveOutput.textContent = extractedTexts.join('\n').replace(/\|/g, '\n');
+                                    // فقط برای نمایش زنده، تگ‌های ___TAG_n___ رو حذف می‌کنیم
+                                    // داده‌ی اصلی دست‌نخورده باقی می‌مونه و فایل خروجی کامل خواهد بود
+                                    const displayText = extractedTexts.join('\n').replace(/\|/g, '\n')
+                                        .replace(/___TAG_\d+___/g, '');
+                                    liveOutput.textContent = displayText;
                                     liveOutput.scrollTop = liveOutput.scrollHeight;
                                 } else {
                                     liveOutput.style.display = 'none';
