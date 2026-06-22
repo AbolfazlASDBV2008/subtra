@@ -63,16 +63,37 @@
         
         .progress-bar-inner { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         
-        /* استایل‌های آکاردئون */
+        /* استایل‌های آکاردئون - انیمیشن نرم و بهینه برای گوشی‌های ضعیف */
         details summary { list-style: none; cursor: pointer; }
         details summary::-webkit-details-marker { display: none; }
-        
-        details[open] summary ~ * {
-            animation: accordionSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+        /* ========================
+           تکنیک: grid-template-rows از 0fr به 1fr
+           این روش فقط از GPU استفاده می‌کنه و reflow نداره —
+           بهترین گزینه برای گوشی‌های ضعیف و قدیمی
+           ======================== */
+        details > .accordion-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition:
+                grid-template-rows 420ms cubic-bezier(0.16, 1, 0.3, 1),
+                opacity            380ms cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0;
+            will-change: grid-template-rows, opacity;
         }
-        @keyframes accordionSlideDown {
-            0% { opacity: 0; transform: translateY(-10px) scale(0.98); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
+        details[open] > .accordion-body {
+            grid-template-rows: 1fr;
+            opacity: 1;
+        }
+        details > .accordion-body > .accordion-inner {
+            overflow: hidden;
+            /* مانع از بریده‌شدن سایه و outline فرزندان در حین انیمیشن */
+            padding-bottom: 1px;
+        }
+
+        /* فلش بخش ایمنی — چون nested details هست، با CSS مستقیم کنترل میشه */
+        details[open] > summary .safety-arrow {
+            transform: rotate(-180deg);
         }
         
         /* رنج اسلایدر */
@@ -443,7 +464,7 @@
                         <div class="p-2.5 bg-blue-100/80 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                         </div>
-                        <span class="tracking-wide">تنظیمات پیشرفته تخصصی</span>
+                        <span class="tracking-wide">تنظیمات پیشرفته </span>
                     </div>
                     
                     <div class="relative z-10 w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors duration-300">
@@ -451,6 +472,8 @@
                     </div>
                 </summary>
                 
+                <div class="accordion-body">
+                <div class="accordion-inner">
                 <div class="p-6 pt-4 space-y-8 border-t border-slate-200/50 dark:border-slate-700/50">
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -610,17 +633,19 @@
                     </div>
 
                     <!-- تنظیمات ایمنی (Accordion دوم) -->
-                    <details class="bg-red-50/80 dark:bg-red-900/10 border border-red-200 dark:border-red-900/40 rounded-2xl mt-8 group overflow-hidden transition-all duration-300 open:shadow-md">
-                        <summary class="font-bold text-sm text-red-600 dark:text-red-400 cursor-pointer p-5 select-none outline-none flex justify-between items-center hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors">
+                    <details class="bg-red-50/80 dark:bg-red-900/10 border border-red-200 dark:border-red-900/40 rounded-2xl mt-8 group transition-all duration-300 open:shadow-md">
+                        <summary class="font-bold text-sm text-red-600 dark:text-red-400 cursor-pointer p-5 select-none outline-none flex justify-between items-center hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors rounded-2xl">
                             <div class="flex items-center gap-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                                 تنظیمات ایمنی (جلوگیری از سانسور)
                             </div>
-                            <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                                <svg class="w-4 h-4 transition-transform duration-500 transform group-open:-rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center safety-arrow-wrap">
+                                <svg class="safety-arrow w-4 h-4 transition-transform duration-420 ease-out text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                             </div>
                         </summary>
-                        <div class="details-content p-5 border-t border-red-200 dark:border-red-900/40 bg-white/50 dark:bg-slate-900/20 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="accordion-body">
+                        <div class="accordion-inner">
+                        <div class="p-5 border-t border-red-200 dark:border-red-900/40 bg-white/50 dark:bg-slate-900/20 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <p class="text-xs text-slate-600 dark:text-slate-400 col-span-full mb-1">تیک زدن این گزینه‌ها فیلترهای اخلاقی هوش مصنوعی را خاموش می‌کند.</p>
                             
                             <label class="flex items-center p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 cursor-pointer transition-colors shadow-sm">
@@ -640,6 +665,8 @@
                                 <span class="mr-3 text-sm font-medium text-slate-700 dark:text-slate-300">خاموشی فیلتر خطرناک</span>
                             </label>
                         </div>
+                        </div><!-- /accordion-inner -->
+                        </div><!-- /accordion-body -->
                     </details>
 
                     <!-- پرامپت -->
@@ -672,7 +699,8 @@
                         </p>
                     </div>
 
-                </div>
+                </div><!-- /accordion-inner -->
+                </div><!-- /accordion-body -->
             </details>
             
             <div class="flex items-center gap-4 mt-6">
@@ -995,7 +1023,44 @@
                 runInkThemeTransition(originX, originY, goingDark);
             });
 
-            // منطق مدال ارور با انیمیشن
+            // ===== انیمیشن نرم باز/بسته‌شدن همه‌ی accordion ها =====
+            // مشکل ۱: مرورگر details رو فوری می‌بنده — به CSS فرصت انیمیشن نمیده
+            // مشکل ۲: querySelector ممکنه accordion-body تودرتو رو پیدا کنه
+            // راه‌حل: فقط فرزند مستقیم رو target می‌کنیم + فلش رو دستی می‌چرخونیم
+            document.querySelectorAll('details').forEach(el => {
+                const summary = el.querySelector(':scope > summary');
+                if (!summary) return;
+                // فرزند مستقیم accordion-body (نه nested)
+                const body = el.querySelector(':scope > .accordion-body');
+                const arrow = summary.querySelector('.safety-arrow');
+
+                summary.addEventListener('click', (e) => {
+                    if (!el.open) return; // داره باز میشه — رفتار پیش‌فرض خوبه
+                    e.preventDefault();
+
+                    // اگر accordion-body نداره (مثلاً details قدیمی)، فوری ببند
+                    if (!body) { el.open = false; return; }
+
+                    // فلش رو هم دستی برگردون (چون details هنوز open هست و CSS [open] فعاله)
+                    if (arrow) arrow.style.transform = 'rotate(0deg)';
+
+                    body.style.gridTemplateRows = '0fr';
+                    body.style.opacity = '0';
+                    const duration = 400;
+                    setTimeout(() => {
+                        el.open = false;
+                        body.style.gridTemplateRows = '';
+                        body.style.opacity = '';
+                        if (arrow) arrow.style.transform = ''; // به CSS واگذار میشه
+                    }, duration);
+                });
+
+                // هنگام باز شدن، مطمئن میشیم فلش درست چرخیده
+                el.addEventListener('toggle', () => {
+                    if (el.open && arrow) arrow.style.transform = '';
+                });
+            });
+            // ===================================================
             const errorModal = document.getElementById('errorModal');
             const modalContent = errorModal.querySelector('div');
             
