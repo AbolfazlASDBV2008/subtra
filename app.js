@@ -52,19 +52,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return { maskedText, tags };
     }
 
-    // [CRITICAL UPDATE: Robust unmaskTags with Anti-Hallucination Logic]
+       // [CRITICAL UPDATE: Robust unmaskTags with Anti-Hallucination Logic]
     function unmaskTags(text, tags) {
         if (!tags || tags.length === 0) return text;
 
-        // این رجکس بسیار انعطاف‌پذیر است و انواع حالت‌های خرابی تگ توسط AI را شناسایی می‌کند
-        // (مثل فاصله اضافی، تبدیل به فارسی "تگ"، حذف آندرلاین‌ها و غیره)
-        let unmasked = text.replace(/[_\[\]\*\-\s]*(?:TAG|tag|تگ)[_:\-\s]*(\d+)[_\[\]\*\-\s]*/gi, (match, index) => {
+        // رجکس اصلاح شده: فاصله‌های قبل و بعد (\s*) را نگه می‌دارد تا کلمات به هم نچسبند
+        let unmasked = text.replace(/(\s*)[_\[\]\*\-]*(?:TAG|tag|تگ)[_:\-\s]*(\d+)[_\[\]\*\-]*(\s*)/gi, (match, spaceBefore, index, spaceAfter) => {
             const idx = parseInt(index, 10);
             if (idx >= 0 && idx < tags.length) {
-                return tags[idx];
+                // تگ را جایگذاری کن اما فاصله‌های اطرافش را دست نزن
+                return spaceBefore + tags[idx] + spaceAfter;
             }
-            // [CRITICAL FIX]: اگر ایندکس نامعتبر بود (توهم هوش مصنوعی)، تگ فیک را کامل حذف کن
-            return ""; 
+            // اگر تگ نامعتبر بود، فقط فاصله‌ها را برگردان
+            return spaceBefore + spaceAfter; 
         });
 
         // Fallback: اگر تگی کلاً از متن حذف شده بود، آن را به ابتدای خط اضافه کن تا استایل خراب نشود
