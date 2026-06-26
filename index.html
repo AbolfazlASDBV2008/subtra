@@ -239,6 +239,25 @@
         }
         .break-words { overflow-wrap: anywhere; word-break: break-word; }
 
+        /* رفع مشکل بیرون‌زدن اسم فایل طولانی از کادر پیشرفت */
+        #overallProgressLabel {
+            word-break: break-all;
+            overflow-wrap: anywhere;
+            white-space: normal;
+            max-width: 100%;
+            display: block;
+        }
+        #overallProgressLabel .filename-highlight {
+            display: inline-block;
+            font-weight: 700;
+            color: #3b82f6;
+            word-break: break-all;
+            overflow-wrap: anywhere;
+        }
+        .dark #overallProgressLabel .filename-highlight {
+            color: #60a5fa;
+        }
+
         /* پیام نهایی وضعیت ترجمه (موفق/ناقص/لغو‌شده) - باکس رنگی متمایز بر اساس نتیجه */
         .status-message {
             margin-top: 1rem;
@@ -789,7 +808,7 @@
 
             <!-- بخش پیشرفت و ترمینال -->
             <div class="mt-8 hidden animate-fade-in" id="overallProgressSection">
-                <div class="flex justify-between items-end mb-3">
+                <div class="mb-3">
                     <label class="block text-sm font-bold text-slate-700 dark:text-slate-300" id="overallProgressLabel">وضعیت پیشرفت</label>
                 </div>
                 <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 mb-4 overflow-hidden shadow-inner border border-slate-300 dark:border-slate-600">
@@ -821,16 +840,16 @@
         </svg>
         <hr style="border:none; height:1px; background:linear-gradient(to left, transparent, #6366f1, #8b5cf6, #6366f1, transparent); margin:0 auto 1.5rem; width:70%; opacity:0.6;">
 
-            <span>توسعه و طراحی با</span>
+            <span class="text-slate-500 dark:text-slate-400 text-sm font-medium tracking-wide">توسعه و طراحی با</span>
             <span>❤️</span>
-            <span>توسط</span>
-            <span class="font-bold text-slate-700 dark:text-slate-300" dir="ltr">Abolfazl_ASDBV</span>
+            <span class="text-slate-500 dark:text-slate-400 text-sm font-medium tracking-wide">توسط</span>
+            <span class="font-extrabold bg-gradient-to-l from-blue-500 to-purple-500 bg-clip-text text-transparent" dir="ltr" style="letter-spacing:0.03em">Abolfazl_ASDBV</span>
         </p>
-        <div class="flex justify-center gap-5">
-            <a href="https://t.me/anime_sub_Persian" target="_blank" rel="noopener noreferrer" class="p-3 bg-white dark:bg-slate-800 rounded-full text-blue-500 hover:text-white hover:bg-blue-500 transition-all shadow-md hover:scale-110">
+        <div class="flex justify-center gap-5 mt-5">
+            <a href="https://t.me/anime_sub_Persian" target="_blank" rel="noopener noreferrer" class="p-3 bg-white dark:bg-slate-800 rounded-full text-blue-500 hover:text-white hover:bg-gradient-to-br hover:from-blue-400 hover:to-cyan-500 active:bg-gradient-to-br active:from-blue-400 active:to-cyan-500 active:text-white transition-all shadow-md hover:scale-110 active:scale-110">
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-1.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
             </a>
-            <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" class="p-3 bg-white dark:bg-slate-800 rounded-full text-pink-600 hover:text-white hover:bg-gradient-to-tr hover:from-yellow-400 hover:via-pink-500 hover:to-purple-600 transition-all shadow-md hover:scale-110">
+            <a href="https://www.instagram.com/anime_wd20?igsh=dTA1dmNsYjhzcGx1" target="_blank" rel="noopener noreferrer" class="p-3 bg-white dark:bg-slate-800 rounded-full text-pink-600 hover:text-white hover:bg-gradient-to-tr hover:from-yellow-400 hover:via-pink-500 hover:to-purple-600 active:bg-gradient-to-tr active:from-yellow-400 active:via-pink-500 active:to-purple-600 active:text-white transition-all shadow-md hover:scale-110 active:scale-110">
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7.8,2H16.2C19.4,2 22,4.6 22,7.8V16.2A5.8,5.8 0 0,1 16.2,22H7.8C4.6,22 2,19.4 2,16.2V7.8A5.8,5.8 0 0,1 7.8,2M7.6,4A3.6,3.6 0 0,0 4,7.6V16.4C4,18.39 5.61,20 7.6,20H16.4A3.6,3.6 0 0,0 20,16.4V7.6C20,5.61 18.39,4 16.4,4H7.6M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M18,5A1,1 0 0,1 19,6A1,1 0 0,1 18,7A1,1 0 0,1 17,6A1,1 0 0,1 18,5Z"/></svg>
             </a>
         </div>
