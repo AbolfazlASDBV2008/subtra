@@ -241,8 +241,8 @@
 
         /* رفع مشکل بیرون‌زدن اسم فایل طولانی از کادر پیشرفت */
         #overallProgressLabel {
-            word-break: break-all;
-            overflow-wrap: anywhere;
+            word-break: normal;
+            overflow-wrap: break-word;
             white-space: normal;
             max-width: 100%;
             display: block;
@@ -252,7 +252,7 @@
             font-weight: 700;
             color: #3b82f6;
             word-break: break-all;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
         }
         .dark #overallProgressLabel .filename-highlight {
             color: #60a5fa;
@@ -295,6 +295,8 @@
         }
         .status-log > div {
             padding: 0.2rem 0;
+            word-break: normal;
+            overflow-wrap: break-word;
         }
 
         /* ===== مودال خطا با افکت شیشه‌ای (Glassmorphism) ===== */
