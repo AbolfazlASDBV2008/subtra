@@ -1413,7 +1413,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } 
         }
 
-        if (linesToRetry.length === 0) return { lines: texts, unresolvedCount: 0 }; 
+      if (linesToRetry.length === 0) {
+    addLog("بررسی نهایی انجام شد و هیچ خطای ترجمه‌ای یا کاراکتر نامعتبری یافت نشد", false, "green");
+    return { lines: texts, unresolvedCount: 0 };
+}
 
         addLog(`تعداد ${linesToRetry.length} خطای نگارشی یافت شد. در حال اصلاح ...`, false, "yellow"); 
         updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
@@ -1973,10 +1976,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 }
 
                 if (originalDialogueBlocks.length === 0) throw new Error("هیچ دیالوگی برای ترجمه یافت نشد. (فایل خالی است یا تمام خطوط فیلتر شدند)");
-
-                addLog(`تعداد ${originalDialogueBlocks.length} دیالوگ (پس از فیلتر شدن) یافت شد.`);
-                originalLastEndFrame = timeToFrames(originalDialogueBlocks[originalDialogueBlocks.length-1].end, fps);
-
+                
                                 const dialogueData = originalDialogueBlocks.map((block, i) => {
                     const startFrame = timeToFrames(block.start, fps);
                     const endFrame = timeToFrames(block.end, fps);
@@ -2077,17 +2077,18 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     .map(l => l.line).join('\n');
 
                 const pendingLinesCount = fullMicroDVD ? fullMicroDVD.split('\n').filter(l=>l).length : 0;
-                addLog(`فایل یکپارچه شد: ${pendingLinesCount} خط دیالوگ برای ارسال آماده است.`);
+addLog(`تعداد ${pendingLinesCount} خط دیالوگ یافت شد، در حال ارسال به هوش مصنوعی...`);
 
-                if (pendingLinesCount > 0) {
+if (pendingLinesCount > 0) {
                     const unifiedPrompt = systemPrompt.value + 
                     "\n\n[قانون حیاتی و غیرقابل نقض]: فایل ورودی شامل کل زیرنویس است و در ابتدای هر خط یک شناسه منحصربه‌فرد (مانند [ID:12]) وجود دارد. شما موظف هستید دقیقاً این شناسه و فرمت زمانی را در ابتدای هر خط خروجی حفظ کنید (مثال خروجی صحیح: [ID:12]{100}{200}سلام). تحت هیچ شرایطی خطوط را ادغام نکنید و هیچ خطی را جا نیندازید. خطوط آواز (OP/ED) را شاعرانه و بقیه را محاوره‌ای ترجمه کنید.";
 
                     await translateChunk(fullMicroDVD, unifiedPrompt, file.name, 10, 80, i, masterTranslationMap, fileId);
                 }
 
-                addLog("در حال پردازش و چینش قطعات بر اساس ID...");
-                updateFileStatus(i, "در حال ادغام نتایج...", 80);
+                addLog("دریافت ترجمه انجام شد. در حال تطبیق و مرتب‌سازی دقیق خطوط...");
+updateFileStatus(i, "در حال ادغام نتایج...", 80);
+
 
                 let microDVDSplitted = [];
                 let untranslatedLinesData = [];
@@ -2110,7 +2111,11 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 });
 
                 const isComplete = untranslatedLinesData.length === 0;
-                if (!isComplete) addLog("هشدار: بخش‌هایی از فایل ترجمه نشده است.", false, "yellow");
+if (!isComplete) {
+    addLog("هشدار: بخش‌هایی از فایل ترجمه نشده است.", false, "yellow");
+} else {
+    addLog("بررسی اولیه: ترجمه کامل است و هیچ دیالوگی جا نیفتاده است.", false, "green");
+}
 
                 if (untranslatedLinesData.length > 0) {
                     addLog(`ارسال ${untranslatedLinesData.length} خط جا افتاده به توابع اصلاحی...`, false, "yellow");
