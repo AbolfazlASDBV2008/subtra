@@ -1289,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function uploadFileToGemini(processedText, originalFilename, apiKey, onProgress, signal) {
         return new Promise((resolve, reject) => {
             const proxyEnabled = proxyToggle.checked;
-            const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+            const GEMINI_BASE_URL = proxyEnabled ? 'https://gemini-proxy.adrfyhlyf.workers.dev' : 'https://generativelanguage.googleapis.com';
             const url = `${GEMINI_BASE_URL}/upload/v1beta/files?key=${apiKey}`;
 
             const formData = new FormData();
@@ -1476,7 +1476,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
         if (abortController?.signal.aborted) throw new Error("عملیات لغو شد");
 
         const proxyEnabled = proxyToggle.checked;
-        const GEMINI_BASE_URL = proxyEnabled ? 'https://anime-translator-web.khalilkhko.workers.dev' : 'https://generativelanguage.googleapis.com';
+        const GEMINI_BASE_URL = proxyEnabled ? 'https://gemini-proxy.adrfyhlyf.workers.dev' : 'https://generativelanguage.googleapis.com';
         const API_URL = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
         const safetySettings = [];
