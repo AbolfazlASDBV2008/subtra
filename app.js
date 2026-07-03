@@ -2248,12 +2248,11 @@ if (pendingLinesCount > 0) {
                     finalContent = await finalizeAssFile(finalContent);
                 }
 
-                processedFiles.push({
-                    name: file.name.replace(/\.(srt|vtt|ass)$/i, `_FA${outputExt}`),
+                                processedFiles.push({
+                    name: file.name.replace(/\.(srt|vtt|ass)$/i, outputExt),
                     content: finalContent 
                 });
-
-                // --- [NEW] Cleanup ONLY on True Success ---
+                
                 if (totalUnresolvedErrors === 0) {
                     clearProgress(fileId);
                     updateFileStatus(i, "کامل شد", 100);
