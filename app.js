@@ -1391,7 +1391,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 7. منطق خود-اصلاح‌گری (شامل پرامپت‌های اصلاح شده) ---
-        async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt, masterTranslationMap, fileId) {
+                async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt, masterTranslationMap, fileId, isAlreadyFullyTranslated = false) {
+
         const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
         const englishRegex = /[a-zA-Z]/;
         const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
@@ -1413,8 +1414,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } 
         }
 
-      if (linesToRetry.length === 0) {
-    addLog("بررسی نهایی انجام شد و هیچ خطای ترجمه‌ای یا کاراکتر نامعتبری یافت نشد", false, "green");
+            if (linesToRetry.length === 0) {
+    if (!isAlreadyFullyTranslated) {
+        addLog("بررسی نهایی انجام شد و هیچ خطای ترجمه‌ای یا کاراکتر نامعتبری یافت نشد", false, "green");
+    }
     return { lines: texts, unresolvedCount: 0 };
 }
 
@@ -1929,9 +1932,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
             const fileId = getFileId(file);
             let masterTranslationMap = loadProgress(fileId);
 
-            if (masterTranslationMap.size > 0) {
-                 addLog("این فایل قبلا به صورت ناقص ترجمه شده بود ارسال ادامه فایل به هوش مصنوعی برای کامل کردن ترجمه", false, "green");
-            }
             // -------------------------------
 
             let originalDialogueBlocks = [];
@@ -1975,9 +1975,19 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     }
                 }
 
-                if (originalDialogueBlocks.length === 0) throw new Error("هیچ دیالوگی برای ترجمه یافت نشد. (فایل خالی است یا تمام خطوط فیلتر شدند)");
+                                if (originalDialogueBlocks.length === 0) throw new Error("هیچ دیالوگی برای ترجمه یافت نشد. (فایل خالی است یا تمام خطوط فیلتر شدند)");
+
+                // یافتن طولانی‌ترین زمان در میان تمام دیالوگ‌ها (رفع مشکل نامرتب بودن فایل‌های ASS)
+                let maxEndMs = 0;
+                originalDialogueBlocks.forEach(block => {
+                    const currentEndMs = parseTimeToMS(block.end);
+                    if (currentEndMs > maxEndMs) {
+                        maxEndMs = currentEndMs;
+                    }
+                });
+                originalLastEndFrame = Math.floor((maxEndMs / 1000) * fps);
                 
-                                const dialogueData = originalDialogueBlocks.map((block, i) => {
+                const dialogueData = originalDialogueBlocks.map((block, i) => {
                     const startFrame = timeToFrames(block.start, fps);
                     const endFrame = timeToFrames(block.end, fps);
                     
@@ -2076,8 +2086,22 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     .filter(l => !masterTranslationMap.has(l.id)) 
                     .map(l => l.line).join('\n');
 
-                const pendingLinesCount = fullMicroDVD ? fullMicroDVD.split('\n').filter(l=>l).length : 0;
-addLog(`تعداد ${pendingLinesCount} خط دیالوگ یافت شد، در حال ارسال به هوش مصنوعی...`);
+                                const pendingLinesCount = fullMicroDVD ? fullMicroDVD.split('\n').filter(l=>l).length : 0;
+
+                // متغیر جدید برای تشخیص اینکه آیا فایل از قبل کامل بوده یا خیر
+                let isAlreadyFullyTranslated = false;
+
+                if (masterTranslationMap.size > 0) {
+                    if (pendingLinesCount === 0) {
+                        isAlreadyFullyTranslated = true;
+                        addLog("این فایل از قبل کامل ترجمه شده بود اگر بخواهید می توانید دوباره آن را دانلود کنید", false, "green");
+                    } else {
+                        addLog("این فایل قبلا به صورت ناقص ترجمه شده بود ارسال ادامه فایل به هوش مصنوعی برای کامل کردن ترجمه", false, "green");
+                        addLog(`تعداد ${pendingLinesCount} خط دیالوگ جا مانده یافت شد، در حال ارسال...`);
+                    }
+                } else {
+                    addLog(`تعداد ${pendingLinesCount} خط دیالوگ یافت شد، در حال ارسال به هوش مصنوعی...`);
+                }
 
 if (pendingLinesCount > 0) {
                     const unifiedPrompt = systemPrompt.value + 
@@ -2086,9 +2110,10 @@ if (pendingLinesCount > 0) {
                     await translateChunk(fullMicroDVD, unifiedPrompt, file.name, 10, 80, i, masterTranslationMap, fileId);
                 }
 
-                addLog("دریافت ترجمه انجام شد. در حال تطبیق و مرتب‌سازی دقیق خطوط...");
-updateFileStatus(i, "در حال ادغام نتایج...", 80);
-
+                if (!isAlreadyFullyTranslated) {
+                    addLog("دریافت ترجمه انجام شد. در حال تطبیق و مرتب‌سازی دقیق خطوط...");
+                }
+                updateFileStatus(i, "در حال ادغام نتایج...", 80);
 
                 let microDVDSplitted = [];
                 let untranslatedLinesData = [];
@@ -2111,11 +2136,13 @@ updateFileStatus(i, "در حال ادغام نتایج...", 80);
                 });
 
                 const isComplete = untranslatedLinesData.length === 0;
-if (!isComplete) {
-    addLog("هشدار: بخش‌هایی از فایل ترجمه نشده است.", false, "yellow");
-} else {
-    addLog("بررسی اولیه: ترجمه کامل است و هیچ دیالوگی جا نیفتاده است.", false, "green");
-}
+                if (!isComplete) {
+                    addLog("هشدار: بخش‌هایی از فایل ترجمه نشده است.", false, "yellow");
+                } else {
+                    if (!isAlreadyFullyTranslated) {
+                        addLog("بررسی اولیه: ترجمه کامل است و هیچ دیالوگی جا نیفتاده است.", false, "green");
+                    }
+                }
 
                 if (untranslatedLinesData.length > 0) {
                     addLog(`ارسال ${untranslatedLinesData.length} خط جا افتاده به توابع اصلاحی...`, false, "yellow");
@@ -2134,14 +2161,15 @@ if (!isComplete) {
                 }
 
                 updateFileStatus(i, "در حال بررسی خطاهای نگارشی...", 85);
-                const selfResult = await performSelfCorrection(
+                                const selfResult = await performSelfCorrection(
                     microDVDSplitted, 
                     i, 
                     model, 
                     apiKey, 
                     prompt,
                     masterTranslationMap, 
-                    fileId                
+                    fileId,
+                    isAlreadyFullyTranslated // <--- این خط اضافه شد
                 ); 
                 microDVDSplitted = selfResult.lines;
                 totalUnresolvedErrors += selfResult.unresolvedCount;
@@ -2322,7 +2350,7 @@ if (!isComplete) {
 
         if (processedFiles.length > 0) {
             downloadFiles.disabled = false;
-            addLog("عملیات کامل شد. می‌توانید فایل‌ها را دانلود کنید.", false, "green");
+           // addLog("عملیات کامل شد. می‌توانید فایل‌ها را دانلود کنید.", false, "green");
             if (!translationStatusMessage.classList.contains('status-aborted') && !translationStatusMessage.classList.contains('status-incomplete')) {
                  translationStatusMessage.innerHTML = `✔️ عملیات با موفقیت کامل شد. (${processedFiles.length} فایل آماده دانلود)`;
                  translationStatusMessage.className = 'status-message status-complete';
