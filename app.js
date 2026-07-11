@@ -2144,8 +2144,7 @@ if (pendingLinesCount > 0) {
                     }
                 }
 
-                if (untranslatedLinesData.length > 0) {
-                    addLog(`ارسال ${untranslatedLinesData.length} خط جا افتاده به توابع اصلاحی...`, false, "yellow");
+                if (untranslatedLinesData.length > 0) {                    
                     const missingResult = await performMissingLineCorrection(
                         microDVDSplitted, 
                         untranslatedLinesData, 
