@@ -52,25 +52,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return { maskedText, tags };
     }
 
-       // [CRITICAL UPDATE: Robust unmaskTags with Anti-Hallucination Logic]
-    function unmaskTags(text, tags) {
-        if (!tags || tags.length === 0) return text;
+         function unmaskTags(text, tags) {
+        // [اصلاح مهم]: خط مربوط به خروج سریع حذف شد تا تگ‌های توهمی همیشه پاک شوند
 
-        // رجکس اصلاح شده: فاصله‌های قبل و بعد (\s*) را نگه می‌دارد تا کلمات به هم نچسبند
         let unmasked = text.replace(/(\s*)[_\[\]\*\-]*(?:TAG|tag|تگ)[_:\-\s]*(\d+)[_\[\]\*\-]*(\s*)/gi, (match, spaceBefore, index, spaceAfter) => {
             const idx = parseInt(index, 10);
-            if (idx >= 0 && idx < tags.length) {
-                // تگ را جایگذاری کن اما فاصله‌های اطرافش را دست نزن
+            // اگر تگ واقعی وجود داشت، جایگزین کن
+            if (tags && idx >= 0 && idx < tags.length) {
                 return spaceBefore + tags[idx] + spaceAfter;
             }
-            // اگر تگ نامعتبر بود، فقط فاصله‌ها را برگردان
+            // اگر تگ ساختگی و توهمی بود، آن را حذف کن و فقط فاصله‌ها را نگه دار
             return spaceBefore + spaceAfter; 
         });
 
-        // Fallback: اگر تگی کلاً از متن حذف شده بود، آن را به ابتدای خط اضافه کن تا استایل خراب نشود
-        for (let i = 0; i < tags.length; i++) {
-            if (!unmasked.includes(tags[i])) {
-                 unmasked = tags[i] + unmasked;
+        // Fallback: اضافه کردن تگ‌های جا افتاده
+        if (tags && tags.length > 0) {
+            for (let i = 0; i < tags.length; i++) {
+                if (!unmasked.includes(tags[i])) {
+                     unmasked = tags[i] + unmasked;
+                }
             }
         }
         return unmasked;
@@ -1001,9 +1001,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const endFrame = msToFrames(endTimeMs, fps);
                     const microdvdTime = `{${startFrame}}{${endFrame}}`;
 
-                    mapping.push({
+                                       mapping.push({
                         lineNumber: index,
                         microdvdTime: microdvdTime,
+                        text: textForAI, // [اضافه شده] ذخیره مستقیم متن برای جلوگیری از باگ اسپلیت
                         tags: tags // ذخیره تگ‌های اصلی برای بازیابی
                     });
 
@@ -2060,21 +2061,20 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     });
                 }
 
-
                 // --- ارسال یکپارچه با سیستم ضد-توهم (ID Tracking) ---
                 let fullMicroDVD = '';
                 let linesObjArray = [];
 
                 if (useAssPath) {
-                     const processResult = processAssForTranslationAndMapping(content, fps);
-                     linesObjArray = processResult.microdvdForAI.split('\n').map((line, idx) => {
-                         const match = line.match(/^(\{\d+\}\{\d+\})(.*)$/);
-                         if (match) {
-                             const origId = processResult.map[idx].lineNumber;
-                             return { id: origId, time: match[1], text: match[2], line: `[ID:${origId}]${line}` };
-                         }
-                         return null;
-                     }).filter(l => l !== null);
+                     // [اصلاح مهم]: حذف کامل split('\n') و استفاده از نگاشت ۱ به ۱ و مستقیم
+                     linesObjArray = assMapping.map(m => {
+                         return { 
+                             id: m.lineNumber, 
+                             time: m.microdvdTime, 
+                             text: m.text, 
+                             line: `[ID:${m.lineNumber}]${m.microdvdTime}${m.text}` 
+                         };
+                     });
                 } else {
                      linesObjArray = dialogueData.map(d => {
                          return { id: d.i, time: `{${d.startFrame}}{${d.endFrame}}`, text: d.cleanText, line: `[ID:${d.i}]${d.microLine}` };
