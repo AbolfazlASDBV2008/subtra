@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const karaokeToggle = document.getElementById('karaoke-toggle'); // [!!!] دکمه جدید کارائوکه
     const aiDetectionToggle = document.getElementById('ai-detection-toggle'); // [!!!] دکمه جدید تشخیص هوشمند
     const liveOutputToggle = document.getElementById('live-output-toggle'); // [!!!] دکمه جدید نمایش زنده
+    const thinkingModeToggle = document.getElementById('thinking-mode-toggle');
 
     const safetyHarassmentToggle = document.getElementById('safety-harassment-toggle'); 
     const safetyHateSpeechToggle = document.getElementById('safety-hate-speech-toggle'); 
@@ -333,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         karaokeToggle.checked = localStorage.getItem('karaokeEnabled') !== 'false'; // پیش‌فرض true
         aiDetectionToggle.checked = localStorage.getItem('aiDetectionEnabled') === 'true'; // پیش‌فرض false
         liveOutputToggle.checked = localStorage.getItem('liveOutputEnabled') !== 'false'; // پیش‌فرض true
+        if (thinkingModeToggle) thinkingModeToggle.checked = localStorage.getItem('thinkingModeEnabled') === 'true';
 
         // [!!!] تغییر پیش‌فرض دما به 0.2 برای دقت بیشتر [!!!]
         creativityRange.value = localStorage.getItem('geminiTemperature') || '0.2';
@@ -496,6 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('karaokeEnabled', karaokeToggle.checked);
         localStorage.setItem('aiDetectionEnabled', aiDetectionToggle.checked);
         localStorage.setItem('liveOutputEnabled', liveOutputToggle.checked);
+        if (thinkingModeToggle) localStorage.setItem('thinkingModeEnabled', thinkingModeToggle.checked);
 
         // ذخیره تنظیمات جدید
         localStorage.setItem('geminiTemperature', creativityRange.value);
@@ -520,22 +523,24 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSafetySettings();
     }
 
-    // Attach auto-save listeners to all relevant inputs
+      // Attach auto-save listeners to all relevant inputs
     [apiKeyInput, modelSelect, fpsInput, 
      creativityRange, topPRange, toneSelect, 
-     proxyToggle, karaokeToggle, aiDetectionToggle, liveOutputToggle,
+     proxyToggle, karaokeToggle, aiDetectionToggle, liveOutputToggle, thinkingModeToggle,
      safetyHarassmentToggle, safetyHateSpeechToggle, 
      safetySexuallyExplicitToggle, safetyDangerousContentToggle,
      systemPrompt,
      startTextEnabled, startTextInput, startTextStartTime, startTextEndTime,
      endTextEnabled, endTextInput, endTextStartFromEnd, endTextDuration
     ].forEach(input => {
-        input.addEventListener('change', autoSaveSettings);
-        input.addEventListener('input', autoSaveSettings);
+        if (input) {
+            input.addEventListener('change', autoSaveSettings);
+            input.addEventListener('input', autoSaveSettings);
+        }
     });
 
-
     resetSettings.addEventListener('click', () => {
+
         // 1. بازنشانی وضعیت پرامپت به دیفالت (بدون حذف کاستوم‌ها)
         currentPromptId = 'default';
         updatePromptUI();
@@ -545,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
         karaokeToggle.checked = true;
         aiDetectionToggle.checked = false;
         liveOutputToggle.checked = true;
+        if (thinkingModeToggle) thinkingModeToggle.checked = false;
 
         // 3. بازنشانی تنظیمات ایمنی
         safetyHarassmentToggle.checked = false;
@@ -1496,10 +1502,16 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
         const temperature = parseFloat(creativityRange.value) || 0.3;
         const topP = parseFloat(topPRange.value) || 0.9;
 
+                const generationConfig = { temperature: temperature, topP: topP };
+        
+        if (thinkingModeToggle && thinkingModeToggle.checked) {
+            generationConfig.thinkingConfig = { thinkingLevel: "high" };
+        }
+
         const payload = {
             systemInstruction: { parts: [{ text: systemInstruction }] },
             contents: [{ parts: [{ text: userPrompt }] }],
-            generationConfig: { temperature: temperature, topP: topP, }
+            generationConfig: generationConfig
         };
         if (safetySettings.length > 0) payload.safetySettings = safetySettings;
 
@@ -1638,13 +1650,19 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
             const temperature = parseFloat(creativityRange.value) || 0.3;
             const topP = parseFloat(topPRange.value) || 0.9;
 
+                        const generationConfig = {
+                temperature: temperature, 
+                topP: topP,      
+            };
+
+            if (thinkingModeToggle && thinkingModeToggle.checked) {
+                generationConfig.thinkingConfig = { thinkingLevel: "high" };
+            }
+
             const requestBody = {
                 systemInstruction: { parts: [{ text: systemInstruction }] },
                 contents: modelContents, 
-                generationConfig: {
-                    temperature: temperature, 
-                    topP: topP,      
-                }
+                generationConfig: generationConfig
             };
             if (safetySettings.length > 0) requestBody.safetySettings = safetySettings;
 
