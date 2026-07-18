@@ -1069,17 +1069,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let finalDialogueText = unmaskTags(cleanTranslation, tags);
 
-                // --- [FIX] حل مشکل جدا شدن حروف فارسی بخاطر تگ‌های استایل‌دهی ---
-                // این حلقه تمام تگ‌هایی که بین حروف فارسی افتاده‌اند را به ابتدای کلمه هل می‌دهد
-                // تا حروف کلمه از هم جدا نشوند (مثلا زمس{\c...}تان تبدیل میشه به {\c...}زمستان)
+                              // --- [FIX] حل مشکل جدا شدن حروف فارسی بخاطر تگ‌های استایل‌دهی ---
                 let previousText = "";
                 while(previousText !== finalDialogueText) {
                      previousText = finalDialogueText;
-                     // انتقال تگ به قبل از حرف فارسی
-                     finalDialogueText = finalDialogueText.replace(/([\u0600-\u06FF])(\{[^}]+\})([\u0600-\u06FF])/g, '$2$1$3');
+                     // [اصلاح مهم]: افزودن (?: ...)+ برای پشتیبانی از چند تگ چسبیده به هم
+                     finalDialogueText = finalDialogueText.replace(/([\u0600-\u06FF])((?:\{[^}]+\})+)([\u0600-\u06FF])/g, '$2$1$3');
                 }
                 // ----------------------------------------------------------------
-
                 const positionTags = finalDialogueText.match(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g) || [];
                 if (positionTags.length > 0) {
                     finalDialogueText = finalDialogueText.replace(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g, '');
