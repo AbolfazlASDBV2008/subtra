@@ -52,28 +52,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return { maskedText, tags };
     }
 
-         function unmaskTags(text, tags) {
-        // [اصلاح مهم]: خط مربوط به خروج سریع حذف شد تا تگ‌های توهمی همیشه پاک شوند
-
-        let unmasked = text.replace(/(\s*)[_\[\]\*\-]*(?:TAG|tag|تگ)[_:\-\s]*(\d+)[_\[\]\*\-]*(\s*)/gi, (match, spaceBefore, index, spaceAfter) => {
-            const idx = parseInt(index, 10);
-            // اگر تگ واقعی وجود داشت، جایگزین کن
-            if (tags && idx >= 0 && idx < tags.length) {
-                return spaceBefore + tags[idx] + spaceAfter;
-            }
-            // اگر تگ ساختگی و توهمی بود، آن را حذف کن و فقط فاصله‌ها را نگه دار
-            return spaceBefore + spaceAfter; 
-        });
-
-        // Fallback: اضافه کردن تگ‌های جا افتاده
-        if (tags && tags.length > 0) {
-            for (let i = 0; i < tags.length; i++) {
-                if (!unmasked.includes(tags[i])) {
-                     unmasked = tags[i] + unmasked;
-                }
-            }
+                         function unmaskTags(text, tags) {
+        // اگر تگی وجود نداشت، همان متن خالص را برگردان
+        if (!tags || tags.length === 0) {
+            return text;
         }
-        return unmasked;
+
+        // تمام تگ‌های ذخیره شده برای این کلمه را به هم می‌چسبانیم
+        let allTags = tags.join('');
+        
+        // ادغام هوشمندانه تگ‌های متوالی برای تمیزی و جلوگیری از خطای پلیر 
+        // مثلا تبدیل: {\pos(x,y)}{\c&HFFFFFF&} به {\pos(x,y)\c&HFFFFFF&}
+        allTags = allTags.replace(/\}\{/g, '\\');
+
+        // در فرمت ASS، هم تگ‌های سیستمی (مثل pos) و هم استایل (رنگ) 
+        // باید حتماً در ابتدای رشته قرار بگیرند تا روی کلمه اعمال شوند
+        return allTags + text;
     }
 
     // [!!!] تابع جدید برای تمیزکاری خروجی AI (حذف بک‌تیک‌های مارک‌داون) [!!!]
@@ -952,7 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return srtOutput.trim();
     }
 
-    // [!!!] تابع اصلاح شده پردازش ASS با قابلیت ماسک کردن تگ‌ها [!!!]
+    // [!!!] استخراج متن تمیز و بدون تگ مزاحم برای ترجمه دقیق هوش مصنوعی [!!!]
     function processAssForTranslationAndMapping(assContent, fps) {
         assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 
@@ -984,21 +978,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 assFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
 
                 const dialoguePart = dialogueObj.Text || "";
-                const textWithoutTags = dialoguePart.replace(/\{[^}]*\}/g, '').trim();
+                
+                // پاک کردن تمام تگ‌ها برای ارسال یک متن ۱۰۰٪ خالص به هوش مصنوعی (جلوگیری از توهم)
+                let textWithoutTags = dialoguePart.replace(/\{[^}]*\}/g, '').trim();
 
-                // فیلتر کردن خطوط بی‌معنی یا دستورات رسم
                 if (!textWithoutTags) return;
                 if (dialoguePart.trim().endsWith('{\\p0}')) return;
                 if (drawingCommandRegex.test(textWithoutTags)) return; 
                 if (dialoguePart.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) return;
 
-                // [!!!] استراتژی جدید: ماسک کردن تگ‌ها با پلیس‌هولدر [!!!]
-                // به جای حذف تگ‌ها، آن‌ها را با ___TAG_0___ عوض می‌کنیم تا در متن بمانند
-
-                const { maskedText, tags } = maskTags(dialoguePart);
-                // تمیز کردن متن ماسک شده برای ارسال بهتر (تبدیل \N به | و \h به فاصله)
-                // نکته: پلیس‌هولدرها دست نخورده باقی می‌مانند
-                let textForAI = maskedText.replace(/\\N/g, '|').replace(/\\h/g, ' ').trim();
+                let textForAI = textWithoutTags.replace(/\\N/g, '|').replace(/\\h/g, ' ').trim();
 
                 if (textForAI.trim()) {
                     const startTimeMs = parseTimeToMS(dialogueObj.Start);
@@ -1007,11 +996,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const endFrame = msToFrames(endTimeMs, fps);
                     const microdvdTime = `{${startFrame}}{${endFrame}}`;
 
-                                       mapping.push({
+                    mapping.push({
                         lineNumber: index,
                         microdvdTime: microdvdTime,
-                        text: textForAI, // [اضافه شده] ذخیره مستقیم متن برای جلوگیری از باگ اسپلیت
-                        tags: tags // ذخیره تگ‌های اصلی برای بازیابی
+                        text: textForAI
                     });
 
                     microdvdLines.push(`${microdvdTime}${textForAI}`);
@@ -1025,9 +1013,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // [!!!] تابع بازسازی قطعی ASS (بدون نیاز به جستجوی زمانی، نگاشت ۱ به ۱) [!!!]
+    // [!!!] تابع بازسازی قطعی ASS (الگوریتم هوشمند معکوس‌سازی و حذف بُرش‌های مزاحم) [!!!]
     function rebuildAssFromTranslation(originalAssContent, mapping, translatedArray) {
-        assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
+        let currentAssFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 
         const originalLines = originalAssContent.split(/\r?\n/);
         let untranslatedInRebuild = 0;
@@ -1038,22 +1026,74 @@ document.addEventListener('DOMContentLoaded', () => {
              if (trimmedLine.toLowerCase() === '[events]') { eventsSection = true; continue; }
              if (!eventsSection) continue;
              if (trimmedLine.toLowerCase().startsWith('format:')) { 
-                assFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
+                currentAssFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
                 break; 
              }
         }
 
+        // --- 1. الگوریتم هوشمند معکوس‌سازی کلمات پازلی در زبان‌های RTL ---
+        const timeGroups = new Map();
         mapping.forEach((mapItem, index) => {
-            const { lineNumber, tags } = mapItem;
+            const timeKey = mapItem.microdvdTime;
+            if (!timeGroups.has(timeKey)) timeGroups.set(timeKey, []);
+            
+            let posX = -1, posY = -1;
+            const origLine = originalLines[mapItem.lineNumber];
+            
+            const posMatch = origLine.match(/\\pos\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/);
+            if (posMatch) {
+                posX = parseFloat(posMatch[1]);
+                posY = parseFloat(posMatch[2]);
+            }
+
+            timeGroups.get(timeKey).push({
+                mapIndex: index,
+                lineNumber: mapItem.lineNumber,
+                posX: posX,
+                posY: posY
+            });
+        });
+
+        timeGroups.forEach(group => {
+            const posItems = group.filter(item => item.posX !== -1 && item.posY !== -1);
+            if (posItems.length > 1) {
+                const yGroups = [];
+                posItems.forEach(item => {
+                    let foundGroup = yGroups.find(yg => Math.abs(yg.y - item.posY) <= 15);
+                    if (foundGroup) {
+                        foundGroup.items.push(item);
+                    } else {
+                        yGroups.push({ y: item.posY, items: [item] });
+                    }
+                });
+
+                yGroups.forEach(yg => {
+                    if (yg.items.length > 1) {
+                        yg.items.sort((a, b) => a.posX - b.posX);
+                        
+                        // استخراج متن‌های ترجمه شده و معکوس کردن آن‌ها در محور X
+                        const texts = yg.items.map(item => translatedArray[item.mapIndex]);
+                        texts.reverse();
+                        
+                        yg.items.forEach((item, i) => {
+                            translatedArray[item.mapIndex] = texts[i];
+                        });
+                    }
+                });
+            }
+        });
+        // -----------------------------------------------------------------------------
+
+        // --- 2. بازسازی متن و تزریق ایمن استایل‌ها ---
+        mapping.forEach((mapItem, index) => {
+            const { lineNumber } = mapItem;
 
             let translatedText = "";
-            // مستقیماً از روی ایندکس آرایه خط ترجمه‌شده را برمی‌داریم (بدون امکان جابه‌جایی)
             const aiLine = translatedArray[index];
             if (aiLine) {
                 const match = aiLine.match(/^{(\d+)}{(\d+)}(.*)$/);
                 if (match) {
-                    // اعمال کدهای راست‌چین (RTL) برای حفظ علائم نگارشی
-                    translatedText = match[3].split('|').map(part => `\u202B${part.trim()}\u202C`).join('|');
+                    translatedText = match[3].replace(/\|/g, '\\N');
                 }
             }
 
@@ -1061,33 +1101,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 const originalLine = originalLines[lineNumber];
                 if (!originalLine || !originalLine.toLowerCase().startsWith('dialogue:')) return;
 
-                const parts = robustAssSplit(originalLine.substring(9).trim(), assFormatFields);
-                if (parts.length < assFormatFields.length) return;
+                const parts = robustAssSplit(originalLine.substring(9).trim(), currentAssFormatFields);
+                if (parts.length < currentAssFormatFields.length) return;
 
-                let cleanTranslation = translatedText;
-                cleanTranslation = cleanTranslation.replace(/\|/g, '\\N');
-
-                let finalDialogueText = unmaskTags(cleanTranslation, tags);
-
-                              // --- [FIX] حل مشکل جدا شدن حروف فارسی بخاطر تگ‌های استایل‌دهی ---
-                let previousText = "";
-                while(previousText !== finalDialogueText) {
-                     previousText = finalDialogueText;
-                     // [اصلاح مهم]: افزودن (?: ...)+ برای پشتیبانی از چند تگ چسبیده به هم
-                     finalDialogueText = finalDialogueText.replace(/([\u0600-\u06FF])((?:\{[^}]+\})+)([\u0600-\u06FF])/g, '$2$1$3');
+                const originalTextRaw = parts[currentAssFormatFields.map(f=>f.toLowerCase()).indexOf('text')] || "";
+                
+                // استخراج تمام تگ‌های موجود در خط اصلی
+                let allTags = "";
+                const tagMatches = originalTextRaw.match(/\{[^}]+\}/g);
+                if (tagMatches) {
+                    allTags = tagMatches.join('');
+                    
+                    // [مهم] حذف تگ \clip برای جلوگیری از بریده شدن کلمات فارسی ترجمه‌شده
+                    allTags = allTags.replace(/\{\\clip\([^)]+\)\}/g, '');
+                    allTags = allTags.replace(/\\clip\([^)]+\)/g, '');
+                    
+                    // مرتب‌سازی و ادغام تگ‌ها برای تمیزی
+                    allTags = allTags.replace(/\}\{/g, '\\');
                 }
-                // ----------------------------------------------------------------
-                const positionTags = finalDialogueText.match(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g) || [];
-                if (positionTags.length > 0) {
-                    finalDialogueText = finalDialogueText.replace(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g, '');
-                    finalDialogueText = positionTags.join('') + finalDialogueText;
-                }
+
+                // ساختار ایمن RTL: {تگ‌ها} + نشانگر راست‌چین + متن فارسی + نشانگر پایان
+                let finalDialogueText = `${allTags}\u202B${translatedText}\u202C`;
 
                 const dialogueObjRebuild = {};
-                assFormatFields.forEach((field, i) => { dialogueObjRebuild[field] = parts[i]; });
+                currentAssFormatFields.forEach((field, i) => { dialogueObjRebuild[field] = parts[i]; });
                 dialogueObjRebuild['Text'] = finalDialogueText; 
 
-                const newParts = assFormatFields.map(field => dialogueObjRebuild[field]);
+                const newParts = currentAssFormatFields.map(field => dialogueObjRebuild[field]);
                 originalLines[lineNumber] = 'Dialogue: ' + newParts.join(',');
 
             } else {
