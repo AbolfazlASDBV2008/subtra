@@ -1013,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // [!!!] تابع بازسازی قطعی ASS (الگوریتم هوشمند معکوس‌سازی و حذف بُرش‌های مزاحم) [!!!]
+    // [!!!] تابع بازسازی قطعی ASS (همراه با الگوریتم هوشمند معکوس‌سازی مختصات و فریز کردن علائم نگارشی) [!!!]
     function rebuildAssFromTranslation(originalAssContent, mapping, translatedArray) {
         let currentAssFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 
@@ -1038,17 +1038,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!timeGroups.has(timeKey)) timeGroups.set(timeKey, []);
             
             let posX = -1, posY = -1;
-            const origLine = originalLines[mapItem.lineNumber];
-            
-            const posMatch = origLine.match(/\\pos\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/);
-            if (posMatch) {
-                posX = parseFloat(posMatch[1]);
-                posY = parseFloat(posMatch[2]);
+            // پیدا کردن \pos در تگ‌های ذخیره شده
+            if (mapItem.tags) {
+                for (let tag of mapItem.tags) {
+                    const posMatch = tag.match(/\\pos\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/);
+                    if (posMatch) {
+                        posX = parseFloat(posMatch[1]);
+                        posY = parseFloat(posMatch[2]);
+                        break;
+                    }
+                }
             }
 
             timeGroups.get(timeKey).push({
                 mapIndex: index,
-                lineNumber: mapItem.lineNumber,
                 posX: posX,
                 posY: posY
             });
@@ -1069,14 +1072,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 yGroups.forEach(yg => {
                     if (yg.items.length > 1) {
+                        // مرتب‌سازی چپ به راست (LTR) بر اساس محور X
                         yg.items.sort((a, b) => a.posX - b.posX);
                         
-                        // استخراج متن‌های ترجمه شده و معکوس کردن آن‌ها در محور X
-                        const texts = yg.items.map(item => translatedArray[item.mapIndex]);
-                        texts.reverse();
+                        // استخراج هندسه (X و Clip) برای هر کلمه
+                        const geometries = yg.items.map(item => {
+                            let clipValue = null;
+                            if (mapping[item.mapIndex].tags) {
+                                const allTags = mapping[item.mapIndex].tags.join('');
+                                const clipMatch = allTags.match(/\\clip\([^)]+\)/);
+                                if (clipMatch) clipValue = clipMatch[0];
+                            }
+                            return { x: item.posX, clip: clipValue };
+                        });
+
+                        // معکوس کردن هندسه (آینه کردن برای فارسی تا از راست به چپ چیده شوند)
+                        geometries.reverse();
                         
+                        // اعمال هندسه معکوس شده مستقیماً به تگ‌های اصلیِ ذخیره‌شده
                         yg.items.forEach((item, i) => {
-                            translatedArray[item.mapIndex] = texts[i];
+                            const newGeo = geometries[i];
+                            const mapTags = mapping[item.mapIndex].tags;
+                            if (mapTags) {
+                                for (let j = 0; j < mapTags.length; j++) {
+                                    let tagStr = mapTags[j];
+                                    if (tagStr.includes('\\pos')) {
+                                        tagStr = tagStr.replace(/\\pos\(\s*[\d.-]+\s*,\s*[\d.-]+\s*\)/, `\\pos(${newGeo.x},${item.posY})`);
+                                    }
+                                    if (tagStr.includes('\\clip')) {
+                                        if (newGeo.clip) {
+                                            tagStr = tagStr.replace(/\\clip\([^)]+\)/, newGeo.clip);
+                                        } else {
+                                            tagStr = tagStr.replace(/\\clip\([^)]+\)/, '');
+                                        }
+                                    }
+                                    mapTags[j] = tagStr;
+                                }
+                            }
                         });
                     }
                 });
@@ -1084,9 +1116,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         // -----------------------------------------------------------------------------
 
-        // --- 2. بازسازی متن و تزریق ایمن استایل‌ها ---
+        // --- 2. بازسازی متن و تزریق تگ‌ها ---
         mapping.forEach((mapItem, index) => {
-            const { lineNumber } = mapItem;
+            const { lineNumber, tags } = mapItem;
 
             let translatedText = "";
             const aiLine = translatedArray[index];
@@ -1104,24 +1136,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 const parts = robustAssSplit(originalLine.substring(9).trim(), currentAssFormatFields);
                 if (parts.length < currentAssFormatFields.length) return;
 
-                const originalTextRaw = parts[currentAssFormatFields.map(f=>f.toLowerCase()).indexOf('text')] || "";
-                
-                // استخراج تمام تگ‌های موجود در خط اصلی
-                let allTags = "";
-                const tagMatches = originalTextRaw.match(/\{[^}]+\}/g);
-                if (tagMatches) {
-                    allTags = tagMatches.join('');
-                    
-                    // [مهم] حذف تگ \clip برای جلوگیری از بریده شدن کلمات فارسی ترجمه‌شده
-                    allTags = allTags.replace(/\{\\clip\([^)]+\)\}/g, '');
-                    allTags = allTags.replace(/\\clip\([^)]+\)/g, '');
-                    
-                    // مرتب‌سازی و ادغام تگ‌ها برای تمیزی
-                    allTags = allTags.replace(/\}\{/g, '\\');
-                }
+                // در اینجا unmaskTags تگ‌هایی که هندسه‌ی آنها در بالا آینه شده است را به متن تزریق می‌کند
+                let finalDialogueText = unmaskTags(translatedText, tags);
 
-                // ساختار ایمن RTL: {تگ‌ها} + نشانگر راست‌چین + متن فارسی + نشانگر پایان
-                let finalDialogueText = `${allTags}\u202B${translatedText}\u202C`;
+                // چسباندن تگ‌های متوالی به هم برای تمیزی (مانند {\c...}{\c...})
+                finalDialogueText = finalDialogueText.replace(/\}\{/g, '\\');
+
+                // --- 3. اعمال قطعی کاراکتر راست‌چین (RTL) و قفل کردن علائم نگارشی ---
+                finalDialogueText = finalDialogueText.split('\\N').map(part => {
+                    // جدا کردن تگ‌های ابتدای خط از متن
+                    const match = part.match(/^((?:\{[^}]+\})*)(.*)$/);
+                    if (match) {
+                        const prefixTags = match[1];
+                        let pureText = match[2];
+                        
+                        // حلقه حل مشکل جدا شدن حروف فارسی با تگ‌های رنگی داخلی
+                        let previousText = "";
+                        while(previousText !== pureText) {
+                             previousText = pureText;
+                             // تگ را به سمت چپِ حرف فارسی هُل می‌دهد تا حرف قبلی و بعدی به هم بچسبند
+                             pureText = pureText.replace(/([\u0600-\u06FF])((?:\{[^}]+\})+)([\u0600-\u06FF])/g, '$2$1$3');
+                        }
+
+                        // [فیکس نهایی علائم نگارشی]: استفاده از مارکر \u200F (Right-to-Left Mark) 
+                        // این مارکر باعث می‌شود نقطه‌ها و علامت تعجب در انتهای خط، کاملاً در انتهای خط فریز شوند
+                        if (pureText.trim()) {
+                            return `${prefixTags}\u202B\u200F${pureText.trim()}\u200F\u202C`;
+                        } else {
+                            return prefixTags;
+                        }
+                    }
+                    return part.trim() ? `\u202B\u200F${part.trim()}\u200F\u202C` : part;
+                }).join('\\N');
+                // ----------------------------------------
 
                 const dialogueObjRebuild = {};
                 currentAssFormatFields.forEach((field, i) => { dialogueObjRebuild[field] = parts[i]; });
