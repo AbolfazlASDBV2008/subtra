@@ -1013,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // [!!!] تابع بازسازی قطعی ASS (همراه با الگوریتم هوشمند معکوس‌سازی مختصات و فریز کردن علائم نگارشی) [!!!]
+      // [!!!] تابع بازسازی قطعی ASS (همراه با الگوریتم هوشمند معکوس‌سازی مختصات و فیکسِ قطعی علائم نگارشی) [!!!]
     function rebuildAssFromTranslation(originalAssContent, mapping, translatedArray) {
         let currentAssFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 
@@ -1142,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // چسباندن تگ‌های متوالی به هم برای تمیزی (مانند {\c...}{\c...})
                 finalDialogueText = finalDialogueText.replace(/\}\{/g, '\\');
 
-                // --- 3. اعمال قطعی کاراکتر راست‌چین (RTL) و قفل کردن علائم نگارشی ---
+                // --- 3. فیکس قطعی و فیزیکی علائم نگارشی برای پلیرهای ASS ---
                 finalDialogueText = finalDialogueText.split('\\N').map(part => {
                     // جدا کردن تگ‌های ابتدای خط از متن
                     const match = part.match(/^((?:\{[^}]+\})*)(.*)$/);
@@ -1158,15 +1158,22 @@ document.addEventListener('DOMContentLoaded', () => {
                              pureText = pureText.replace(/([\u0600-\u06FF])((?:\{[^}]+\})+)([\u0600-\u06FF])/g, '$2$1$3');
                         }
 
-                        // [فیکس نهایی علائم نگارشی]: استفاده از مارکر \u200F (Right-to-Left Mark) 
-                        // این مارکر باعث می‌شود نقطه‌ها و علامت تعجب در انتهای خط، کاملاً در انتهای خط فریز شوند
+                        // [انتقال فیزیکی علائم]: اگر در انتهای متن کاراکتر خنثی (مثل ~, ., !، ؟) وجود دارد، 
+                        // آن را بردار و به سمت چپِ اولین کلمه فارسی (که در نمایشِ راست‌چین می‌شود انتهای جمله) منتقل کن.
+                        const punctuationRegex = /([~.!؟?،:؛\s]+)$/;
+                        const puncMatch = pureText.match(punctuationRegex);
+                        if (puncMatch) {
+                            // علامت را از آخر حذف می‌کنیم و به اول متن (بعد از تگ‌ها) می‌آوریم
+                            pureText = puncMatch[1] + pureText.replace(punctuationRegex, '');
+                        }
+
                         if (pureText.trim()) {
-                            return `${prefixTags}\u202B\u200F${pureText.trim()}\u200F\u202C`;
+                            return `${prefixTags}\u202B${pureText.trim()}\u202C`;
                         } else {
                             return prefixTags;
                         }
                     }
-                    return part.trim() ? `\u202B\u200F${part.trim()}\u200F\u202C` : part;
+                    return part.trim() ? `\u202B${part.trim()}\u202C` : part;
                 }).join('\\N');
                 // ----------------------------------------
 
