@@ -1013,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-      // [!!!] تابع بازسازی قطعی ASS (همراه با الگوریتم هوشمند معکوس‌سازی مختصات و فیکسِ قطعی علائم نگارشی) [!!!]
+    // [!!!] تابع بازسازی قطعی ASS (الگوریتم هوشمند معکوس‌سازی مختصات و حل قطعی مشکل علائم نگارشی) [!!!]
     function rebuildAssFromTranslation(originalAssContent, mapping, translatedArray) {
         let currentAssFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 
@@ -1052,6 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             timeGroups.get(timeKey).push({
                 mapIndex: index,
+                lineNumber: mapItem.lineNumber,
                 posX: posX,
                 posY: posY
             });
@@ -1136,37 +1137,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const parts = robustAssSplit(originalLine.substring(9).trim(), currentAssFormatFields);
                 if (parts.length < currentAssFormatFields.length) return;
 
-                // در اینجا unmaskTags تگ‌هایی که هندسه‌ی آنها در بالا آینه شده است را به متن تزریق می‌کند
                 let finalDialogueText = unmaskTags(translatedText, tags);
 
-                // چسباندن تگ‌های متوالی به هم برای تمیزی (مانند {\c...}{\c...})
-                finalDialogueText = finalDialogueText.replace(/\}\{/g, '\\');
-
-                // --- 3. فیکس قطعی و فیزیکی علائم نگارشی برای پلیرهای ASS ---
+                // --- 3. اعمال قطعی کاراکتر راست‌چین (RTL) بدون تگ‌های مزاحم \u200F ---
                 finalDialogueText = finalDialogueText.split('\\N').map(part => {
                     // جدا کردن تگ‌های ابتدای خط از متن
                     const match = part.match(/^((?:\{[^}]+\})*)(.*)$/);
                     if (match) {
                         const prefixTags = match[1];
                         let pureText = match[2];
-                        
-                        // حلقه حل مشکل جدا شدن حروف فارسی با تگ‌های رنگی داخلی
-                        let previousText = "";
-                        while(previousText !== pureText) {
-                             previousText = pureText;
-                             // تگ را به سمت چپِ حرف فارسی هُل می‌دهد تا حرف قبلی و بعدی به هم بچسبند
-                             pureText = pureText.replace(/([\u0600-\u06FF])((?:\{[^}]+\})+)([\u0600-\u06FF])/g, '$2$1$3');
-                        }
 
-                        // [انتقال فیزیکی علائم]: اگر در انتهای متن کاراکتر خنثی (مثل ~, ., !، ؟) وجود دارد، 
-                        // آن را بردار و به سمت چپِ اولین کلمه فارسی (که در نمایشِ راست‌چین می‌شود انتهای جمله) منتقل کن.
-                        const punctuationRegex = /([~.!؟?،:؛\s]+)$/;
-                        const puncMatch = pureText.match(punctuationRegex);
-                        if (puncMatch) {
-                            // علامت را از آخر حذف می‌کنیم و به اول متن (بعد از تگ‌ها) می‌آوریم
-                            pureText = puncMatch[1] + pureText.replace(punctuationRegex, '');
-                        }
-
+                        // فیکس تمیز و بدون دردسر برای راست‌چین کردن متن و علائم نگارشی 
+                        // استفاده از \u202B (شروع راست‌به‌چپ) و \u202C (پایان استایل)
                         if (pureText.trim()) {
                             return `${prefixTags}\u202B${pureText.trim()}\u202C`;
                         } else {
