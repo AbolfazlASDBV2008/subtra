@@ -82,6 +82,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof str !== 'string') return str;
         return str.replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m]));
     }
+    
+        function containsJapaneseScript(text) {
+        if (!text) return false;
+        const cleanText = text.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+        const hiragana = /[\u3040-\u309F]/;
+        const katakana = /[\u30A0-\u30FF]/;
+        const kanji = /[\u4E00-\u9FFF]/;
+        return hiragana.test(cleanText) || katakana.test(cleanText) || kanji.test(cleanText);
+    }
 
     function isRomajiOrKanji(text) {
         if (!text) return false;
@@ -189,46 +198,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
 
-    // [!!!] پرامپت جدید با تمرکز بر ضمایر و دقت ترجمه [!!!]
-    // [UPDATE: Added strict anti-hallucination rules at the end]
-    const defaultPromptText = `
-پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (فرمت 'میکرو دی وی دی')
+    // [!!!] پرامپت جدید با پشتیبانی از چند زبان (انگلیسی/ژاپنی/...) [!!!]
+        const defaultPromptText = `
+پرامپت پیشرفته و یکپارچه برای ترجمه حرفه‌ای زیرنویس انیمه (پشتیبانی از فایل‌های ساختاریافته)
 
 مأموریت شما:
-شما یک مترجم ارشد انیمه هستید. وظیفه شما ترجمه دیالوگ‌ها به "فارسی روان، محاوره‌ای و طبیعی" است. مخاطب نباید حس کند ترجمه می‌خواند.
+شما یک دستیار هوش مصنوعی متخصص و مترجم ارشد انیمه هستید. وظیفه شما دریافت دیالوگ‌ها از زبان مبدأ (انگلیسی، ژاپنی و...) و ارائه ترجمه‌ای بی‌نقص، روان، جذاب و وفادار به زبان فارسی است؛ به گونه‌ای که مخاطب احساس کند دیالوگ‌ها از ابتدا به زبان فارسی نوشته شده‌اند.
+
+فرمت ورودی:
+خطوط ورودی شامل یک شناسه، زمان‌بندی و متن هستند (مثال: [ID:12]{100}{200}Text). درون متن ممکن است پلیس‌هولدرهایی به شکل ___TAG_0___ وجود داشته باشد که نمایانگر کدهای رنگ و افکت هستند.
 
 ---
 
-قوانین حیاتی و خط قرمزها (برای جلوگیری از باگ‌های معنایی):
+قوانین حیاتی و خط قرمزهای فنی (غیرقابل نقض):
 
-1. **تشخیص دقیق فاعل و مفعول (بسیار مهم):**
-   - در جملات انگلیسی، دقت کن چه کسی کار را انجام می‌دهد و چه کسی دریافت می‌کند.
-   - مثال خطا: "I'm counting on you" نباید بشود "روم حساب می‌کنی".
-   - مثال صحیح: "I'm counting on you" باید بشود "روت حساب می‌کنم" یا "چشم امیدم به توئه".
-   - اگر در جمله انگلیسی ضمیر حذف شده (مثلاً "Counting on you")، با توجه به اینکه گوینده چه کسی است، فاعل درست را جایگذاری کن.
-
-2. **حفظ لحن شخصیت:**
-   - اگر کاراکتر مؤدب است (Senpai/Boss)، لحن کمی محترمانه باشد.
-   - اگر کاراکتر صمیمی است، کاملاً شکسته و دوستانه ترجمه کن.
-
-3. **ترجمه اصطلاحات:**
-   - اصطلاحات را تحت‌اللفظی ترجمه نکن. معادل فارسی آن را پیدا کن.
-   - مثال: "No way" -> "عمراً" یا "امکان نداره" (نه "هیچ راهی نیست").
-
-4. **فرمت خروجی:**
-   - فقط و فقط متن ترجمه شده را در قالب فرمت ورودی بازگردان.
-   - تگ‌های ___TAG_n___ را دقیقاً سر جای خود حفظ کن.
+۱. حفظ دقیق شناسه و زمان‌بندی: شناسه (مانند [ID:12]) و کدهای زمانی (مانند {100}{200}) باید دقیقاً و بدون هیچ فاصله اضافه‌ای در ابتدای خط ترجمه‌شده قرار بگیرند. (مثال خروجی صحیح: [ID:12]{100}{200}سلام). تحت هیچ شرایطی خطوط را ادغام نکنید و هیچ خطی را جا نیندازید.
+۲. مدیریت تگ‌های استایل (___TAG_n___): این کدها را به هیچ وجه ترجمه نکنید و فرمتشان را تغییر ندهید. آن‌ها را دقیقاً در کنار معادل فارسی کلمه‌ای که در متن اصلی به آن چسبیده‌اند قرار دهید. هرگز تگ جدیدی (مثل TAG_99) اختراع نکنید.
+۳. حذف افکت‌های صوتی و اسامی گوینده: در متن ورودی عباراتی داخل کروشه [...] وجود دارند که نشان‌دهنده نام گوینده یا افکت‌های صوتی هستند (مثل [gasps] یا [Kyoichiro]). این عبارات را به هیچ‌وجه ترجمه نکنید و به طور کامل از متن خروجی حذفشان کنید.
+۴. عدم تکرار: هر خط را فقط و فقط یک بار ترجمه کنید. از تکرار دیالوگ‌ها اکیداً خودداری کنید.
 
 ---
 
-فرایند فکری:
-قبل از نوشتن ترجمه نهایی، در ذهن خود بررسی کن: "آیا این جمله در دهان یک فارسی‌زبان در این موقعیت طبیعی می‌چرخد؟" و "آیا فاعل و مفعول را برعکس متوجه نشده‌ام؟"
+اصول کلیدی ترجمه و بومی‌سازی:
 
-قوانین حیاتی و غیرقابل نقض:
-۱. در متن ورودی کدهایی شبیه به ***TAG_0*** وجود دارد. به هیچ وجه آن‌ها را ترجمه نکن، فرمتشان را تغییر نده و دقیقاً کنار معادل فارسی کلمه‌شان قرار بده.
-۲. توهم تگ: فقط و فقط از تگ‌هایی که در خط ورودی می‌بینی استفاده کن. به هیچ وجه تگ جدیدی (مثل TAG_99) از خودت اختراع نکن و تگ‌های خطوط دیگر را با هم قاطی نکن.
-۳. عدم تکرار: جملات ترجمه شده را به هیچ وجه دو بار یا بیشتر تکرار نکن (DO NOT duplicate or repeat the translated sentences). هر خط را فقط یک بار ترجمه کن.
-۴. در متن ورودی عباراتی داخل کروشه [...] وجود دارند که نشان‌دهنده نام گوینده یا افکت‌های صوتی هستند (مثل [gasps] یا [Kyoichiro]). این عبارات را به هیچ‌وجه ترجمه نکن و به طور کامل از متن خروجی حذفشان کن.
+۱. تشخیص دقیق فاعل و مفعول (بسیار مهم): در جملات، دقت کنید چه کسی کار را انجام می‌دهد و چه کسی دریافت می‌کند. (مثال خطا: "I'm counting on you" نباید بشود "روم حساب می‌کنی". مثال صحیح: "روت حساب می‌کنم"). اگر ضمیر حذف شده، با توجه به کانتکست فاعل درست را جایگذاری کنید.
+۲. روانی و دوری از ترجمه تحت‌اللفظی: هدف انتقال پیام و حس دیالوگ است. ترجمه باید به زبان فارسی امروزی و کاملاً سلیس باشد.
+۳. حفظ لحن و شخصیت‌پردازی (بدون سانسور): 
+   - برای شخصیت‌های لات‌منش، بی‌پروا یا صمیمی: ترجمه باید کاملاً عامیانه، کوچه‌بازاری و دارای اصطلاحات شکسته باشد.
+   - برای شخصیت‌های رسمی یا اشرافی: لحن باید متین و مؤدبانه باشد.
+   - تذکر بسیار مهم: ترجمه حرفه‌ای به معنای پاستوریزه کردن نیست. اگر متن اصلی دارای کلمات رکیک، جنسی یا خشن است، ترجمه فارسی نیز باید با همان شدت (بدون سانسور) ارائه شود تا اصالت اثر حفظ گردد.
+۴. بومی‌سازی هوشمندانه: ضرب‌المثل‌ها و شوخی‌ها را با یافتن معادل‌های رایج و طبیعی در فرهنگ فارسی بومی‌سازی کنید.
+۵. ترجمه شاعرانه آهنگ‌ها (OP/ED): اگر خطوط مربوط به آواز آغازین یا پایانی انیمه (اغلب شامل روماجی یا علائم موسیقی) هستند، لحن ترجمه را از حالت محاوره‌ای به حالت شاعرانه، حماسی و احساسی تغییر دهید.
+۶. محدودیت زبانی: خروجی باید کاملاً فارسی باشد. اسامی خاص یا اصطلاحات فنی که معادل ندارند مستثنی هستند، اما اولویت با زبان فارسی است.
+
+---
+
+فرایند پردازش (مبتنی بر خود-اصلاحی ذهنی):
+پیش از تولید خروجی، در ذهن خود یک پیش‌نویس بسازید. از خود بپرسید: «آیا این جمله در دهان یک فارسی‌زبان طبیعی می‌چرخد؟ آیا فاعل و مفعول جابه‌جا نشده‌اند؟ آیا تگ‌های TAG_n سر جای خود هستند؟» پس از پالایش، فقط نسخه نهایی را چاپ کنید.
+
+ساختار خروجی نهایی:
+خروجی شما باید *صرفاً* شامل خطوط ترجمه‌شده با حفظ ساختار [ID:n]{start}{end} باشد. هیچ‌گونه مقدمه، توضیح، یادداشت مترجم یا بلوک کد مارک‌داون (Markdown) به خروجی اضافه نکنید.
     `.trim();
 
     // مدیریت پرامپت‌ها
@@ -1483,10 +1492,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
             const textForCheck = textPart.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
 
-            if (!textForCheck) continue; 
-            if (isRomajiOrKanji(textForCheck)) continue; 
+                        if (!textForCheck) continue; 
 
-            if (foreignScriptRegex.test(textForCheck) || badCharacterRegex.test(textForCheck) || englishRegex.test(textForCheck)) {
+            // اگر متن ترجمه شده دارای کاراکترهای بد، انگلیسی یا حروف بیگانه (مثل ژاپنی) بود باید اصلاح شود
+            // مگراینکه دارای نت موسیقی باشد که نشان‌دهنده آهنگ است و طبیعی است
+            let needsCorrection = false;
+            if (badCharacterRegex.test(textForCheck) || englishRegex.test(textForCheck)) {
+                needsCorrection = true;
+            } else if (foreignScriptRegex.test(textForCheck)) {
+                if (!/[♪♡♫♬]/.test(textForCheck)) {
+                    needsCorrection = true; // حروف بیگانه دارد و نت موسیقی هم نیست -> توهم است
+                }
+            }
+
+            if (needsCorrection) {
+
                 // پیدا کردن آیدی از مپ اصلی برای آپدیت صحیح (بر اساس محتوا)
                 let foundId = -1;
                 masterTranslationMap.forEach((val, key) => { if (val === textPart) foundId = key; });
@@ -2079,22 +2099,29 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 });
                 originalLastEndFrame = Math.floor((maxEndMs / 1000) * fps);
                 
-                const dialogueData = originalDialogueBlocks.map((block, i) => {
+                                const dialogueData = originalDialogueBlocks.map((block, i) => {
                     const startFrame = timeToFrames(block.start, fps);
                     const endFrame = timeToFrames(block.end, fps);
                     
                     let cleanText = block.text;
 
                     if (!useAssPath) {
-                        // فقط تگ‌های احتمالی ASS را پاک می‌کنیم. 
-                        // تگ‌های HTML قبلا پاک شده‌اند. خطوط جدید (\n) باید حفظ شوند تا هوش مصنوعی جملات را درست تشخیص دهد.
                         cleanText = block.text.replace(/\{[^}]+\}/g, ' ').trim();
                     }
 
-                    // کاراکتر \n در اینجا با | جایگزین می‌شود تا برای هوش مصنوعی قابل فهم باشد
                     const microLine = `{${startFrame}}{${endFrame}}${cleanText.replace(/\n/g, '|')}`;
                     return { i, microLine, cleanText, startFrame, endFrame, block, isSong: false, songType: null };
                 });
+
+                // --- [NEW] تشخیص اتوماتیک زبان ژاپنی در فایل مبدأ ---
+                let jpCount = 0;
+                dialogueData.forEach(d => {
+                    if (containsJapaneseScript(d.cleanText)) jpCount++;
+                });
+                const isJapaneseSource = jpCount > (dialogueData.length * 0.3);
+                if (isJapaneseSource) {
+                    addLog("زبان مبدأ ژاپنی تشخیص داده شد.", false, "blue");
+                }
 
                 // --- منطق تشخیص هوشمند آهنگ (NEW) ---
                 if (aiDetectionToggle.checked) {
@@ -2107,7 +2134,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                         let opCount = 0;
                         let edCount = 0;
 
-                        // اعمال ایندکس‌ها
                         if (songIndices.op && songIndices.op.start_index !== null && songIndices.op.end_index !== null) {
                             for (let j = songIndices.op.start_index; j <= songIndices.op.end_index; j++) {
                                 if (dialogueData[j]) {
@@ -2131,24 +2157,33 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                         }
 
                         if (opCount === 0 && edCount === 0) {
-                            addLog("هوش مصنوعی هیچ آهنگی پیدا نکرد. استفاده از روش سنتی...", false, "yellow");
-                            // فال‌بک به روش قدیمی
+                            addLog("هوش مصنوعی هیچ آهنگی پیدا نکرد. استفاده از روش جایگزین...", false, "yellow");
                             dialogueData.forEach(d => {
-                                if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                                if (isJapaneseSource) {
+                                    if (/[♪♡♫♬]/.test(d.cleanText)) d.isSong = true;
+                                } else {
+                                    if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                                }
                             });
                         }
                     } else {
-                         addLog("خطا در اسکن هوشمند یا نتیجه خالی. استفاده از روش سنتی...", false, "yellow");
-                         // فال‌بک به روش قدیمی
+                         addLog("خطا در اسکن هوشمند یا نتیجه خالی. استفاده از روش جایگزین...", false, "yellow");
                          dialogueData.forEach(d => {
-                            if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                             if (isJapaneseSource) {
+                                 if (/[♪♡♫♬]/.test(d.cleanText)) d.isSong = true;
+                             } else {
+                                 if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                             }
                          });
                     }
 
                 } else {
-                    // روش سنتی (غیر فعال بودن تاگل)
                     dialogueData.forEach(d => {
-                        if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                        if (isJapaneseSource) {
+                             if (/[♪♡♫♬]/.test(d.cleanText)) d.isSong = true;
+                        } else {
+                             if (isRomajiOrKanji(d.cleanText)) d.isSong = true;
+                        }
                     });
                 }
 
@@ -2506,19 +2541,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             let positionOverride = "";
             let currentStyle = block.style || 'Default';
 
-            if (isKaraokeActive) {
-                if (isAiDetectionActive && dialogueData && dialogueData[i]) {
-                    if (dialogueData[i].songType === 'OP') currentStyle = 'OP';
-                    else if (dialogueData[i].songType === 'ED') currentStyle = 'ED';
-                    else if (dialogueData[i].isSong) {
-                         const blockStartSec = parseTimeToMS(block.start) / 1000;
-                         if (blockStartSec < totalDurationSecs * 0.5) currentStyle = 'OP';
-                         else currentStyle = 'ED';
-                    }
-                } else if (isRomajiOrKanji(block.text) || isRomajiOrKanji(translatedText)) {
+                        // اعمال استایل آهنگ فقط با تکیه بر دیتای پردازش شده در مراحل قبل
+            if (isKaraokeActive && dialogueData && dialogueData[i]) {
+                if (dialogueData[i].songType === 'OP') {
+                    currentStyle = 'OP';
+                } else if (dialogueData[i].songType === 'ED') {
+                    currentStyle = 'ED';
+                } else if (dialogueData[i].isSong) {
                     const blockStartSec = parseTimeToMS(block.start) / 1000;
-                    if (blockStartSec < totalDurationSecs * 0.3) currentStyle = 'OP';
-                    else if (blockStartSec > totalDurationSecs * 0.7) currentStyle = 'ED';
+                    if (blockStartSec < totalDurationSecs * 0.4) currentStyle = 'OP';
+                    else currentStyle = 'ED';
                 }
             }
 
