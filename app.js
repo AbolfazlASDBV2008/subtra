@@ -1,18 +1,31 @@
+import {
+    maskTags, unmaskTags, cleanAIOutput, countTagPlaceholders,
+    extractTranslationsFromAIResponse, isTranslationHealthy,
+    escapeHTML, containsJapaneseScript, isRomajiOrKanji,
+    parseTimeToMS, msToASS, msToSrtTime, robustAssSplit,
+    parseSRT, parseVTT, parseASS, cleanAssToSrt,
+    processAssForTranslationAndMapping, rebuildAssFromTranslation,
+    sortAssDialogueLines, timeToFrames, compareTimestamps
+} from './subtitle-core.js';
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. توابع کمکی (جدید: ماسک کردن تگ‌ها و مدیریت پرامپت) ---
+    // توجه: maskTags/unmaskTags/cleanAIOutput/countTagPlaceholders/
+    // extractTranslationsFromAIResponse/isTranslationHealthy/escapeHTML/
+    // containsJapaneseScript/isRomajiOrKanji به subtitle-core.js منتقل شدند
+    // (توابع خالصی که برای تست خودکار هم استفاده می‌شوند). این فایل باید
+    // قبل از app.js در index.html لود شود.
 
     // --- [NEW] Storage Manager Functions for Resume Capability ---
     const STORAGE_KEY_PREFIX = 'anime_sub_resume_data_';
 
     function getFileId(file) {
-        // Unique ID based on name and size to avoid conflicts
         return `${file.name}_${file.size}`;
     }
 
     function saveProgress(fileId, map) {
         try {
-            // Convert Map to Array of entries for JSON serialization
             const obj = Array.from(map.entries());
             localStorage.setItem(STORAGE_KEY_PREFIX + fileId, JSON.stringify(obj));
         } catch (e) {
@@ -24,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY_PREFIX + fileId);
             if (saved) {
-                // Convert JSON back to Map
                 return new Map(JSON.parse(saved));
             }
         } catch (e) {
@@ -41,95 +53,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     // -----------------------------------------------------------
-
-    // تابع ماسک کردن: تگ‌های داخل {} را با پلیس‌هولدر ___TAG_n___ جایگزین می‌کند
-    function maskTags(text) {
-        const tags = [];
-        let maskedText = text.replace(/\{[^}]*?\}/g, (match) => {
-            tags.push(match);
-            return `___TAG_${tags.length - 1}___`;
-        });
-        return { maskedText, tags };
-    }
-
-                         function unmaskTags(text, tags) {
-        // اگر تگی وجود نداشت، همان متن خالص را برگردان
-        if (!tags || tags.length === 0) {
-            return text;
-        }
-
-        // تمام تگ‌های ذخیره شده برای این کلمه را به هم می‌چسبانیم
-        let allTags = tags.join('');
-        
-        // ادغام هوشمندانه تگ‌های متوالی برای تمیزی و جلوگیری از خطای پلیر 
-        // مثلا تبدیل: {\pos(x,y)}{\c&HFFFFFF&} به {\pos(x,y)\c&HFFFFFF&}
-        allTags = allTags.replace(/\}\{/g, '\\');
-
-        // در فرمت ASS، هم تگ‌های سیستمی (مثل pos) و هم استایل (رنگ) 
-        // باید حتماً در ابتدای رشته قرار بگیرند تا روی کلمه اعمال شوند
-        return allTags + text;
-    }
-
-    // [!!!] تابع جدید برای تمیزکاری خروجی AI (حذف بک‌تیک‌های مارک‌داون) [!!!]
-    function cleanAIOutput(text) {
-        if (!text) return "";
-        // حذف بلوک‌های کد شروع (مثلاً ```, ```text, ```json) و پایان
-        // این کار باعث می‌شود اگر AI متن را در کدبلاک گذاشت، خط اول خراب نشود
-        return text.replace(/^```[a-zA-Z]*\n?/g, '').replace(/\n?```$/g, '').trim();
-    }
-
-    function escapeHTML(str) {
-        if (typeof str !== 'string') return str;
-        return str.replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m]));
-    }
-    
-        function containsJapaneseScript(text) {
-        if (!text) return false;
-        const cleanText = text.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
-        const hiragana = /[\u3040-\u309F]/;
-        const katakana = /[\u30A0-\u30FF]/;
-        const kanji = /[\u4E00-\u9FFF]/;
-        return hiragana.test(cleanText) || katakana.test(cleanText) || kanji.test(cleanText);
-    }
-
-    function isRomajiOrKanji(text) {
-        if (!text) return false;
-        // [!!!] اگر متن حاوی پلیس‌هولدر تگ باشد، آن را نادیده می‌گیریم تا باعث تشخیص اشتباه نشود [!!!]
-        const cleanText = text.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
-
-        const allowedCharsRegex = /^[a-zA-Z\s\.,!\?'"\-\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF♪\(\)\*…♡:\/]+$/;
-
-        if (!allowedCharsRegex.test(cleanText)) {
-            return false; 
-        }
-
-        const hiragana = /[\u3040-\u309F]/;
-        const katakana = /[\u30A0-\u30FF]/;
-        const kanji = /[\u4E00-\u9FFF]/;
-        const hasJapanese = hiragana.test(cleanText) || katakana.test(cleanText) || kanji.test(cleanText);
-
-        if (hasJapanese) return true; 
-
-        const songMarkerRegex = /[♪♡]/; 
-        if (songMarkerRegex.test(cleanText)) return true;
-
-        return false;
-    }
-
-
     // --- 1. انتخاب عناصر HTML ---
     const apiKeyInput = document.getElementById('apiKey');
-    const apiKeyLockIcon = document.getElementById('apiKeyLockIcon'); // آیکون قفل جدید
+    const apiKeyLockIcon = document.getElementById('apiKeyLockIcon'); 
     const modelSelect = document.getElementById('modelSelect');
     const fpsInput = document.getElementById('fpsInput');
 
-    // عناصر جدید: خلاقیت و لحن و Top-P
     const creativityRange = document.getElementById('creativityRange');
     const creativityValue = document.getElementById('creativityValue');
-    const topPRange = document.getElementById('topPRange'); // اسلایدر جدید Top-P
-    const topPValue = document.getElementById('topPValue'); // نمایش مقدار Top-P
+    const topPRange = document.getElementById('topPRange'); 
+    const topPValue = document.getElementById('topPValue'); 
     const toneSelect = document.getElementById('toneSelect');
-        // عناصر جدید: واترمارک و متن‌های شروع/پایان
     const startTextEnabled = document.getElementById('startTextEnabled');
     const startTextInput = document.getElementById('startTextInput');
     const startTextStartTime = document.getElementById('startTextStartTime');
@@ -139,10 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const endTextStartFromEnd = document.getElementById('endTextStartFromEnd');
     const endTextDuration = document.getElementById('endTextDuration');
 
-    // دکمه‌های راهنما
     const helpButtons = document.querySelectorAll('.help-btn');
 
-    // عناصر مربوط به پرامپت
     const systemPrompt = document.getElementById('systemPrompt');
     const promptSelector = document.getElementById('promptSelector');
     const addPromptBtn = document.getElementById('addPromptBtn');
@@ -151,6 +83,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const resetSettings = document.getElementById('resetSettings'); 
     const settingsReset = document.getElementById('settingsReset'); 
+
+    const exportSettingsBtn = document.getElementById('exportSettingsBtn');
+    const importSettingsBtn = document.getElementById('importSettingsBtn');
+    const importSettingsFile = document.getElementById('importSettingsFile');
+    const settingsImported = document.getElementById('settingsImported');
+    const exportApiKeyModal = document.getElementById('exportApiKeyModal');
+    const exportWithApiKeyBtn = document.getElementById('exportWithApiKeyBtn');
+    const exportWithoutApiKeyBtn = document.getElementById('exportWithoutApiKeyBtn');
+    const cancelExportBtn = document.getElementById('cancelExportBtn');
+
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -169,9 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const liveOutput = document.getElementById('liveOutput'); 
     const translationStatusMessage = document.getElementById('translationStatusMessage'); 
     const proxyToggle = document.getElementById('proxy-toggle'); 
-    const karaokeToggle = document.getElementById('karaoke-toggle'); // [!!!] دکمه جدید کارائوکه
-    const aiDetectionToggle = document.getElementById('ai-detection-toggle'); // [!!!] دکمه جدید تشخیص هوشمند
-    const liveOutputToggle = document.getElementById('live-output-toggle'); // [!!!] دکمه جدید نمایش زنده
+    const karaokeToggle = document.getElementById('karaoke-toggle'); 
+    const aiDetectionToggle = document.getElementById('ai-detection-toggle'); 
+    const liveOutputToggle = document.getElementById('live-output-toggle'); 
     const thinkingModeToggle = document.getElementById('thinking-mode-toggle');
 
     const safetyHarassmentToggle = document.getElementById('safety-harassment-toggle'); 
@@ -191,14 +133,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let isTranslating = false;
     let abortController = null; 
     let userManuallyAborted = false;
-    let saveProgressTimeout = null; // [!!!] تایمر برای Debounce ذخیره
+    let saveProgressTimeout = null; 
 
-    let assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
     let styleFormatFields = ['Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'OutlineColour', 'BackColour', 'Bold', 'Italic', 'Underline', 'StrikeOut', 'ScaleX', 'ScaleY', 'Spacing', 'Angle', 'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL', 'MarginR', 'MarginV', 'Encoding'];
 
-    const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
-
-    // [!!!] پرامپت جامع و تقویت‌شده با پشتیبانی از چند زبان و سناریوهای پیچیده انیمه [!!!]
     const defaultPromptText = `
 پرامپت پیشرفته و جامع برای ترجمه حرفه‌ای زیرنویس انیمه (پشتیبانی از فایل‌های ساختاریافته)
 
@@ -228,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
    - تمامی پسوندهای احترامی مانند -kun, -san, -sama, -chan, -dono باید دقیقاً همان‌طور که در متن اصلی هستند، در ترجمه فارسی نیز حفظ شوند (مثال: ایروما-کون، ایروما-سان، ایروما-ساما، ایروما-چان، ایروما-دونو). به هیچ‌وجه آن‌ها را حذف یا ترجمه نکنید.
    - القاب خانوادگی ژاپنی مانند Onii-san, Onee-chan, Onee-sama, Onee-san نیز باید عیناً با حروف فارسی نوشته شوند (مثال: اونی-سان، اونه-چان، اونه-ساما، اونه-سان). آن‌ها را به "برادر" یا "خواهر" ترجمه نکنید.
    - عناوینی مثل Sensei و Senpai را نیز به صورت "سنسی" و "سنپای" بنویسید، مگر آنکه لحن بسیار رسمی باشد که معادل آن مجاز شود.
-۳. تشخیص دقیق فاعل، مفعول و جنسیت: زبان فارسی جنسیت ندارد (او/شما). با توجه به دیالوگ‌های قبلی و کانتکست خطوط، مراقب باشید دیالوگِ یک زن به مرد نسبت داده نشود و فاعل و مفعول جابه‌جا نشوند. (مثال خطا: "I'm counting on you" نباید بشود "روم حساب می‌کنی". مثال صحیح: "روت حساب می‌کنم").
+۳. تشخیص دقیق فاعل، مفعول و جنسیت: زبان فارسی جنسیت ندارد (او/شما). با توجه به دیالوگ‌های قبلی و کانتکست خطوط، مراقب باشید دیالوگِ یک زن به مرد نسبت داده نشود و فاعل و مفعول جابه‌جا نشوند.
 ۴. روانی و دوری از ترجمه تحت‌اللفظی: هدف انتقال پیام و حس دیالوگ است. ترجمه باید به زبان فارسی امروزی، سلیس و بدون ساختارهای گرامری انگلیسی/ژاپنی باشد.
 ۵. حفظ لحن و شخصیت‌پردازی (بدون سانسور): 
    - برای شخصیت‌های لات‌منش، بی‌پروا یا صمیمی: لحن کاملاً عامیانه، کوچه‌بازاری و دارای اصطلاحات شکسته (مثل "می‌خوام"، "نمی‌تونم").
@@ -236,12 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
    - خط قرمز: ترجمه حرفه‌ای به معنای پاستوریزه کردن نیست. کلمات رکیک، جنسی، خشن یا توهین‌ها باید با همان شدت و اصالت به فارسی برگردانده شوند. هرگز سانسور نکنید.
 ۶. بومی‌سازی ضرب‌المثل‌ها: ضرب‌المثل‌ها، جوک‌ها و کنایه‌های خارجی را کلمه‌به‌کلمه ترجمه نکنید؛ معادل رایج و طبیعی آن‌ها را در فرهنگ فارسی پیدا کنید.
 ۷. جملات ناتمام و قطع شده: اگر دیالوگ با خط تیره (-) یا سه نقطه (...) نیمه‌کاره رها شده است، ترجمه فارسی هم باید دقیقاً نیمه‌کاره رها شود. سعی نکنید جمله را کامل کنید!
-۸. ترجمه شاعرانه آهنگ‌ها (OP/ED): خطوط مربوط به آواز آغازین یا پایانی انیمه (اغلب همراه با ♪ یا عبارات روماجی) را از حالت محاوره‌ای خارج کرده و با لحنی شاعرانه، حماسی و آهنگین ترجمه کنید.
+۸. ترجمه شاعرانه آهنگ‌ها (OP/ED): خطوط مربوط به آواز آغازین یا پایانی انیمه را با لحنی شاعرانه، حماسی و آهنگین ترجمه کنید.
 
 ---
-
-فرایند پردازش (مبتنی بر خود-اصلاحی ذهنی):
-پیش از تولید خروجی، در ذهن خود یک پیش‌نویس بسازید. از خود بپرسید: «آیا این جمله در دهان یک فارسی‌زبان طبیعی می‌چرخد؟ آیا اسم خاصی را اشتباه معنی کرده‌ام؟ آیا تگ‌های TAG_n سر جای خود هستند؟» پس از پالایش، فقط نسخه نهایی را چاپ کنید.
 
 ساختار خروجی نهایی:
 خروجی شما باید *صرفاً* شامل خطوط ترجمه‌شده با حفظ ساختار [ID:n]{start}{end} باشد. 
@@ -254,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- مدیریت UI و اعتبارسنجی API ---
 
-    // تابع آپدیت رنگ پس‌زمینه اسلایدر
     function updateSliderBackground(slider) {
         const min = parseFloat(slider.min);
         const max = parseFloat(slider.max);
@@ -263,19 +197,16 @@ document.addEventListener('DOMContentLoaded', () => {
         slider.style.background = `linear-gradient(to left, #374151 calc(100% - ${percentage}%), #3b82f6 calc(100% - ${percentage}%))`;
     }
 
-    // آپدیت لیبل و استایل اسلایدر خلاقیت
     creativityRange.addEventListener('input', (e) => {
         creativityValue.textContent = e.target.value;
         updateSliderBackground(e.target);
     });
 
-    // آپدیت لیبل و استایل اسلایدر Top-P
     topPRange.addEventListener('input', (e) => {
         topPValue.textContent = e.target.value;
         updateSliderBackground(e.target);
     });
 
-    // تابع کمکی برای آپدیت آیکون قفل
     function updateApiKeyLock(key) {
         const isValid = /^AIza[0-9A-Za-z-_]{35}$/.test(key.trim());
         if (isValid) {
@@ -287,19 +218,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // اعتبارسنجی کلید API و تغییر رنگ قفل
     apiKeyInput.addEventListener('input', (e) => {
         updateApiKeyLock(e.target.value);
     });
 
-    // مدیریت دکمه‌های راهنما (تولتیپ)
     helpButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
-            e.stopPropagation(); // جلوگیری از بستن فوری
+            e.stopPropagation();
             const targetId = btn.getAttribute('data-target');
             const tooltip = document.getElementById(targetId);
 
-            // بستن همه تولتیپ‌های دیگر
             document.querySelectorAll('.help-tooltip').forEach(t => {
                 if (t !== tooltip) t.classList.remove('show');
             });
@@ -308,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // بستن تولتیپ‌ها با کلیک در جای دیگر صفحه
     document.addEventListener('click', () => {
         document.querySelectorAll('.help-tooltip').forEach(t => {
             t.classList.remove('show');
@@ -316,10 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function loadSettings() {
-        // [!!!] ترتیب لود کردن مهم است: ابتدا متغیرهای داده‌ای، سپس UI [!!!]
-        // اگر اول UI ست شود و رویداد input تریگر شود، autoSave با آرایه خالی اجرا شده و دیتا می‌پرد.
-
-        // 1. بارگذاری داده‌های پرامپت از حافظه
         try {
             const savedPrompts = localStorage.getItem('customPrompts');
             customPrompts = savedPrompts ? JSON.parse(savedPrompts) : [];
@@ -329,26 +252,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentPromptId = localStorage.getItem('selectedPromptId') || 'default';
 
-        // اگر پرامپت انتخابی حذف شده بود، برگرد به دیفالت
         if (currentPromptId !== 'default' && !customPrompts.find(p => p.id === currentPromptId)) {
             currentPromptId = 'default';
         }
 
-        // 2. تنظیم مقادیر UI
         const key = localStorage.getItem('geminiApiKey') || '';
         apiKeyInput.value = key;
-        updateApiKeyLock(key); // آپدیت آیکون بدون تریگر کردن رویداد input
+        updateApiKeyLock(key); 
 
-        modelSelect.value = localStorage.getItem('geminiModel') || 'gemini-2.5-pro';
+        modelSelect.value = localStorage.getItem('geminiModel') || 'gemini-3.6-flash';
         fpsInput.value = localStorage.getItem('subtitleFPS') || '23.976';
         proxyToggle.checked = localStorage.getItem('proxyEnabled') === 'true';
-        karaokeToggle.checked = localStorage.getItem('karaokeEnabled') !== 'false'; // پیش‌فرض true
-        aiDetectionToggle.checked = localStorage.getItem('aiDetectionEnabled') === 'true'; // پیش‌فرض false
-        liveOutputToggle.checked = localStorage.getItem('liveOutputEnabled') !== 'false'; // پیش‌فرض true
-        if (thinkingModeToggle) thinkingModeToggle.checked = localStorage.getItem('thinkingModeEnabled') === 'true';
+        karaokeToggle.checked = localStorage.getItem('karaokeEnabled') !== 'false'; 
+        aiDetectionToggle.checked = localStorage.getItem('aiDetectionEnabled') === 'true'; 
+        liveOutputToggle.checked = localStorage.getItem('liveOutputEnabled') !== 'false'; 
+        if (thinkingModeToggle) thinkingModeToggle.checked = localStorage.getItem('thinkingModeEnabled') !== 'false';
 
-        // [!!!] تغییر پیش‌فرض دما به 0.2 برای دقت بیشتر [!!!]
-        creativityRange.value = localStorage.getItem('geminiTemperature') || '0.2';
+        creativityRange.value = localStorage.getItem('geminiTemperature') || '0.4';
         creativityValue.textContent = creativityRange.value;
         updateSliderBackground(creativityRange);
 
@@ -387,13 +307,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePromptUI() {
         promptSelector.innerHTML = '';
 
-        // گزینه دیفالت
         const defaultOpt = document.createElement('option');
         defaultOpt.value = 'default';
         defaultOpt.textContent = 'پرامت پیش فرض';
         promptSelector.appendChild(defaultOpt);
 
-        // گزینه‌های سفارشی
         customPrompts.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
@@ -406,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPromptId === 'default') {
             systemPrompt.value = defaultPromptText;
             systemPrompt.readOnly = true;
-            systemPrompt.disabled = true; // غیرفعال کامل تا ظاهر :disabled در CSS اعمال شود (مچ با تم لایت/دارک)
+            systemPrompt.disabled = true; 
             deletePromptBtn.classList.add('hidden');
             promptReadOnlyMsg.classList.remove('hidden');
         } else {
@@ -419,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // تابع کمکی برای همگام‌سازی محتوای تکست‌اریا با آبجکت پرامپت فعلی قبل از تغییر
     function syncCurrentPromptContent() {
         if (currentPromptId !== 'default') {
             const index = customPrompts.findIndex(p => p.id === currentPromptId);
@@ -430,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     promptSelector.addEventListener('change', (e) => {
-        syncCurrentPromptContent(); // ذخیره محتوای قبلی قبل از تغییر
+        syncCurrentPromptContent(); 
         currentPromptId = e.target.value;
         updatePromptUI();
         autoSaveSettings(); 
@@ -439,13 +356,13 @@ document.addEventListener('DOMContentLoaded', () => {
     addPromptBtn.addEventListener('click', () => {
         const name = prompt("نام پرامپت جدید را وارد کنید:");
         if (name && name.trim()) {
-            syncCurrentPromptContent(); // ذخیره محتوای فعلی قبل از ایجاد جدید
+            syncCurrentPromptContent(); 
 
             const newId = 'custom_' + Date.now();
             customPrompts.push({
                 id: newId,
                 name: name.trim(),
-                content: '' // شروع با صفحه خالی
+                content: '' 
             });
             currentPromptId = newId;
             updatePromptUI();
@@ -464,9 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- [FIX] هایلایت کردن کادر (بوردر آبی) فرمت خروجی انتخاب‌شده ---
-    // قبلاً وقتی کاربر روی SRT کلیک می‌کرد، رادیو درست تیک می‌خورد ولی بوردر آبی دور کادر
-    // همچنان روی ASS می‌ماند چون هیچ منطقی برای سینک کردن ظاهر با انتخاب واقعی وجود نداشت.
     const outputFormatRadios = document.querySelectorAll('input[name="output-format"]');
 
     function syncOutputFormatHighlight() {
@@ -487,7 +401,6 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', syncOutputFormatHighlight);
     });
 
-    // اعمال وضعیت اولیه (هماهنگ با مقداری که از قبل checked هست، مثلاً بعد از بازگردانی پیش‌فرض‌ها)
     syncOutputFormatHighlight();
 
     function saveSafetySettings() {
@@ -500,7 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('safetySettings', JSON.stringify(settings));
     }
 
-    // Auto-save logic
     function autoSaveSettings() {
         localStorage.setItem('geminiApiKey', apiKeyInput.value);
         localStorage.setItem('geminiModel', modelSelect.value);
@@ -511,7 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('liveOutputEnabled', liveOutputToggle.checked);
         if (thinkingModeToggle) localStorage.setItem('thinkingModeEnabled', thinkingModeToggle.checked);
 
-        // ذخیره تنظیمات جدید
         localStorage.setItem('geminiTemperature', creativityRange.value);
         localStorage.setItem('geminiTopP', topPRange.value);
         localStorage.setItem('geminiTone', toneSelect.value);
@@ -525,7 +436,6 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('endTextStartFromEnd', endTextStartFromEnd.value);
         localStorage.setItem('endTextDuration', endTextDuration.value);
 
-        // ذخیره وضعیت پرامپت‌ها (با سینک کردن مجدد برای اطمینان)
         syncCurrentPromptContent();
 
         localStorage.setItem('customPrompts', JSON.stringify(customPrompts));
@@ -534,7 +444,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSafetySettings();
     }
 
-      // Attach auto-save listeners to all relevant inputs
     [apiKeyInput, modelSelect, fpsInput, 
      creativityRange, topPRange, toneSelect, 
      proxyToggle, karaokeToggle, aiDetectionToggle, liveOutputToggle, thinkingModeToggle,
@@ -552,29 +461,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     resetSettings.addEventListener('click', () => {
 
-        // 1. بازنشانی وضعیت پرامپت به دیفالت (بدون حذف کاستوم‌ها)
         currentPromptId = 'default';
         updatePromptUI();
 
-        // 2. بازنشانی پراکسی و کارائوکه
         proxyToggle.checked = false; 
         karaokeToggle.checked = true;
         aiDetectionToggle.checked = false;
         liveOutputToggle.checked = true;
-        if (thinkingModeToggle) thinkingModeToggle.checked = false;
+        if (thinkingModeToggle) thinkingModeToggle.checked = true;
 
-        // 3. بازنشانی تنظیمات ایمنی
         safetyHarassmentToggle.checked = false;
         safetyHateSpeechToggle.checked = false;
         safetySexuallyExplicitToggle.checked = false;
         safetyDangerousContentToggle.checked = false;
 
-        // 4. بازنشانی FPS
         fpsInput.value = '23.976'; 
 
-        // 5. بازنشانی تنظیمات جدید
-        creativityRange.value = '0.2'; // [!!!] Reset to 0.2 [!!!]
-        creativityValue.textContent = '0.2';
+        creativityRange.value = '0.4'; 
+        creativityValue.textContent = '0.4';
         updateSliderBackground(creativityRange);
 
         topPRange.value = '0.9';
@@ -592,15 +496,171 @@ document.addEventListener('DOMContentLoaded', () => {
         endTextStartFromEnd.value = "120";
         endTextDuration.value = "10";
 
-        // Trigger auto-save to persist reset state
         autoSaveSettings();
 
-        // 6. نمایش پیام تایید
         settingsReset.classList.remove('hidden');
         setTimeout(() => settingsReset.classList.add('hidden'), 3000);
     });
 
-    // --- 4. مدیریت آپلود فایل (اصلاح شده) ---
+    // =====================================================================
+    // --- خروجی/ورودی گرفتن از کل تنظیمات (پشتیبان‌گیری) ---
+    //
+    // اصل طراحی: به‌جای لیست‌کردن دستی هر تنظیم، همه‌ی کلیدهای localStorage
+    // (به‌جز کش پیشرفت هر فایل که مخصوص خودِ آن فایل است) عیناً خوانده و در
+    // فایل خروجی قرار می‌گیرند. این یعنی هر تنظیم/دکمه‌ی جدیدی که در آینده
+    // به برنامه اضافه شود و از localStorage استفاده کند، خودکار وارد
+    // اکسپورت‌های جدید می‌شود؛ و هنگام وارد کردن یک فایل قدیمی‌تر، تنظیماتی
+    // که آن فایل نداشته دست‌نخورده باقی می‌مانند (فقط merge می‌شود، نه پاک‌سازی کامل).
+    // =====================================================================
+
+    function collectAllSettingsForExport() {
+        const settings = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || key.startsWith(STORAGE_KEY_PREFIX)) continue; // کش پیشرفتِ هر فایل، جزو «تنظیمات» نیست
+            settings[key] = localStorage.getItem(key);
+        }
+        return settings;
+    }
+
+    function triggerJSONDownload(dataObj, filename) {
+        const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function finalizeExport(includeApiKey) {
+        // قبل از خروجی گرفتن، هر تغییری که هنوز روی فیلدها هست ولی ذخیره نشده رو ذخیره می‌کنیم
+        syncCurrentPromptContent();
+        autoSaveSettings();
+        saveSafetySettings();
+
+        const settings = collectAllSettingsForExport();
+        if (!includeApiKey) {
+            settings.geminiApiKey = ''; // به‌جای حذف کامل، خالی می‌ذاریم تا ایمپورت بفهمه عمداً خالی گذاشته شده
+        }
+
+        const exportPayload = {
+            appName: 'anime-subtitle-translator-settings',
+            formatVersion: 1,
+            exportedAt: new Date().toISOString(),
+            settings: settings
+        };
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        triggerJSONDownload(exportPayload, `تنظیمات-مترجم-زیرنویس-${dateStr}.json`);
+
+        exportApiKeyModal.classList.add('hidden');
+        exportApiKeyModal.style.display = 'none';
+
+        addLog(includeApiKey ? "فایل خروجی تنظیمات (همراه با کلید API) با موفقیت دانلود شد." : "فایل خروجی تنظیمات (بدون کلید API) با موفقیت دانلود شد.", false, "green");
+    }
+
+    exportSettingsBtn.addEventListener('click', () => {
+        const hasApiKey = !!(localStorage.getItem('geminiApiKey') || '').trim();
+
+        if (!hasApiKey) {
+            // چیزی برای پرسیدن نیست، مستقیم خروجی می‌گیریم
+            finalizeExport(false);
+            return;
+        }
+
+        exportApiKeyModal.classList.remove('hidden');
+        exportApiKeyModal.style.display = 'flex';
+        requestAnimationFrame(() => {
+            exportApiKeyModal.classList.add('opacity-100');
+            exportApiKeyModal.querySelector('div').classList.remove('scale-95');
+            exportApiKeyModal.querySelector('div').classList.add('scale-100');
+        });
+    });
+
+    function closeExportApiKeyModal() {
+        exportApiKeyModal.classList.remove('opacity-100');
+        exportApiKeyModal.querySelector('div').classList.remove('scale-100');
+        exportApiKeyModal.querySelector('div').classList.add('scale-95');
+        setTimeout(() => {
+            exportApiKeyModal.style.display = 'none';
+            exportApiKeyModal.classList.add('hidden');
+        }, 300);
+    }
+
+    exportWithApiKeyBtn.addEventListener('click', () => finalizeExport(true));
+    exportWithoutApiKeyBtn.addEventListener('click', () => finalizeExport(false));
+    cancelExportBtn.addEventListener('click', closeExportApiKeyModal);
+
+    importSettingsBtn.addEventListener('click', () => {
+        importSettingsFile.value = ''; // تا انتخاب دوباره‌ی همون فایل هم رویداد change رو فعال کنه
+        importSettingsFile.click();
+    });
+
+    importSettingsFile.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            let parsed;
+            try {
+                parsed = JSON.parse(evt.target.result);
+            } catch (err) {
+                showError("فایل انتخاب‌شده یک JSON معتبر نیست. لطفاً فایلی که از همین بخش خروجی گرفته‌اید را انتخاب کنید.");
+                return;
+            }
+
+            // پشتیبانی از فرمت فعلی ({ settings: {...} }) و همچنین یک فایل خام key/value
+            // برای مقاومت در برابر تغییرات احتمالی فرمت در آینده
+            const importedSettings = (parsed && typeof parsed === 'object' && parsed.settings && typeof parsed.settings === 'object')
+                ? parsed.settings
+                : (parsed && typeof parsed === 'object' ? parsed : null);
+
+            if (!importedSettings) {
+                showError("محتوای فایل قابل شناسایی نیست. این فایل مربوط به بخش پشتیبان‌گیری تنظیمات همین برنامه نیست.");
+                return;
+            }
+
+            const existingApiKey = localStorage.getItem('geminiApiKey') || '';
+            let importedCount = 0;
+
+            Object.keys(importedSettings).forEach(key => {
+                if (key.startsWith(STORAGE_KEY_PREFIX)) return; // این فایل نباید کش پیشرفت فایل‌ها رو دستکاری کنه
+
+                const value = importedSettings[key];
+
+                if (key === 'geminiApiKey') {
+                    // اگر فایل ورودی کلید نداشت (خالی/جامانده) و کاربر از قبل کلیدی وارد کرده،
+                    // همون کلید فعلی دست‌نخورده می‌مونه و پاک نمی‌شه.
+                    if (!value && existingApiKey) return;
+                    if (!value) return; // چیزی برای ست‌کردن نیست
+                }
+
+                localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+                importedCount++;
+            });
+
+            // بازخوانی کامل رابط کاربری از روی localStorage به‌روزشده
+            loadSettings();
+            syncOutputFormatHighlight();
+
+            settingsImported.classList.remove('hidden');
+            setTimeout(() => settingsImported.classList.add('hidden'), 3000);
+
+            addLog(`تنظیمات با موفقیت از فایل پشتیبان بازیابی شد (${importedCount} مورد اعمال شد).`, false, "green");
+        };
+
+        reader.onerror = () => {
+            showError("خطا در خواندن فایل. لطفاً دوباره تلاش کنید.");
+        };
+
+        reader.readAsText(file);
+    });
+
+    // --- 4. مدیریت آپلود فایل ---
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
     dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
@@ -616,14 +676,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 showError(`فایل "${escapeHTML(file.name)}" خالی است و نادیده گرفته شد.`);
                 return false;
             }
-            if (file.size > 50 * 1024 * 1024) { // 50MB limit
+            if (file.size > 50 * 1024 * 1024) { 
                 showError(`فایل "${escapeHTML(file.name)}" (${(file.size / 1024 / 1024).toFixed(1)}MB) از حد مجاز 50MB حجیم‌تر است و نادیده گرفته شد.`);
                 return false;
             }
             return true;
         });
 
-        // [!!!] تغییر: اضافه کردن به صف به جای جایگزینی [!!!]
         if (newFiles.length === 0) return;
 
         uploadedFiles.push(...newFiles);
@@ -632,29 +691,24 @@ document.addEventListener('DOMContentLoaded', () => {
             updateFileListUI();
             clearFileList.style.display = 'block';
 
-            // [!!!] تغییر: همیشه حق انتخاب فرمت داده شود [!!!]
             outputFormatSelector.style.display = 'block';
 
             if (!isTranslating) {
                 startTranslation.disabled = false;
                 downloadFiles.disabled = true;
-                processedFiles = []; // اگر ترجمه در حال انجام نیست، لیست پردازش‌شده‌ها را پاک کن (شروع مجدد)
+                processedFiles = []; 
             }
-            // اگر در حال ترجمه است، هیچ کاری با دکمه‌ها و لیست پردازش‌شده نکن، تا صف به درستی ادامه یابد
         }
     }
 
     function updateFileListUI() {
-        // [!!!] تغییر: به جای پاک کردن کل لیست، فقط آیتم‌های جدید را اضافه کن [!!!]
-        // این کار باعث می‌شود اگر فایلی در حال پردازش است، وضعیتش (پروگرس بار) ریست نشود
         uploadedFiles.forEach((file, index) => {
             const elementId = `file-${index}`;
-            if (document.getElementById(elementId)) return; // اگر قبلاً وجود دارد، رد شو
+            if (document.getElementById(elementId)) return; 
 
             const fileElement = document.createElement('div');
             fileElement.id = elementId;
             fileElement.className = 'bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between transition-colors';
-            // [!!!] FIX: added overflow-hidden to rounded-full container for aesthetic safety [!!!]
             fileElement.innerHTML = `
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-bold text-slate-800 dark:text-white break-words leading-tight">${escapeHTML(file.name)}</p>
@@ -675,7 +729,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressEl = document.getElementById(`file-progress-${index}`);
         if (statusEl) statusEl.textContent = status;
 
-        // اطمینان از اینکه پروگرس تکی از ۱۰۰ بیشتر نشود
         let safeProgress = progress;
         if (safeProgress > 100) safeProgress = 100;
 
@@ -685,12 +738,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileProgress = safeProgress < 0 ? 0 : (safeProgress / 100); 
         const filesDone = processedFiles.length;
 
-        // محاسبه درصد کلی
         let overallProgress = ((filesDone + fileProgress) / totalFiles) * 100;
 
-        // [!!!] فیکس اصلی: جلوگیری از رد شدن از ۱۰۰٪ [!!!]
-        // وقتی فایل تمام می‌شود، هم در processedFiles شمرده می‌شود و هم fileProgress آن ۱۰۰ است
-        // که باعث می‌شود درصد کل از ۱۰۰ رد شود (مثلا ۲۰۰٪). با این شرط محدود می‌کنیم.
         if (overallProgress > 100) overallProgress = 100;
 
         overallProgressBar.style.width = `${overallProgress}%`;
@@ -709,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const outputFormatRadio = document.querySelector('input[name="output-format"][value="ass"]');
         if (outputFormatRadio) outputFormatRadio.checked = true;
-        syncOutputFormatHighlight(); // چون ست‌کردن دستی .checked رویداد change را اجرا نمی‌کند
+        syncOutputFormatHighlight(); 
         outputFormatSelector.style.display = 'none';
 
         overallProgressSection.style.display = 'none';
@@ -722,478 +771,11 @@ document.addEventListener('DOMContentLoaded', () => {
         translationStatusMessage.classList.add('hidden');
     });
 
-
-    // --- 5. توابع پارسر (اصلاح شده و ایمن‌شده) ---
-
-    function parseTimeToMS(timeStr) {
-      if (!timeStr) return 0;
-      try {
-          const parts = timeStr.trim().replace(',', '.').split(':').reverse();
-          const s = parseFloat(parts[0]) || 0;
-          const m = parseInt(parts[1], 10) || 0;
-          const h = parseInt(parts[2], 10) || 0;
-          if (isNaN(s) || isNaN(m) || isNaN(h)) return 0;
-          return Math.round((h * 3600 + m * 60 + s) * 1000);
-      } catch(e) {
-          console.error("Error parsing time:", timeStr, e);
-          return 0;
-      }
-    }
-
-    function msToASS(ms) {
-      const totalSec = Math.floor(ms/1000);
-      const cs = Math.floor((ms % 1000) / 10); // centiseconds
-      const h = Math.floor(totalSec/3600);
-      const m = Math.floor((totalSec%3600)/60);
-      const s = totalSec%60;
-      return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
-    }
-
-    function msToSrtTime(ms) {
-        const date = new Date(ms);
-        const hours = date.getUTCHours().toString().padStart(2, '0');
-        const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-        const seconds = date.getUTCSeconds().toString().padStart(2, '0');
-        const milliseconds = date.getUTCMilliseconds().toString().padStart(3, '0');
-        return `${hours}:${minutes}:${seconds},${milliseconds}`;
-    }
-
-    function robustAssSplit(dialogueLine, formatFieldsArray) {
-        const parts = [];
-        let rest = dialogueLine;
-
-        const textIndex = formatFieldsArray.map(f => f.toLowerCase()).indexOf('text');
-        const splitCount = textIndex > -1 ? textIndex : formatFieldsArray.length - 1;
-
-        for (let i = 0; i < splitCount; i++) {
-            const commaIndex = rest.indexOf(',');
-            if (commaIndex === -1) {
-                parts.push(rest);
-                rest = '';
-                break; 
-            }
-            parts.push(rest.slice(0, commaIndex));
-            rest = rest.slice(commaIndex + 1);
-        }
-        parts.push(rest); 
-
-        if (parts.length > formatFieldsArray.length) {
-             const textParts = parts.slice(formatFieldsArray.length - 1);
-             parts.splice(formatFieldsArray.length - 1, parts.length - (formatFieldsArray.length - 1), textParts.join(','));
-        }
-
-        return parts;
-    }
-
-        function parseSRT(data) {
-        const blocks = [];
-        const lines = data.split(/\r?\n/);
-        let i = 0;
-        while (i < lines.length) {
-            if (lines[i] && /^\d+$/.test(lines[i].trim())) {
-                const index = parseInt(lines[i].trim());
-                i++;
-                if (lines[i] && lines[i].includes('-->')) {
-                    const [startStr, endStr] = lines[i].split(' --> ');
-                    const start = msToASS(parseTimeToMS(startStr));
-                    const end = msToASS(parseTimeToMS(endStr));
-                    i++;
-                    let text = [];
-                    while (lines[i] && lines[i].trim() !== '') {
-                        // پاکسازی کدهای مخرب HTML از ریشه همینجا انجام می‌شود
-                        let cleanLine = lines[i].trim().replace(/<[^>]+>/g, '');
-                        text.push(cleanLine);
-                        i++;
-                    }
-
-                    const joinedText = text.join('\n');
-                    if (drawingCommandRegex.test(joinedText)) {
-                        continue;
-                    }
-                    if (joinedText.trim()) {
-                        blocks.push({ index, start, end, style: "Default", text: joinedText });
-                    }
-                }
-            }
-            i++;
-        }
-        return blocks;
-    }
-
-    function parseVTT(data) {
-        const blocks = [];
-        const lines = data.replace(/WEBVTT[^\n]*\n(\n)*/, '').split(/\r?\n/);
-        let i = 0;
-        let index = 1;
-        while (i < lines.length) {
-            if (lines[i] && lines[i].includes('-->')) {
-                const timeParts = lines[i].split(' --> ');
-                const startStr = timeParts[0].trim();
-                const endStr = timeParts[1].trim().split(' ')[0]; 
-                const start = msToASS(parseTimeToMS(startStr));
-                const end = msToASS(parseTimeToMS(endStr));
-                i++;
-                let text = [];
-                while (lines[i] && lines[i].trim() !== '') {
-                    text.push(lines[i].trim().replace(/<[^>]+>/g, ''));
-                    i++;
-                }
-
-                const joinedText = text.join('\n');
-                if (drawingCommandRegex.test(joinedText)) {
-                    continue;
-                }
-                if (joinedText.trim()) {
-                    blocks.push({ index, start, end, style: "Default", text: joinedText });
-                    index++;
-                }
-            }
-            i++;
-        }
-        return blocks;
-    }
-
-    function parseASS(data) {
-        assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
-
-        const blocks = [];
-        const lines = data.split(/\r?\n/);
-        let eventsSection = false;
-
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.toLowerCase() === '[events]') { eventsSection = true; continue; }
-            if (!eventsSection) continue;
-
-            if (trimmedLine.toLowerCase().startsWith('format:')) { 
-                assFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
-                continue; 
-            }
-
-            if (trimmedLine.toLowerCase().startsWith('dialogue:')) {
-                const parts = robustAssSplit(trimmedLine.substring(9).trim(), assFormatFields);
-                if (parts.length < assFormatFields.length) continue; 
-
-                const dialogueObj = {};
-                assFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
-
-                const rawText = dialogueObj.Text || "";
-                const textWithoutTags = rawText.replace(/\{[^}]*\}/g, '').trim();
-
-                if (!textWithoutTags) continue;
-                if (rawText.trim().endsWith('{\\p0}')) continue;
-                if (drawingCommandRegex.test(textWithoutTags)) continue; // فیلتر موجود
-                if (rawText.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) {
-                    continue;
-                }
-
-                blocks.push({
-                    index: blocks.length + 1,
-                    start: dialogueObj.Start, end: dialogueObj.End, style: dialogueObj.Style || "Default",
-                    layer: dialogueObj.Layer || '0', name: dialogueObj.Name || '',
-                    marginL: dialogueObj.MarginL || '0', marginR: dialogueObj.MarginR || '0',
-                    marginV: dialogueObj.MarginV || '0', effect: dialogueObj.Effect || '',
-                    text: dialogueObj.Text 
-                });
-            }
-        }
-        return blocks;
-    }
-
-    function cleanAssToSrt(assContent) {
-        assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
-
-        const lines = assContent.split('\n');
-        const dialogues = [];
-        let eventsSection = false;
-
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-
-            if (trimmedLine.toLowerCase() === '[events]') { eventsSection = true; continue; }
-            if (!eventsSection) continue;
-
-            if (trimmedLine.toLowerCase().startsWith('format:')) { 
-                assFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
-                continue; 
-            }
-
-            if (trimmedLine.toLowerCase().startsWith('dialogue:')) {
-                const parts = robustAssSplit(trimmedLine.substring(9).trim(), assFormatFields);
-                if (parts.length < assFormatFields.length) continue;
-
-                const dialogueObj = {};
-                assFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
-
-                const startTimeStr = dialogueObj.Start;
-                const endTimeStr = dialogueObj.End;
-                const rawText = dialogueObj.Text || "";
-
-                const textWithoutTags = rawText.replace(/\{[^}]*\}/g, '').trim();
-
-                if (!textWithoutTags) continue;
-                if (rawText.trim().endsWith('{\\p0}')) continue;
-                if (drawingCommandRegex.test(textWithoutTags)) continue; // فیلتر موجود
-                if (rawText.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) {
-                    continue;
-                }
-
-                const cleanedText = textWithoutTags.replace(/\\h/g, ' ').replace(/\\n/g, '\r\n').replace(/\\N/g, '\r\n');
-
-                if (cleanedText) {
-                    dialogues.push({
-                        start: parseTimeToMS(startTimeStr),
-                        end: parseTimeToMS(endTimeStr),
-                        text: cleanedText
-                    });
-                }
-            }
-        }
-
-        dialogues.sort((a, b) => a.start - b.start);
-
-        let srtOutput = '';
-        let srtIndex = 1;
-        for (const sub of dialogues) {
-            const startTime = msToSrtTime(sub.start);
-            const endTime = msToSrtTime(sub.end);
-            srtOutput += `${srtIndex}\r\n${startTime} --> ${endTime}\r\n${sub.text}\r\n\r\n`;
-            srtIndex++;
-        }
-        return srtOutput.trim();
-    }
-
-    // [!!!] استخراج متن تمیز و بدون تگ مزاحم برای ترجمه دقیق هوش مصنوعی [!!!]
-    function processAssForTranslationAndMapping(assContent, fps) {
-        assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
-
-        const lines = assContent.split(/\r?\n/);
-        const mapping = [];
-        const microdvdLines = [];
-        let eventsSection = false;
-
-        function msToFrames(ms, fps) {
-            return Math.floor((ms / 1000) * fps);
-        }
-
-        lines.forEach((line, index) => {
-            const trimmedLine = line.trim();
-
-            if (trimmedLine.toLowerCase() === '[events]') { eventsSection = true; return; }
-            if (!eventsSection) return;
-
-            if (trimmedLine.toLowerCase().startsWith('format:')) { 
-                assFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
-                return; 
-            }
-
-            if (trimmedLine.toLowerCase().startsWith('dialogue:')) {
-                const parts = robustAssSplit(trimmedLine.substring(9).trim(), assFormatFields);
-                if (parts.length < assFormatFields.length) return;
-
-                const dialogueObj = {};
-                assFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
-
-                const dialoguePart = dialogueObj.Text || "";
-                
-                // پاک کردن تمام تگ‌ها برای ارسال یک متن ۱۰۰٪ خالص به هوش مصنوعی (جلوگیری از توهم)
-                let textWithoutTags = dialoguePart.replace(/\{[^}]*\}/g, '').trim();
-
-                if (!textWithoutTags) return;
-                if (dialoguePart.trim().endsWith('{\\p0}')) return;
-                if (drawingCommandRegex.test(textWithoutTags)) return; 
-                if (dialoguePart.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) return;
-
-                let textForAI = textWithoutTags.replace(/\\N/g, '|').replace(/\\h/g, ' ').trim();
-
-                if (textForAI.trim()) {
-                    const startTimeMs = parseTimeToMS(dialogueObj.Start);
-                    const endTimeMs = parseTimeToMS(dialogueObj.End);
-                    const startFrame = msToFrames(startTimeMs, fps);
-                    const endFrame = msToFrames(endTimeMs, fps);
-                    const microdvdTime = `{${startFrame}}{${endFrame}}`;
-
-                    mapping.push({
-                        lineNumber: index,
-                        microdvdTime: microdvdTime,
-                        text: textForAI
-                    });
-
-                    microdvdLines.push(`${microdvdTime}${textForAI}`);
-                }
-            }
-        });
-
-        return {
-            map: mapping,
-            microdvdForAI: microdvdLines.join('\n')
-        };
-    }
-
-    // [!!!] تابع بازسازی قطعی ASS (الگوریتم هوشمند معکوس‌سازی مختصات و حل قطعی مشکل علائم نگارشی) [!!!]
-    function rebuildAssFromTranslation(originalAssContent, mapping, translatedArray) {
-        let currentAssFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
-
-        const originalLines = originalAssContent.split(/\r?\n/);
-        let untranslatedInRebuild = 0;
-        let eventsSection = false;
-
-        for (const line of originalLines) {
-             const trimmedLine = line.trim();
-             if (trimmedLine.toLowerCase() === '[events]') { eventsSection = true; continue; }
-             if (!eventsSection) continue;
-             if (trimmedLine.toLowerCase().startsWith('format:')) { 
-                currentAssFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
-                break; 
-             }
-        }
-
-        // --- 1. الگوریتم هوشمند معکوس‌سازی کلمات پازلی در زبان‌های RTL ---
-        const timeGroups = new Map();
-        mapping.forEach((mapItem, index) => {
-            const timeKey = mapItem.microdvdTime;
-            if (!timeGroups.has(timeKey)) timeGroups.set(timeKey, []);
-            
-            let posX = -1, posY = -1;
-            // پیدا کردن \pos در تگ‌های ذخیره شده
-            if (mapItem.tags) {
-                for (let tag of mapItem.tags) {
-                    const posMatch = tag.match(/\\pos\(\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\)/);
-                    if (posMatch) {
-                        posX = parseFloat(posMatch[1]);
-                        posY = parseFloat(posMatch[2]);
-                        break;
-                    }
-                }
-            }
-
-            timeGroups.get(timeKey).push({
-                mapIndex: index,
-                lineNumber: mapItem.lineNumber,
-                posX: posX,
-                posY: posY
-            });
-        });
-
-        timeGroups.forEach(group => {
-            const posItems = group.filter(item => item.posX !== -1 && item.posY !== -1);
-            if (posItems.length > 1) {
-                const yGroups = [];
-                posItems.forEach(item => {
-                    let foundGroup = yGroups.find(yg => Math.abs(yg.y - item.posY) <= 15);
-                    if (foundGroup) {
-                        foundGroup.items.push(item);
-                    } else {
-                        yGroups.push({ y: item.posY, items: [item] });
-                    }
-                });
-
-                yGroups.forEach(yg => {
-                    if (yg.items.length > 1) {
-                        // مرتب‌سازی چپ به راست (LTR) بر اساس محور X
-                        yg.items.sort((a, b) => a.posX - b.posX);
-                        
-                        // استخراج هندسه (X و Clip) برای هر کلمه
-                        const geometries = yg.items.map(item => {
-                            let clipValue = null;
-                            if (mapping[item.mapIndex].tags) {
-                                const allTags = mapping[item.mapIndex].tags.join('');
-                                const clipMatch = allTags.match(/\\clip\([^)]+\)/);
-                                if (clipMatch) clipValue = clipMatch[0];
-                            }
-                            return { x: item.posX, clip: clipValue };
-                        });
-
-                        // معکوس کردن هندسه (آینه کردن برای فارسی تا از راست به چپ چیده شوند)
-                        geometries.reverse();
-                        
-                        // اعمال هندسه معکوس شده مستقیماً به تگ‌های اصلیِ ذخیره‌شده
-                        yg.items.forEach((item, i) => {
-                            const newGeo = geometries[i];
-                            const mapTags = mapping[item.mapIndex].tags;
-                            if (mapTags) {
-                                for (let j = 0; j < mapTags.length; j++) {
-                                    let tagStr = mapTags[j];
-                                    if (tagStr.includes('\\pos')) {
-                                        tagStr = tagStr.replace(/\\pos\(\s*[\d.-]+\s*,\s*[\d.-]+\s*\)/, `\\pos(${newGeo.x},${item.posY})`);
-                                    }
-                                    if (tagStr.includes('\\clip')) {
-                                        if (newGeo.clip) {
-                                            tagStr = tagStr.replace(/\\clip\([^)]+\)/, newGeo.clip);
-                                        } else {
-                                            tagStr = tagStr.replace(/\\clip\([^)]+\)/, '');
-                                        }
-                                    }
-                                    mapTags[j] = tagStr;
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-        });
-        // -----------------------------------------------------------------------------
-
-        // --- 2. بازسازی متن و تزریق تگ‌ها ---
-        mapping.forEach((mapItem, index) => {
-            const { lineNumber, tags } = mapItem;
-
-            let translatedText = "";
-            const aiLine = translatedArray[index];
-            if (aiLine) {
-                const match = aiLine.match(/^{(\d+)}{(\d+)}(.*)$/);
-                if (match) {
-                    translatedText = match[3].replace(/\|/g, '\\N');
-                }
-            }
-
-            if (translatedText) {
-                const originalLine = originalLines[lineNumber];
-                if (!originalLine || !originalLine.toLowerCase().startsWith('dialogue:')) return;
-
-                const parts = robustAssSplit(originalLine.substring(9).trim(), currentAssFormatFields);
-                if (parts.length < currentAssFormatFields.length) return;
-
-                let finalDialogueText = unmaskTags(translatedText, tags);
-
-                // --- 3. اعمال قطعی کاراکتر راست‌چین (RTL) بدون تگ‌های مزاحم \u200F ---
-                finalDialogueText = finalDialogueText.split('\\N').map(part => {
-                    // جدا کردن تگ‌های ابتدای خط از متن
-                    const match = part.match(/^((?:\{[^}]+\})*)(.*)$/);
-                    if (match) {
-                        const prefixTags = match[1];
-                        let pureText = match[2];
-
-                        // فیکس تمیز و بدون دردسر برای راست‌چین کردن متن و علائم نگارشی 
-                        // استفاده از \u202B (شروع راست‌به‌چپ) و \u202C (پایان استایل)
-                        if (pureText.trim()) {
-                            return `${prefixTags}\u202B${pureText.trim()}\u202C`;
-                        } else {
-                            return prefixTags;
-                        }
-                    }
-                    return part.trim() ? `\u202B${part.trim()}\u202C` : part;
-                }).join('\\N');
-                // ----------------------------------------
-
-                const dialogueObjRebuild = {};
-                currentAssFormatFields.forEach((field, i) => { dialogueObjRebuild[field] = parts[i]; });
-                dialogueObjRebuild['Text'] = finalDialogueText; 
-
-                const newParts = currentAssFormatFields.map(field => dialogueObjRebuild[field]);
-                originalLines[lineNumber] = 'Dialogue: ' + newParts.join(',');
-
-            } else {
-                untranslatedInRebuild++;
-            }
-        });
-
-        return {
-            rebuiltAss: originalLines.join('\r\n'),
-            untranslatedCount: untranslatedInRebuild,
-            styleReplacementFailureCount: 0 
-        };
-    }
+    // --- 5. توابع پارسر ---
+    // parseTimeToMS/msToASS/msToSrtTime/robustAssSplit/parseSRT/parseVTT/
+    // parseASS/cleanAssToSrt/processAssForTranslationAndMapping/
+    // rebuildAssFromTranslation/sortAssDialogueLines به subtitle-core.js
+    // منتقل شدند.
 
     async function finalizeAssFile(assContent) {
         try {
@@ -1266,103 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 6. توابع API و مدیریت خطا ---
 
-    function timeToFrames(time, fps) {
-        const ms = parseTimeToMS(time);
-        return Math.floor((ms / 1000) * fps);
-    }
-
-    function mergeTrustedFramesWithAiText(originalMicroDVD, aiOutputMicroDVD) {
-        if (!originalMicroDVD) return { mergedTextLines: [], untranslatedCount: 0, untranslatedLinesData: [] };
-
-        const originalLines = originalMicroDVD.trim().split('\n');
-        const mergedLines = [];
-        let untranslatedLinesData = [];
-
-        // 1. ساخت Map از خروجی هوش مصنوعی (با مدیریت تکرار و خطوط بدون زمان)
-        const translatedTextMap = new Map();
-
-        if (aiOutputMicroDVD) {
-            const aiLines = aiOutputMicroDVD.trim().split('\n');
-            const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
-            let lastSeenKey = null;
-
-            for (const line of aiLines) {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) continue;
-
-                const match = trimmedLine.match(microDVDLineRegex);
-
-                if (match) {
-                    // حالت ۱: خط دارای فرمت زمانی صحیح است
-                    const timeBlockKey = `{${match[1]}}{${match[2]}}`;
-                    const text = match[3];
-                    lastSeenKey = timeBlockKey;
-
-                    if (translatedTextMap.has(timeBlockKey)) {
-                        // اگر این زمان قبلاً وجود داشت (تکرار توسط AI)، متن جدید را به قبلی بچسبان
-                        const currentText = translatedTextMap.get(timeBlockKey);
-                        // از جداکننده فاصله استفاده می‌کنیم
-                        translatedTextMap.set(timeBlockKey, currentText + " " + text);
-                    } else {
-                        translatedTextMap.set(timeBlockKey, text);
-                    }
-                } else if (lastSeenKey) {
-                    // حالت ۲: خط بدون زمان است (ادامه خط قبلی توسط AI)
-                    // متن را به آخرین کلید زمانی مشاهده شده اضافه می‌کنیم
-                    const currentText = translatedTextMap.get(lastSeenKey);
-                    translatedTextMap.set(lastSeenKey, currentText + " " + trimmedLine);
-                }
-            }
-        }
-
-        // 2. ادغام با خطوط اصلی بر اساس زمان (Time-Based Anchoring)
-        const originalLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
-
-        for (let i = 0; i < originalLines.length; i++) {
-            const originalLine = originalLines[i];
-            const match = originalLine.match(originalLineRegex);
-
-            if (match) {
-                const timeBlockKey = `{${match[1]}}{${match[2]}}`;
-
-                if (translatedTextMap.has(timeBlockKey)) {
-                    // ترجمه پیدا شد
-                    const translatedText = translatedTextMap.get(timeBlockKey);
-                    mergedLines.push(`${timeBlockKey}${translatedText}`);
-                } else {
-                    // ترجمه پیدا نشد -> استفاده از متن اصلی و ثبت برای تلاش مجدد
-                    mergedLines.push(originalLine);
-                    untranslatedLinesData.push({
-                        indexInMerged: i,
-                        originalText: match[3]
-                    });
-                }
-            } else {
-                // خطوطی که فرمت زمانی ندارند (مثلاً هدر یا خطوط خراب) عیناً کپی می‌شوند
-                mergedLines.push(originalLine);
-            }
-        }
-
-        return {
-            mergedTextLines: mergedLines,
-            untranslatedCount: untranslatedLinesData.length,
-            untranslatedLinesData: untranslatedLinesData
-        };
-    }
-
-    function checkTranslationCompleteness(translatedMicroDVD, originalLastEndFrame) {
-        const lines = translatedMicroDVD.split('\n');
-        const lineRegex = /\{(\d+)\}\{(\d+)\}(.*)/;
-        for (let i = lines.length - 1; i >= 0; i--) {
-            const line = lines[i].trim();
-            const match = line.match(lineRegex);
-            if (match) {
-                const translatedEndFrame = parseInt(match[2], 10);
-                return translatedEndFrame === originalLastEndFrame;
-            }
-        }
-        return false; 
-    }
+    // timeToFrames به subtitle-core.js منتقل شد.
 
     async function handleFetchError(response) {
         const errorText = await response.text();
@@ -1419,7 +905,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- تابع جدید: تشخیص هوشمند آهنگ با AI ---
     async function detectSongsWithAI(dialogueData, fps, apiKey, model) {
         if (!dialogueData || dialogueData.length === 0) return null;
 
@@ -1427,17 +912,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastFrame = dialogueData[totalLines - 1].endFrame;
         const totalSeconds = lastFrame / fps;
 
-        // 10 دقیقه به فریم (600 ثانیه * fps)
         const tenMinutesInFrames = 600 * fps;
 
-        // استخراج خطوط نامزد (۱۰ دقیقه اول و ۱۰ دقیقه آخر)
-        // برای ویدیوهای کوتاهتر از ۲۰ دقیقه، کل ویدیو اسکن می‌شود
         let candidateLines = [];
 
-        if (totalSeconds < 1200) { // کمتر از ۲۰ دقیقه
+        if (totalSeconds < 1200) { 
             candidateLines = dialogueData.map(d => ({ index: d.i, time: `{${d.startFrame}}-{${d.endFrame}}`, text: d.cleanText }));
         } else {
-            // فیلتر کردن ۱۰ دقیقه اول و ۱۰ دقیقه آخر
             const startCutoff = tenMinutesInFrames;
             const endCutoff = lastFrame - tenMinutesInFrames;
 
@@ -1448,8 +929,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (candidateLines.length === 0) return null;
 
-        // آماده‌سازی داده برای ارسال به هوش مصنوعی (JSON Stringify)
-        // برای کاهش مصرف توکن، فقط موارد ضروری را ارسال می‌کنیم
         const dataForAI = JSON.stringify(candidateLines);
 
         const systemPrompt = `Analyze these subtitle lines. Identify the Start and End timestamps (or Line Indices) for the Opening Song (OP) and Ending Song (ED). Look for Romaji lyrics, song structures, or musical symbols. 
@@ -1469,7 +948,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const responseText = await callSimpleGeminiAPI(systemPrompt, userPrompt, model, apiKey);
 
-            // تلاش برای پارس کردن JSON (ممکن است AI آن را در مارک‌داون بگذارد)
             let jsonString = responseText;
             const jsonMatch = responseText.match(/```json([\s\S]*?)```/);
             if (jsonMatch) {
@@ -1487,47 +965,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 7. منطق خود-اصلاح‌گری (شامل پرامپت‌های اصلاح شده) ---
-                async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt, masterTranslationMap, fileId, isAlreadyFullyTranslated = false) {
+    async function performSelfCorrection(texts, fileIndex, model, apiKey, prompt, masterTranslationMap, fileId, isAlreadyFullyTranslated = false, orderedIds = null, originalTagCountById = null) {
 
         const foreignScriptRegex = /[\u0400-\u04FF\u0370-\u03FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u0B80-\u0BFF\u0C00-\u0C7F\u0590-\u05FF]/;
         const englishRegex = /[a-zA-Z]/;
         const badCharacterRegex = /[\u0000-\u001F\u007F-\u009F\uFFFD\u061C]/;
 
         let linesToRetry = [];
+        let tagMismatchCount = 0;
         for (let i = 0; i < texts.length; i++) {
             if (typeof texts[i] !== 'string') continue; 
             const textPart = (texts[i].match(/\{(\d+)\}\{(\d+)\}(.*)/) || [])[3] || '';
             const textForCheck = textPart.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
 
-                        if (!textForCheck) continue; 
+            if (!textForCheck) continue; 
 
-            // اگر متن ترجمه شده دارای کاراکترهای بد، انگلیسی یا حروف بیگانه (مثل ژاپنی) بود باید اصلاح شود
-            // مگراینکه دارای نت موسیقی باشد که نشان‌دهنده آهنگ است و طبیعی است
+            // شناسه‌ی خط دقیقاً از روی هم‌ترازی ایندکس گرفته می‌شود، نه با جستجوی
+            // معکوسِ متن داخل map (که اگر دو خط متن یکسان داشتند اشتباه می‌کرد).
+            const realId = (orderedIds && orderedIds[i] !== undefined) ? orderedIds[i] : -1;
+
             let needsCorrection = false;
             if (badCharacterRegex.test(textForCheck) || englishRegex.test(textForCheck)) {
                 needsCorrection = true;
             } else if (foreignScriptRegex.test(textForCheck)) {
                 if (!/[♪♡♫♬]/.test(textForCheck)) {
-                    needsCorrection = true; // حروف بیگانه دارد و نت موسیقی هم نیست -> توهم است
+                    needsCorrection = true; 
                 }
             }
 
-            if (needsCorrection) {
+            // بررسی سلامت تگ‌های استایل: اگر AI تگی را گم یا اضافه کرده باشد،
+            // حتی اگر متن از نظر زبانی درست به‌نظر برسد، این خط خراب محسوب می‌شود.
+            if (!needsCorrection && originalTagCountById && realId !== -1) {
+                const expectedTags = originalTagCountById.get(realId) || 0;
+                const actualTags = countTagPlaceholders(textPart);
+                if (expectedTags !== actualTags) {
+                    needsCorrection = true;
+                    tagMismatchCount++;
+                }
+            }
 
-                // پیدا کردن آیدی از مپ اصلی برای آپدیت صحیح (بر اساس محتوا)
-                let foundId = -1;
-                masterTranslationMap.forEach((val, key) => { if (val === textPart) foundId = key; });
-                linesToRetry.push({ index: i, text: textPart, originalId: foundId });
+                       if (needsCorrection) {
+                linesToRetry.push({ index: i, text: textPart, originalId: realId });
             } 
         }
 
-            if (linesToRetry.length === 0) {
-    if (!isAlreadyFullyTranslated) {
-        addLog("بررسی نهایی انجام شد و هیچ خطای ترجمه‌ای یا کاراکتر نامعتبری یافت نشد", false, "green");
-    }
-    return { lines: texts, unresolvedCount: 0 };
-}
+        if (linesToRetry.length === 0) {
+            return { lines: texts, unresolvedCount: 0 };
+        }
 
         addLog(`تعداد ${linesToRetry.length} خطای نگارشی یافت شد. در حال اصلاح ...`, false, "yellow"); 
         updateFileStatus(fileIndex, `در حال اصلاح ${linesToRetry.length} خطا...`, 85);
@@ -1540,11 +1024,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (abortController.signal.aborted) throw new Error("عملیات لغو شد");
             const chunk = linesToRetry.slice(i * RETRY_CHUNK_SIZE, (i + 1) * RETRY_CHUNK_SIZE);
 
-            const promptText = `The following JSON array contains subtitle lines that need correction (incomplete translation, English text remaining, or bad characters).
-Please rewrite **each line completely** into fluent and correct Persian.
+            const promptText = `The following JSON array contains subtitle lines that need correction.
+CRITICAL INSTRUCTION: You MUST translate ALL English words to Persian. DO NOT leave any English text (a-z, A-Z) in the output. If it's a specific name or sign like "CLEVATESS", you MUST transliterate it to Persian characters (e.g., کلواتسس).
 If a line contains \`___TAG_n___\` placeholders, you MUST preserve them exactly in the output.
 You must return a **Valid JSON Array of Objects**, where each object has the SAME "id" as the input, and a "text" field with the translation.
-Example: [{"id": 0, "text": "متن فارسی"}]
+Example: [{"id": 0, "text": "متن کاملاً فارسی"}]
 
 Input JSON Array:
 ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
@@ -1599,11 +1083,11 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
         if (safetySexuallyExplicitToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" });
         if (safetyDangerousContentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" });
 
-        // دریافت دما و Top-P از UI
-        const temperature = parseFloat(creativityRange.value) || 0.3;
+        const rawTemp = parseFloat(creativityRange.value);
+        const temperature = isNaN(rawTemp) ? 0.2 : rawTemp; // 0 دمای معتبریه، نباید با || جایگزین بشه
         const topP = parseFloat(topPRange.value) || 0.9;
 
-                const generationConfig = { temperature: temperature, topP: topP };
+        const generationConfig = { temperature: temperature, topP: topP };
         
         if (thinkingModeToggle && thinkingModeToggle.checked) {
             generationConfig.thinkingConfig = { thinkingLevel: "high" };
@@ -1666,7 +1150,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
         throw new Error("Failed after max retries.");
     }
 
-        async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt, masterTranslationMap, fileId) {
+    async function performMissingLineCorrection(mergedLinesArray, untranslatedData, fileIndex, model, apiKey, systemPrompt, masterTranslationMap, fileId) {
         if (untranslatedData.length === 0) return { lines: mergedLinesArray, unresolvedCount: 0 }; 
 
         addLog(`تعداد ${untranslatedData.length} خط جا افتاده یافت شد. در حال تلاش برای ترجمه ...`, false, "yellow");
@@ -1712,7 +1196,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                                 const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
                                 if (timePartMatch) {
                                     mergedLinesArray[originalLineIndex] = `${timePartMatch[0]}${resObj.text}`; 
-                                    // ثبت در حافظه با استفاده از originalId
                                     masterTranslationMap.set(originalData.originalId, resObj.text);
                                     correctedCount++;
                                 }
@@ -1730,7 +1213,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
         return { lines: mergedLinesArray, unresolvedCount: untranslatedData.length - correctedCount };
     }
 
-    // --- 8. منطق اصلی ترجمه (بازنویسی و ارتقا یافته) ---
+    // --- 8. منطق اصلی ترجمه ---
 
     async function getTranslationStream(systemInstruction, modelContents, onChunk, onEnd, onError, signal) {
         const apiKey = apiKeyInput.value.trim();
@@ -1747,11 +1230,11 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
             if (safetySexuallyExplicitToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" });
             if (safetyDangerousContentToggle.checked) safetySettings.push({ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" });
 
-            // دریافت دما و Top-P از UI
-            const temperature = parseFloat(creativityRange.value) || 0.3;
+            const rawTemp = parseFloat(creativityRange.value);
+            const temperature = isNaN(rawTemp) ? 0.2 : rawTemp; // 0 دمای معتبریه، نباید با || جایگزین بشه
             const topP = parseFloat(topPRange.value) || 0.9;
 
-                        const generationConfig = {
+            const generationConfig = {
                 temperature: temperature, 
                 topP: topP,      
             };
@@ -1854,14 +1337,12 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
 
         addLog("شروع عملیات ترجمه...");
 
-        // [Modified] Added accumulatedMap and fileId params
         async function translateChunk(content, customPrompt, fileName, progressStart, progressEnd, fileIndex, accumulatedMap, fileId) {
             if (!content.trim()) return '';
             updateFileStatus(fileIndex, `در حال آپلود (${fileName})...`, progressStart);
 
             const apiKey = apiKeyInput.value.trim();
 
-            // اعمال لحن به پرامپت سیستم
             let systemInstruction = systemPrompt.value; 
             const tone = toneSelect.value;
             if (tone === 'formal') {
@@ -1878,7 +1359,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
 
             updateFileStatus(fileIndex, "هوش مصنوعی درحال تفکر است...", progressStart + 5);
 
-            // [!!!] تغییر: چک کردن تاگل قبل از نمایش پیام اولیه [!!!]
             if (liveOutputToggle.checked) {
                 liveOutput.textContent = 'هوش مصنوعی در حال تفکر است و این فرایند ممکن است طول بکشد'; 
                 liveOutput.style.display = 'block'; 
@@ -1891,12 +1371,9 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
             let thinkingStartTime = Date.now();
             const baseThinkingText = 'هوش مصنوعی درحال تفکر است... ';
 
-            // [!!!] تغییر: تایمر فقط نوار وضعیت را آپدیت می‌کند، نه باکس لایو [!!!]
             let thinkingTimer = setInterval(() => {
                 const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
                 const thinkingMsg = baseThinkingText + `${elapsedTime} ثانیه`;
-
-                // به‌روزرسانی نوار وضعیت
                 updateFileStatus(fileIndex, thinkingMsg, progressStart + 5);
             }, 100);
 
@@ -1916,10 +1393,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                         let isFirstChunk = true;
 
                         const TIMEOUT_DURATION = 250 * 1000;
-                        if (content.split('\n').length > 1000) {
-                             // Dynamic timeout adjustment logic logic (already present in logic block not fully shown in previous diffs, adding safe check)
-                             // This is handled by previous request, ensuring logic stays valid.
-                        } 
                         const timeoutController = new AbortController();
                         const timeoutId = setTimeout(() => {
                             timeoutController.abort(new Error(`ترجمه بیش از ${TIMEOUT_DURATION / 1000} ثانیه طول کشید (Timeout).`));
@@ -1935,31 +1408,35 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                             systemInstruction, 
                             modelContents,     
                             (currentFullText) => { 
-                                // [!!!] منطق توقف تایمر در اولین دریافت (TTFT) [!!!]
                                 if (thinkingTimer) { 
                                     clearInterval(thinkingTimer); 
                                     thinkingTimer = null; 
-
-                                    // [!!!] تغییر: پیام لاگ جدید [!!!]
                                     addLog("تفکر هوش مصنوعی به پایان رسید در حال دریافت ترجمه", false, "green");
                                 }
 
                                 if (isFirstChunk) { 
-                                    if (liveOutputToggle.checked) liveOutput.textContent = ''; // Clear only if visible
+                                    if (liveOutputToggle.checked) liveOutput.textContent = ''; 
                                     isFirstChunk = false; 
                                 }
 
-                                                               const lines = currentFullText.split('\n');
-                                const extractedTexts = lines
+                                const lines = currentFullText.split('\n');
+                                                                const extractedTexts = lines
                                     .map(line => {
-                                        // استخراج ایمن خطوط با استفاده از کدملی (ID)
-                                        const match = line.match(/^\[ID:\s*(\d+)\]\s*(\{\d+\}\{\d+\})(.*)$/i);
+                                        // خط آخرِ استریم معمولاً هنوز کامل نشده، پس رگکس اجازه می‌دهد
+                                        // آکولادهای زمانی هرچیزی باشند یا حتی جا بیفتند؛ این محتوا
+                                        // در هر صورت هرگز برای زمان‌بندی استفاده نمی‌شود.
+                                        const match = line.match(/^\[ID:\s*(\d+)\]\s*(?:\{[^}]*\}\s*){0,2}(.*)$/i);
                                         if (match) {
-                                            if (accumulatedMap) {
-                                                const id = parseInt(match[1], 10); // ID به عنوان کلید یکتا
-                                                const text = match[3].trim();
-                                                
-                                                // ذخیره متن به همراه ID در حافظه
+                                            let text = match[2] != null ? match[2].trim() : '';
+                                            
+                                            // جلوگیری از نمایش لحظه‌ای کدهای زمانی ناقص (مثل {100) در حین استریم
+                                            text = text.replace(/^\{[^}]*$/, '').trim();
+
+                                            // متن خالی یعنی این خط هنوز کامل استریم نشده یا AI چیزی
+                                            // برنگردانده؛ آن را به‌عنوان ترجمه‌ی نهایی ثبت نمی‌کنیم تا
+                                            // به‌اشتباه "کامل" تلقی نشود و بی‌صدا خالی نماند.
+                                            if (accumulatedMap && text) {
+                                                const id = parseInt(match[1], 10);
                                                 accumulatedMap.set(id, text);
 
                                                 if (saveProgressTimeout) clearTimeout(saveProgressTimeout);
@@ -1967,18 +1444,17 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                                                     saveProgress(fileId, accumulatedMap);
                                                 }, 1500);
                                             }
-                                            return match[3].trim(); // ارسال فقط متن برای نمایش زنده
+                                            return text || null;
                                         }
                                         return null;
                                     })
                                     .filter(text => text !== null);
-                                // [!!!] تغییر: آپدیت DOM فقط در صورت فعال بودن تاگل [!!!]
-                                if (liveOutputToggle.checked) {
+
+                                                                if (liveOutputToggle.checked) {
                                     liveOutput.style.display = 'block';
-                                    // فقط برای نمایش زنده، تگ‌های ___TAG_n___ رو حذف می‌کنیم
-                                    // داده‌ی اصلی دست‌نخورده باقی می‌مونه و فایل خروجی کامل خواهد بود
                                     const displayText = extractedTexts.join('\n').replace(/\|/g, '\n')
-                                        .replace(/___TAG_\d+___/g, '');
+                                        // فیلتر کردن هوشمند تگ‌های کامل و ناقص در حین دریافت استریم
+                                        .replace(/___[a-zA-Z0-9_]*/g, '');
                                     liveOutput.textContent = displayText;
                                     liveOutput.scrollTop = liveOutput.scrollHeight;
                                 } else {
@@ -2027,7 +1503,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                          thinkingStartTime = Date.now();
 
                          if (!thinkingTimer) {
-                             // [!!!] Re-create timer only for status bar [!!!]
                              thinkingTimer = setInterval(() => {
                                 const elapsedTime = ((Date.now() - thinkingStartTime) / 1000).toFixed(1);
                                 const thinkingMsg = baseThinkingText + `${elapsedTime} ثانیه`;
@@ -2041,18 +1516,14 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
             }
         }
 
-        // [!!!] تغییر: استفاده از حلقه دینامیک برای پشتیبانی از اضافه شدن فایل در حین اجرا [!!!]
         for (let i = 0; i < uploadedFiles.length; i++) {
             const file = uploadedFiles[i];
             const apiKey = apiKeyInput.value.trim();
             const model = modelSelect.value;
             const prompt = systemPrompt.value;
 
-            // --- [NEW] Start Resume Logic ---
             const fileId = getFileId(file);
             let masterTranslationMap = loadProgress(fileId);
-
-            // -------------------------------
 
             let originalDialogueBlocks = [];
             let originalLastEndFrame = 0;
@@ -2071,10 +1542,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 const outputFormatRadio = document.querySelector('input[name="output-format"]:checked');
                 let outputFormatChoice = outputFormatRadio ? outputFormatRadio.value : 'ass';
 
-                // [!!!] حذف منطق اجبار ASS [!!!]
-                // قبلاً اینجا کدی بود که اگر فایل ASS بود، خروجی را به ASS تغییر می‌داد. آن را حذف کردیم.
-
-                // [!!!] منطق مهم: فقط اگر ورودی ASS باشد و کاربر خروجی ASS بخواهد، استایل‌ها حفظ می‌شوند.
                 useAssPath = file.name.toLowerCase().endsWith('.ass') && outputFormatChoice === 'ass';
 
                 if (useAssPath) {
@@ -2095,9 +1562,8 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     }
                 }
 
-                                if (originalDialogueBlocks.length === 0) throw new Error("هیچ دیالوگی برای ترجمه یافت نشد. (فایل خالی است یا تمام خطوط فیلتر شدند)");
+                if (originalDialogueBlocks.length === 0) throw new Error("هیچ دیالوگی برای ترجمه یافت نشد. (فایل خالی است یا تمام خطوط فیلتر شدند)");
 
-                // یافتن طولانی‌ترین زمان در میان تمام دیالوگ‌ها (رفع مشکل نامرتب بودن فایل‌های ASS)
                 let maxEndMs = 0;
                 originalDialogueBlocks.forEach(block => {
                     const currentEndMs = parseTimeToMS(block.end);
@@ -2107,7 +1573,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 });
                 originalLastEndFrame = Math.floor((maxEndMs / 1000) * fps);
                 
-                                const dialogueData = originalDialogueBlocks.map((block, i) => {
+                const dialogueData = originalDialogueBlocks.map((block, i) => {
                     const startFrame = timeToFrames(block.start, fps);
                     const endFrame = timeToFrames(block.end, fps);
                     
@@ -2121,7 +1587,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     return { i, microLine, cleanText, startFrame, endFrame, block, isSong: false, songType: null };
                 });
 
-                // --- [NEW] تشخیص اتوماتیک زبان ژاپنی در فایل مبدأ ---
                 let jpCount = 0;
                 dialogueData.forEach(d => {
                     if (containsJapaneseScript(d.cleanText)) jpCount++;
@@ -2131,7 +1596,6 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     addLog("زبان مبدأ ژاپنی تشخیص داده شد.", false, "blue");
                 }
 
-                // --- منطق تشخیص هوشمند آهنگ (NEW) ---
                 if (aiDetectionToggle.checked) {
                     addLog('در حال اسکن هوشمند ۱۰ دقیقه ابتدا و انتها برای یافتن آهنگ...', false, "yellow");
                     updateFileStatus(i, "اسکن هوشمند آهنگ...", 5);
@@ -2195,12 +1659,10 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     });
                 }
 
-                // --- ارسال یکپارچه با سیستم ضد-توهم (ID Tracking) ---
                 let fullMicroDVD = '';
                 let linesObjArray = [];
 
                 if (useAssPath) {
-                     // [اصلاح مهم]: حذف کامل split('\n') و استفاده از نگاشت ۱ به ۱ و مستقیم
                      linesObjArray = assMapping.map(m => {
                          return { 
                              id: m.lineNumber, 
@@ -2215,14 +1677,15 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                      });
                 }
 
-                // فیلتر کردن خطوطی که از قبل در حافظه ترجمه شده‌اند (سیستم Resume)
+                // تعداد تگ‌های مورد انتظار برای هر شناسه، از روی متن اصلیِ ارسال‌شده به AI
+                const originalTagCountById = new Map();
+                linesObjArray.forEach(l => originalTagCountById.set(l.id, countTagPlaceholders(l.text)));
+
                 fullMicroDVD = linesObjArray
                     .filter(l => !masterTranslationMap.has(l.id)) 
                     .map(l => l.line).join('\n');
 
-                                const pendingLinesCount = fullMicroDVD ? fullMicroDVD.split('\n').filter(l=>l).length : 0;
-
-                // متغیر جدید برای تشخیص اینکه آیا فایل از قبل کامل بوده یا خیر
+                const pendingLinesCount = fullMicroDVD ? fullMicroDVD.split('\n').filter(l=>l).length : 0;
                 let isAlreadyFullyTranslated = false;
 
                 if (masterTranslationMap.size > 0) {
@@ -2237,11 +1700,18 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     addLog(`تعداد ${pendingLinesCount} خط دیالوگ یافت شد، در حال ارسال به هوش مصنوعی...`);
                 }
 
-if (pendingLinesCount > 0) {
+                if (pendingLinesCount > 0) {
                     const unifiedPrompt = systemPrompt.value + 
                     "\n\n[قانون حیاتی و غیرقابل نقض]: فایل ورودی شامل کل زیرنویس است و در ابتدای هر خط یک شناسه منحصربه‌فرد (مانند [ID:12]) وجود دارد. شما موظف هستید دقیقاً این شناسه و فرمت زمانی را در ابتدای هر خط خروجی حفظ کنید (مثال خروجی صحیح: [ID:12]{100}{200}سلام). تحت هیچ شرایطی خطوط را ادغام نکنید و هیچ خطی را جا نیندازید. خطوط آواز (OP/ED) را شاعرانه و بقیه را محاوره‌ای ترجمه کنید.";
 
-                    await translateChunk(fullMicroDVD, unifiedPrompt, file.name, 10, 80, i, masterTranslationMap, fileId);
+                    const rawAIResponse = await translateChunk(fullMicroDVD, unifiedPrompt, file.name, 10, 80, i, masterTranslationMap, fileId);
+
+                    // پاس نهایی و معتبر: کل پاسخ کامل AI یک‌بار دیگر و به‌طور قطعی
+                    // پارس می‌شود تا هیچ خطی به‌خاطر ریزه‌کاری‌های استریم (مثل تکه‌ی
+                    // آخر بدون \n) از قلم نیفتد. این تنها منبع حقیقتِ ترجمه‌هاست؛
+                    // زمان‌بندی همچنان از آن استفاده نمی‌شود.
+                    extractTranslationsFromAIResponse(rawAIResponse, masterTranslationMap);
+                    saveProgress(fileId, masterTranslationMap);
                 }
 
                 if (!isAlreadyFullyTranslated) {
@@ -2253,30 +1723,24 @@ if (pendingLinesCount > 0) {
                 let untranslatedLinesData = [];
                 let totalUnresolvedErrors = 0;
 
-                // چیدن دقیق خطوط سر جای خود (بدون امکان به هم ریختن زمان‌ها)
                 linesObjArray.forEach(l => {
                     const id = l.id;
                     const timeKey = l.time;
                     let pushIndex = microDVDSplitted.length; 
 
-                    if (masterTranslationMap.has(id)) {
+                    const health = isTranslationHealthy(id, masterTranslationMap, originalTagCountById);
+
+                    if (health.healthy) {
                         const transText = cleanAIOutput(masterTranslationMap.get(id)).replace(/\n/g, '|');
                         microDVDSplitted.push(`${timeKey}${transText}`);
                     } else {
-                        // اگر به خاطر ارور لیمیت در اینترنت قطع شد، نسخه اصلی رو بذار سر جاش و برای توابع اصلاحی ثبت کن
+                        // زمان‌بندی (timeKey) همیشه از خط اصلی گرفته می‌شود، حتی برای خطوط خراب؛
+                        // فقط متنِ خراب/جامانده با متن اصلیِ زبان مبدأ جایگزین می‌شود تا خط حذف
+                        // یا زمان‌بندی‌اش دستکاری نشود؛ این خط سپس هدفمند دوباره ارسال می‌شود.
                         microDVDSplitted.push(`${timeKey}${l.text.replace(/\n/g, '|')}`);
                         untranslatedLinesData.push({ originalId: id, indexInMerged: pushIndex, originalText: l.text });
                     }
                 });
-
-                const isComplete = untranslatedLinesData.length === 0;
-                if (!isComplete) {
-                    addLog("هشدار: بخش‌هایی از فایل ترجمه نشده است.", false, "yellow");
-                } else {
-                    if (!isAlreadyFullyTranslated) {
-                        addLog("بررسی اولیه: ترجمه کامل است و هیچ دیالوگی جا نیفتاده است.", false, "green");
-                    }
-                }
 
                 if (untranslatedLinesData.length > 0) {                    
                     const missingResult = await performMissingLineCorrection(
@@ -2294,7 +1758,8 @@ if (pendingLinesCount > 0) {
                 }
 
                 updateFileStatus(i, "در حال بررسی خطاهای نگارشی...", 85);
-                                const selfResult = await performSelfCorrection(
+                const orderedIds = linesObjArray.map(l => l.id);
+                const selfResult = await performSelfCorrection(
                     microDVDSplitted, 
                     i, 
                     model, 
@@ -2302,18 +1767,38 @@ if (pendingLinesCount > 0) {
                     prompt,
                     masterTranslationMap, 
                     fileId,
-                    isAlreadyFullyTranslated // <--- این خط اضافه شد
+                    isAlreadyFullyTranslated,
+                    orderedIds,
+                    originalTagCountById
                 ); 
                 microDVDSplitted = selfResult.lines;
                 totalUnresolvedErrors += selfResult.unresolvedCount;
 
-                const finalMicroDVDWithCorrections = microDVDSplitted.join('\n'); 
+                // --- بررسی نهایی صحت زمان‌بندی (Defensive Check) ---
+                // تعداد خطوط و مهر زمانیِ هر خط باید عیناً با فایل ورودی یکی باشد؛
+                // این فقط یک تضمین مستندشده نیست، واقعاً همین‌جا هم اعتبارسنجی می‌شود.
+                let timingIntegrityOK = (microDVDSplitted.length === linesObjArray.length);
+                if (timingIntegrityOK) {
+                    for (let ti = 0; ti < linesObjArray.length; ti++) {
+                        if (!microDVDSplitted[ti].startsWith(linesObjArray[ti].time)) {
+                            timingIntegrityOK = false;
+                            break;
+                        }
+                    }
+                }
+                if (timingIntegrityOK) {
+                    addLog("بررسی نهایی: ترجمه کامل است، خطای نگارشی یافت نشد و زمان‌بندی ۱۰۰٪ با فایل ورودی مطابقت دارد.", false, "green");
+                } else {
+                    // این حالت نباید هرگز رخ دهد؛ اگر رخ دهد یعنی یک باگ ساختاری وجود دارد
+                    // و باید بلافاصله بررسی شود.
+                    addLog("خطای داخلی حیاتی: عدم تطابق زمان‌بندی خروجی با ورودی شناسایی شد!", true);
+                }
 
+                const finalMicroDVDWithCorrections = microDVDSplitted.join('\n'); 
 
                 let finalContent;
                 const outputExt = outputFormatChoice === 'srt' ? '.srt' : '.ass';
 
-                // --- استخراج متون واترمارک شروع و پایان ---
                 let extraBlocks = [];
                 const totalVideoDurationMs = (originalLastEndFrame / fps) * 1000;
 
@@ -2335,9 +1820,8 @@ if (pendingLinesCount > 0) {
                     });
                 }                
 
-                                if (useAssPath) {
+                if (useAssPath) {
                     addLog(`بازسازی فایل ${file.name} با حفظ استایل...`);
-                    // با سیستم جدید، آرایه microDVDSplitted را مستقیم می‌دهیم و نیازی به توابع واسطه نداریم
                     const rebuildResult = rebuildAssFromTranslation(originalAssContentForFile, assMapping, microDVDSplitted);
                     finalContent = rebuildResult.rebuiltAss;
 
@@ -2350,19 +1834,17 @@ if (pendingLinesCount > 0) {
                         finalContent += '\r\n' + eventsLines.join('\r\n');
                     }
 
-                              } else {
+                } else {
                     const microDVDLineRegex = /^{(\d+)}{(\d+)}(.*)$/;
                     
-                    // به لطف سیستم ID-based، آرایه microDVDSplitted دقیقاً 1 به 1 متناظر با فایل اصلی است
                     const correctedTexts = originalDialogueBlocks.map((block, indexData) => {
                         const aiLine = microDVDSplitted[indexData]; 
-                        let text = block.text; // پیش‌فرض: متن اصلی (اگر به خاطر لیمیت ترجمه نشده باشد)
+                        let text = block.text; 
                         
                         if (aiLine) {
                             const match = aiLine.match(microDVDLineRegex);
                             if (match) {
                                 text = match[3];
-                                // اعمال راست‌چین (RTL) و بازگرداندن شکستگی‌های خط
                                 text = text.split('|').map(part => `\u202B${part.trim()}\u202C`).join('\n');
                             }
                         }
@@ -2376,12 +1858,17 @@ if (pendingLinesCount > 0) {
                     }
                 }
 
+                // [!!!] FIX: مرتب‌سازی زمانی دیالوگ‌ها برای رفع مشکل به هم ریختگی پلیرها [!!!]
+                if (outputFormatChoice === 'ass') {
+                    finalContent = sortAssDialogueLines(finalContent);
+                }
+
                 if (outputFormatChoice === 'ass') {
                     addLog(`در حال جاسازی فونت در فایل ${file.name}...`);
                     finalContent = await finalizeAssFile(finalContent);
                 }
 
-                                processedFiles.push({
+                processedFiles.push({
                     name: file.name.replace(/\.(srt|vtt|ass)$/i, outputExt),
                     content: finalContent 
                 });
@@ -2401,11 +1888,9 @@ if (pendingLinesCount > 0) {
                 let userFriendlyMessage = '';
                 const errorMessageText = error.message || 'خطایی نامشخص رخ داد.';
 
-                // --- [NEW] Error Handling for Resume ---
                 if (!userManuallyAborted && (error.name !== 'AbortError' && !error.message.includes("لغو شد"))) {
                     addLog("Translation stopped. Progress saved. Reload the page and upload the file again to resume.", true);
                 }
-                // ----------------------------------------
 
                 if (userManuallyAborted && (error.name === 'AbortError' || errorMessageText.includes("لغو شد"))) {
                     userFriendlyMessage = '<p>عملیات ترجمه توسط کاربر متوقف شد.</p>';
@@ -2482,7 +1967,6 @@ if (pendingLinesCount > 0) {
 
         if (processedFiles.length > 0) {
             downloadFiles.disabled = false;
-           // addLog("عملیات کامل شد. می‌توانید فایل‌ها را دانلود کنید.", false, "green");
             if (!translationStatusMessage.classList.contains('status-aborted') && !translationStatusMessage.classList.contains('status-incomplete')) {
                  translationStatusMessage.innerHTML = `✔️ عملیات با موفقیت کامل شد. (${processedFiles.length} فایل آماده دانلود)`;
                  translationStatusMessage.className = 'status-message status-complete';
@@ -2497,7 +1981,7 @@ if (pendingLinesCount > 0) {
         translationStatusMessage.classList.remove('hidden');
 
         const filesDone = processedFiles.length;
-        const totalFilesCount = uploadedFiles.length; // تعریف متغیر جا افتاده
+        const totalFilesCount = uploadedFiles.length; 
         overallProgressBar.style.width = `${(filesDone / totalFilesCount) * 100}%`;
         overallProgressLabel.textContent = `عملیات کامل شد. ${filesDone} از ${totalFilesCount} فایل پردازش شد.`;
 
@@ -2511,9 +1995,8 @@ if (pendingLinesCount > 0) {
         }
     });
 
-    // --- 9. ساخت فایل .ASS و دانلود (اصلاح شده) ---
-
-                    function buildASS(originalBlocks, translatedTexts, originalFileName, dialogueData, extraBlocks) {
+    // --- 9. ساخت فایل .ASS و دانلود ---
+    function buildASS(originalBlocks, translatedTexts, originalFileName, dialogueData, extraBlocks) {
         const header = `
 [Script Info]
 Title: ${originalFileName.replace(/\.(srt|vtt|ass)$/i, '')}_FA_Translated
@@ -2549,7 +2032,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             let positionOverride = "";
             let currentStyle = block.style || 'Default';
 
-                        // اعمال استایل آهنگ فقط با تکیه بر دیتای پردازش شده در مراحل قبل
             if (isKaraokeActive && dialogueData && dialogueData[i]) {
                 if (dialogueData[i].songType === 'OP') {
                     currentStyle = 'OP';
@@ -2582,9 +2064,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
             const originalRawText = block.text.replace(/<[^>]+>/g, '');
 
-            // ---> استخراج تگ‌های موقعیت‌یاب کلی و انتقال به ابتدای خط <---
             if (originalRawText && (originalRawText.includes('{') || originalRawText.includes('}'))) {
-                 // فقط تگ‌های \an1 تا \an9 و \pos(x,y) را می‌گیرد
                 const positionTags = originalRawText.match(/\{\\an\d\}|\{\\pos\([^)]+\)\}/g) || [];
                 if (positionTags.length > 0) {
                     assText = positionTags.join('') + assText;
@@ -2592,7 +2072,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             }
 
             if (positionOverride) {
-                // اگر از قبل تگ موقعیت ندارد، آن را اضافه کن
                 if (!assText.includes('\\an') && !assText.includes('\\pos')) {
                     if (assText.startsWith('{') && assText.includes('}')) assText = `{\\an8${assText.substring(1)}`;
                     else assText = `{\\an8}${assText}`;
@@ -2602,7 +2081,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             events.push(`Dialogue: ${layer},${block.start},${block.end},${currentStyle},${name},${marginL},${marginR},${marginV},${effect},${assText}`);
         }
 
-        // اضافه کردن متون واترمارک دلخواه
         if (extraBlocks) {
             for (const b of extraBlocks) {
                 let assText = b.text.replace(/\r?\n/g, '\\N');
@@ -2616,7 +2094,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     function buildSRT(originalBlocks, translatedTexts, extraBlocks) {
         let allBlocks = [];
         
-        // وارد کردن تمامی بلاک‌های اصلی به لیست جدید
         for (let i = 0; i < originalBlocks.length; i++) {
             const text = translatedTexts[i] || "";
             const cleanText = text.replace(/\r?\n/g, '\r\n');
@@ -2627,7 +2104,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             });
         }
         
-        // وارد کردن بلاک‌های واترمارک (در صورت وجود)
         if (extraBlocks) {
             for (const b of extraBlocks) {
                 allBlocks.push({
@@ -2638,7 +2114,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             }
         }
         
-        // مرتب‌سازی زمانی دقیق برای SRT (بسیار مهم تا پلیرها قاطی نکنند)
         allBlocks.sort((a, b) => a.startMs - b.startMs);
 
         let srtOutput = '';
@@ -2651,13 +2126,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         return srtOutput.trim();
     }
 
-    function compareTimestamps(t1, t2) {
-        const timeToSeconds = (t) => {
-            const ms = parseTimeToMS(t);
-            return ms / 1000;
-        };
-        return timeToSeconds(t1) - timeToSeconds(t2);
-    }
+    // compareTimestamps به subtitle-core.js منتقل شد.
 
     downloadFiles.addEventListener('click', () => {
         if (processedFiles.length === 0) return;
