@@ -1,3 +1,47 @@
+🎌 Anime Subtitle Translator
+> A powerful, modular, and advanced web-based tool for translating anime subtitle files (VTT, SRT, ASS) into fluent and professional Persian using the Google Gemini API.
+> 
+🌐 Live Demo:
+https://abolfazlasdbv2008.github.io/subtra
+This project is a comprehensive client-side tool that allows users to translate English (or Japanese) subtitles into Persian with exceptionally high quality, going far beyond simple machine translation. The tool focuses on localization and preserving the tone of dialogues, especially for anime, and provides the final output with a standard embedded Persian font (Vazirmatn).
+🌟 Key Features
+This tool offers a unique set of capabilities to provide the best possible translation output:
+ * Smart Translation with the Latest Gemini Models: Supports a wide range of powerful Google models including Gemini 3.6 Flash, the Gemini 3.5 family, Pro versions, and ultra-fast Lite models.
+ * Resume Capability: Automatically saves translation progress in the user's browser. In case of an error, internet disconnection, or closing the page, re-uploading the same file resumes the translation exactly from the dropped line.
+ * Advanced AI Settings: Full control over the model's creativity via Temperature and Top-P settings, plus the ability to choose the output tone (informal for anime or formal/literary).
+ * Thinking Mode: Utilizes high-level reasoning capabilities in supported models (like Gemini 3.5) for a better understanding of narrative complexities.
+ * Smart Song Detection with AI & Karaoke: Intelligently scans the first and last 10 minutes of the file using AI to extract the exact timings of songs (OP/ED) and automatically applies colorful karaoke styles in the output file.
+ * Custom Watermark: Add custom text or advertisements at the beginning and end of the subtitles, with precise customization of the start and display duration.
+ * Comprehensive Backup (Export/Import): Export all settings, custom prompts, and configurations as a JSON file (with or without the API key) and easily restore them on other devices.
+ * Support for Common Formats & Professional ASS Output: Accepts .vtt, .srt, or .ass inputs. All outputs are ultimately converted to the standard .ass format, fully preserving the original styling (positions, effects) of input ASS files.
+ * Automatic Font Embedding: The Vazirmatn font is automatically embedded in the output .ass file to ensure flawless display on any system and media player.
+ * Multi-Layer Self-Correction System: Smart and mandatory post-translation line checks; if lines are missed, or if English/Russian text or broken characters are detected, the tool automatically queues them for re-translation and correction.
+ * Advanced Prompt Management: Offers a highly engineered and powerful default system prompt, with the ability to add, edit, and save custom user prompts.
+ * Proxy Support & Safety Settings: Includes a built-in proxy (Worker) to bypass Google's geographical restrictions, and options to disable Gemini's content filters (censorship) for translating scenes with mature or violent content without interruptions.
+ * Client-Side Processing & Live UI: Beautiful, responsive design with drag-and-drop support, live output streaming, detailed status logs, and UI optimizations for smooth performance even on lower-end devices.
+🚀 How to Use
+ * Get an API Key: First, get your free API key from Google AI Studio.
+ * Initial Configuration:
+   * Go to the "Settings" section and enter your API key (it will be encrypted and saved in your browser).
+   * Select your preferred AI model (Flash series for speed, Pro for high accuracy).
+   * Important: If you are in a region with network restrictions or face "Location" errors, enable the "Use Proxy (Worker)" option.
+ * Personal Settings (Optional): In the advanced section, customize watermarks, temperature, translation tone, and thinking mode, and back up your settings if needed.
+ * Select Files: Drag and drop your subtitle file(s) into the designated box or click to select them.
+ * Select Output Format: Choose the final format between ASS (professional with styles) or SRT (simple).
+ * Start Operation: Click the "Start Translation" button. You can monitor the progress, the AI's thinking process, and the incoming translations live in the output terminal.
+ * Download Output: Once processing, error correction, and file reconstruction are complete, click "Download Subtitles" to get your final translated files.
+⚙️ Key Settings Description
+ * Temperature and Top-P: Lower values (e.g., 0.2) result in more precise/machine-like translations, while higher values (e.g., 0.7) yield more creative and fluent outputs.
+ * Output Tone: Informal (for the casual anime atmosphere) and Formal (for documentaries or historical anime).
+ * Frame Rate (FPS): Used to accurately calculate MicroDVD frames (the format sent to the AI).
+ * Safety Settings: Disabling filters like Harassment, Hate Speech, etc., prevents translation halts in anime featuring explicit language or violent scenes.
+👤 Developer
+ * Abolfazl_ASDBV
+   For contact, support, and updates, you can reach out via the following links:
+ * Telegram Channel: Anime_sub_Persian
+ * Instagram Page: anime_wd20
+
+
 🎌 مترجم زیرنویس انیمه (Anime Subtitle Translator)
 > یک ابزار تحت وب قدرتمند، ماژولار و پیشرفته برای ترجمه فایل‌های زیرنویس انیمه (VTT, SRT, ASS) به زبان فارسی روان و حرفه‌ای با استفاده از Google Gemini API.
 > 
