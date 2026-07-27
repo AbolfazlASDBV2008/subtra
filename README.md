@@ -42,17 +42,11 @@ This tool offers a unique set of capabilities to provide the best possible trans
  * Telegram Channel: Anime_sub_Persian
  * Instagram Page: anime_wd20
 
-...
-* Instagram Page: anime_wd20
-
 ---
 <div align="center">
   <h2>🇮🇷 نسخه فارسی | Persian Version</h2>
 </div>
 ---
-
-🎌 مترجم زیرنویس انیمه (Anime Subtitle Translator)
-...
 
 🎌 مترجم زیرنویس انیمه (Anime Subtitle Translator)
 > یک ابزار تحت وب قدرتمند، ماژولار و پیشرفته برای ترجمه فایل‌های زیرنویس انیمه (VTT, SRT, ASS) به زبان فارسی روان و حرفه‌ای با استفاده از Google Gemini API.
