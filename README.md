@@ -35,6 +35,7 @@ This tool offers a unique set of capabilities to provide the best possible trans
  * Output Tone: Informal (for the casual anime atmosphere) and Formal (for documentaries or historical anime).
  * Frame Rate (FPS): Used to accurately calculate MicroDVD frames (the format sent to the AI).
  * Safety Settings: Disabling filters like Harassment, Hate Speech, etc., prevents translation halts in anime featuring explicit language or violent scenes.
+
 👤 Developer
  * Abolfazl_ASDBV
    For contact, support, and updates, you can reach out via the following links:
