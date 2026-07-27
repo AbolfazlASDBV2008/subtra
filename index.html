@@ -10,34 +10,8 @@
     
     <meta name="theme-color" content="#3b82f6">
     
-    <!-- تنظیمات Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Vazirmatn', 'sans-serif'] },
-                    animation: {
-                        'blob': 'blob 7s infinite',
-                        'fade-in': 'fadeIn 0.4s ease-out',
-                    },
-                    keyframes: {
-                        blob: {
-                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
-                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
-                        },
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Tailwind CSS (فایل از پیش build شده - جایگزین CDN زنده) -->
+    <link rel="stylesheet" href="tailwind.css">
     
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
     
@@ -290,11 +264,11 @@
         /* لاگ وضعیت عملیات - فونت اصلی فارسی به‌جای مونوسپیس برای خوانایی بهتر متن فارسی */
         .status-log {
             font-family: 'Vazirmatn', sans-serif;
-            line-height: 2;
+            line-height: 1.5;
             font-variant-numeric: tabular-nums;
         }
         .status-log > div {
-            padding: 0.2rem 0;
+            padding: 0.05rem 0;
             word-break: normal;
             overflow-wrap: break-word;
         }
@@ -504,9 +478,9 @@
                             <div class="relative bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
                                 <div class="flex justify-between mb-4 items-center">
                                     <label for="creativityRange" class="text-sm font-bold text-slate-700 dark:text-slate-300">دما (Temperature)</label>
-                                    <span id="creativityValue" class="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 py-1 px-3 rounded-lg font-mono text-sm font-bold shadow-inner">0.2</span>
+                                    <span id="creativityValue" class="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 py-1 px-3 rounded-lg font-mono text-sm font-bold shadow-inner">0.4</span>
                                 </div>
-                                <input type="range" id="creativityRange" min="0" max="2" step="0.1" value="0.2" class="w-full" style="direction: ltr;">
+                                <input type="range" id="creativityRange" min="0" max="2" step="0.1" value="0.4" class="w-full" style="direction: ltr;">
                             </div>
 
                             <div class="relative bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
@@ -736,6 +710,26 @@
                         </p>
                     </div>
 
+                    <!-- پشتیبان‌گیری از تنظیمات: خروجی/ورودی گرفتن از کل تنظیمات و پرامپت‌ها -->
+                    <div class="mt-8 pt-6 border-t border-slate-200/50 dark:border-slate-700/50">
+                        <label class="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                            پشتیبان‌گیری از تنظیمات
+                        </label>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button type="button" id="exportSettingsBtn" class="group px-5 py-2.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl text-sm font-bold transition-all shadow-sm hover:shadow-md flex items-center gap-2 active:scale-95">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                خروجی گرفتن از تنظیمات
+                            </button>
+                            <button type="button" id="importSettingsBtn" class="group px-5 py-2.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl text-sm font-bold transition-all shadow-sm hover:shadow-md flex items-center gap-2 active:scale-95">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V7a3 3 0 013-3h10a3 3 0 013 3v1m-4 4l-4-4m0 0l-4 4m4-4v12"></path></svg>
+                                بازیابی از فایل پشتیبان
+                            </button>
+                            <input type="file" id="importSettingsFile" accept="application/json,.json" class="hidden">
+                            <span id="settingsImported" class="text-emerald-500 font-bold text-sm hidden animate-fade-in bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">بازیابی شد!</span>
+                        </div>
+                    </div>
+
                 </div><!-- /accordion-inner -->
                 </div><!-- /accordion-body -->
             </details>
@@ -887,6 +881,32 @@
             <button type="button" id="closeModal" class="w-full px-6 py-4 bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/30">
                 متوجه شدم
             </button>
+        </div>
+    </div>
+
+    <!-- مدال پرسش شامل‌شدن کلید API در فایل خروجی تنظیمات -->
+    <div id="exportApiKeyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm items-center justify-center p-4 z-[100] hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-modal rounded-3xl max-w-lg w-full p-8 transform scale-95 transition-transform duration-300 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-l from-indigo-500 via-blue-400 to-indigo-500"></div>
+
+            <div class="w-16 h-16 bg-indigo-500/10 dark:bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-5 ring-1 ring-indigo-500/20">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h3 class="text-xl font-extrabold text-slate-800 dark:text-white mb-3 text-center">کلید API هم در فایل خروجی قرار بگیرد؟</h3>
+            <p class="glass-modal-inner text-slate-700 dark:text-slate-300 mb-8 text-center text-sm leading-relaxed p-5 rounded-2xl font-medium">
+                اگر کلید API خودت رو هم داخل فایل خروجی قرار بدی، هرکسی که این فایل رو باز کنه به کلید API تو دسترسی خواهد داشت. اگر می‌خوای فایل رو با دیگران به اشتراک بذاری، بهتره بدون کلید خروجی بگیری.
+            </p>
+            <div class="flex flex-col gap-3">
+                <button type="button" id="exportWithApiKeyBtn" class="w-full px-6 py-4 bg-gradient-to-l from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-indigo-500/30">
+                    بله، همراه با کلید API
+                </button>
+                <button type="button" id="exportWithoutApiKeyBtn" class="w-full px-6 py-4 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-2xl font-bold transition-all hover:scale-[1.02] active:scale-95">
+                    نه، بدون کلید API
+                </button>
+                <button type="button" id="cancelExportBtn" class="w-full px-6 py-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-2xl font-bold transition-all text-sm">
+                    انصراف
+                </button>
+            </div>
         </div>
     </div>
 
