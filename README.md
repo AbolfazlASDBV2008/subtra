@@ -42,11 +42,9 @@ This tool offers a unique set of capabilities to provide the best possible trans
  * Telegram Channel: Anime_sub_Persian
  * Instagram Page: anime_wd20
 
----
 <div align="center">
-  <h2><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/State_civil_flag_of_Iran_%281964%E2%80%931980%29.svg/320px-State_civil_flag_of_Iran_%281964%E2%80%931980%29.svg.png" width="32" style="vertical-align: middle; margin-bottom: 4px;" alt="Lion and Sun Flag"> نسخه فارسی | Persian Version</h2>
+  <h2>🇮🇷 نسخه فارسی | Persian Version</h2>
 </div>
----
 
 🎌 مترجم زیرنویس انیمه (Anime Subtitle Translator)
 > یک ابزار تحت وب قدرتمند، ماژولار و پیشرفته برای ترجمه فایل‌های زیرنویس انیمه (VTT, SRT, ASS) به زبان فارسی روان و حرفه‌ای با استفاده از Google Gemini API.
