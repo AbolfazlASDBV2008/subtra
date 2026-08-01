@@ -1134,7 +1134,8 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
                      throw new Error("LIMIT_REACHED: " + error.message); 
                 }
 
-                const isRetryable = errorMessage.includes('overloaded') || 
+                                const isRetryable = errorMessage.includes('overloaded') || 
+                                  errorMessage.includes('high demand') || 
                                   errorMessage.includes('503') || 
                                   errorMessage.includes('524') ||
                                   errorMessage.includes('networkerror');
@@ -1490,7 +1491,8 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                          throw new Error("LIMIT_REACHED: " + error.message);
                     }
 
-                    const isRetryable = errorMessage.includes('overloaded') || 
+                                        const isRetryable = errorMessage.includes('overloaded') || 
+                                      errorMessage.includes('high demand') || 
                                       errorMessage.includes('503') || 
                                       errorMessage.includes('524') ||
                                       errorMessage.includes('networkerror');
@@ -1935,9 +1937,9 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     translationStatusMessage.innerHTML = '❌ کلید API نامعتبر.';
                     translationStatusMessage.className = 'status-message status-aborted';
 
-                } else if (errorMessageText.toLowerCase().includes('overloaded') || errorMessageText.toLowerCase().includes('503')) {
-                    userFriendlyMessage = `<p class="font-bold">مدل بیش از حد شلوغ است.</p><p class="mt-2">با وجود تلاش‌های مکرر، سرور پاسخگو نبود.</p>`;
-                    translationStatusMessage.innerHTML = '⚠️ مدل شلوغ است.';
+                              } else if (errorMessageText.toLowerCase().includes('overloaded') || errorMessageText.toLowerCase().includes('high demand') || errorMessageText.toLowerCase().includes('503')) {
+                    userFriendlyMessage = `<p class="font-bold">مدل بیش از حد شلوغ است.</p><p class="mt-2">سرورهای گوگل در حال حاضر ترافیک بسیار بالایی دارند (High Demand). با وجود تلاش‌های مکرر برنامه، سرور پاسخگو نبود. لطفاً چند دقیقه صبر کنید و دوباره امتحان کنید.</p>`;
+                    translationStatusMessage.innerHTML = '⚠️ مدل شلوغ است (ترافیک بالا).';
                     translationStatusMessage.className = 'status-message status-incomplete';
                 } else {
                     userFriendlyMessage = `<b>یک خطای پیش‌بینی‌نشده رخ داد:</b><pre class="error-pre bg-gray-900 p-2 rounded mt-2 text-xs">${escapeHTML(errorMessageText)}</pre>`;
