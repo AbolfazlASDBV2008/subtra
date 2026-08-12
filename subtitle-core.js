@@ -6,7 +6,7 @@
  */
 
 export let assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
-export const drawingCommandRegex = /^\s*(m|l|b|s|p|c)\s/i; 
+export const drawingCommandRegex = /^\s*m\s+-?\d+/i;
 
 /** حذف BOM از ابتدای متن */
 export function stripBOM(text) {
