@@ -1863,9 +1863,18 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     finalContent = sortAssDialogueLines(finalContent);
                 }
 
-                if (outputFormatChoice === 'ass') {
+                                if (outputFormatChoice === 'ass') {
                     addLog(`در حال جاسازی فونت در فایل ${file.name}...`);
                     finalContent = await finalizeAssFile(finalContent);
+                    
+                    // --- اضافه کردن این بخش برای تغییر قطعی تایتل ---
+                    if (/^Title:\s*.*$/im.test(finalContent)) {
+                        // اگر تایتل از قبل وجود داشت، آن را جایگزین کن
+                        finalContent = finalContent.replace(/^Title:\s*.*$/im, 'Title: Persian (Farsi)');
+                    } else if (/\[Script Info\]/i.test(finalContent)) {
+                        // اگر تایتل کلاً وجود نداشت، آن را زیر Script Info اضافه کن
+                        finalContent = finalContent.replace(/\[Script Info\]/i, '[Script Info]\r\nTitle: Persian (Farsi)');
+                    }
                 }
 
                 processedFiles.push({
@@ -1997,9 +2006,9 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
 
     // --- 9. ساخت فایل .ASS و دانلود ---
     function buildASS(originalBlocks, translatedTexts, originalFileName, dialogueData, extraBlocks) {
-        const header = `
+                const header = `
 [Script Info]
-Title: ${originalFileName.replace(/\.(srt|vtt|ass)$/i, '')}_FA_Translated
+Title: Persian (Farsi)
 ScriptType: v4.00+
 WrapStyle: 0
 PlayResX: 1920
