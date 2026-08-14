@@ -775,8 +775,9 @@ DO NOT include any introductions, conclusions, translator notes, or markdown cod
     // rebuildAssFromTranslation/sortAssDialogueLines به subtitle-core.js
     // منتقل شدند.
 
-    async function finalizeAssFile(assContent) {
+        async function finalizeAssFile(assContent) {
         try {
+            // ۱. لود کردن فایل فونت شما
             const fontResponse = await fetch('./fontVazirmatn.txt'); 
             if (!fontResponse.ok) throw new Error('فایل فونت (fontVazirmatn.txt) پیدا نشد.');
             const fontData = await fontResponse.text();
@@ -788,7 +789,7 @@ DO NOT include any introductions, conclusions, translator notes, or markdown cod
             let inFontsSection = false;
 
             let fontNameIndex = 1; 
-            styleFormatFields = ['Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'OutlineColour', 'BackColour', 'Bold', 'Italic', 'Underline', 'StrikeOut', 'ScaleX', 'ScaleY', 'Spacing', 'Angle', 'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL', 'MarginR', 'MarginV', 'Encoding'];
+            let styleFormatFields = ['Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'OutlineColour', 'BackColour', 'Bold', 'Italic', 'Underline', 'StrikeOut', 'ScaleX', 'ScaleY', 'Spacing', 'Angle', 'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL', 'MarginR', 'MarginV', 'Encoding'];
 
             const fnTagRegex = /\\fn[^\\}]+/g;
             const fspTagRegex = /\\fsp-?\d+/g;
@@ -797,6 +798,7 @@ DO NOT include any introductions, conclusions, translator notes, or markdown cod
                 let currentLine = line;
                 const trimmedLine = line.trim().toLowerCase();
 
+                // تشخیص بخش‌های مختلف فایل ASS
                 if (trimmedLine === '[v4+ styles]') {
                     inStylesSection = true; inEventsSection = false; inFontsSection = false;
                 } else if (trimmedLine === '[events]') {
@@ -807,6 +809,13 @@ DO NOT include any introductions, conclusions, translator notes, or markdown cod
                     inStylesSection = false; inEventsSection = false; inFontsSection = false;
                 }
 
+                // خروج قطعی از بخش فونت در صورت رسیدن به دیالوگ (جلوگیری از باگ ناپدید شدن متن)
+                if (trimmedLine.startsWith('dialogue:')) {
+                    inFontsSection = false;
+                    inEventsSection = true;
+                }
+
+                // پیدا کردن جایگاه نام فونت در استایل‌ها
                 if (inStylesSection && trimmedLine.startsWith('format:')) {
                     styleFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim());
                     const index = styleFormatFields.map(f => f.toLowerCase()).indexOf('fontname');
@@ -815,6 +824,7 @@ DO NOT include any introductions, conclusions, translator notes, or markdown cod
                     }
                 }
 
+                // جایگذاری نام فونت شما در تمام استایل‌ها
                 if (inStylesSection && trimmedLine.startsWith('style:')) {
                     const parts = currentLine.split(','); 
                     if (parts.length > fontNameIndex && parts.length >= styleFormatFields.length) {
@@ -825,6 +835,8 @@ DO NOT include any introductions, conclusions, translator notes, or markdown cod
                 } else if (inEventsSection && trimmedLine.startsWith('dialogue:')) {
                     currentLine = line.replace(fnTagRegex, '').replace(fspTagRegex, '');
                 } else if (inFontsSection) {
+                    // حذف فونت‌های قدیمی: 
+                    // برنامه خطوط فونت قدیمی رو می‌بینه ولی اونا رو وارد فایل جدید نمی‌کنه
                     continue; 
                 }
 
@@ -832,14 +844,14 @@ DO NOT include any introductions, conclusions, translator notes, or markdown cod
             }
 
             let finalContent = newLines.join('\r\n');
-            finalContent = finalContent.replace(/\[fonts\][\s\S]*$/i, '').trim();
 
+            // ۲. چسباندن امنِ فونت شما به انتهای فایل
             finalContent += '\r\n\r\n[Fonts]\r\n' + fontData;
 
             return finalContent;
         } catch (error) {
-            console.error("خطا در پیوست کردن فونت:", error);
-            addLog(`خطا در جاسازی فونت: ${error.message}. فایل بدون فونت خروجی گرفته می‌شود.`, true);
+            console.error("خطا در نهایی‌سازی ASS:", error);
+            // در صورت بروز خطا، فایل رو بدون فونت میده بیرون تا حداقل دیالوگ‌ها از بین نرن
             return assContent; 
         }
     }
