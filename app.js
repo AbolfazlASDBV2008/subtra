@@ -173,6 +173,7 @@ The text may contain placeholders like ___TAG_0___ representing styling, colors,
    - NO CENSORSHIP: Swear words, sexual innuendos, violence, and insults MUST be translated with the exact same intensity as the original. Do not sanitize the text.
 6. INCOMPLETE SENTENCES: If a line ends with a dash (-) or ellipses (...), the Persian translation MUST also remain incomplete. Do not attempt to finish the sentence.
 7. SONG LYRICS (OP/ED): Translate lines containing musical notes (♪, ♫) or obvious song lyrics with a poetic, rhythmic, and epic tone.
+8. GRAMMAR & AGREEMENT: Ensure perfect subject-verb agreement in Persian (تطابق دقیق نهاد و فعل). Never mix different grammatical persons in a single verb phrase (e.g., NEVER write "داشتی فکر می‌کردم" instead of "داشتم فکر می‌کردم"). Pay strict attention to "I" vs "You" within the same sentence.
 </Localization_And_Style_Guidelines>
 
 <Output_Format>
