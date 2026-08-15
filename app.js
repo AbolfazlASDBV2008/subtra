@@ -161,12 +161,14 @@ The text may contain placeholders like ___TAG_0___ representing styling, colors,
 
 <Localization_And_Style_Guidelines>
 1. PROPER NOUNS & TRANSLITERATION: Do not translate character names literally (e.g., "Snow" remains "اسنو", not "برف"). However, meaningful titles (e.g., "The Black Swordsman") must be translated (شمشیرزن سیاه).
-2. JAPANESE HONORIFICS: Keep Japanese honorifics (-kun, -san, -sama, -chan, -dono) and familial terms (Onii-san, Onee-chan) exactly as they sound, written in Persian script (e.g., سان، کون، چان، اونی-سان). Do not translate them to "Brother" or "Sister".
+2. JAPANESE HONORIFICS & VERBAL TICS: 
+   - Keep Japanese honorifics (-kun, -san, -sama, -chan, -dono) and familial terms (Onii-san, Onee-chan) exactly as they sound, written in Persian script (e.g., سان، کون، چان، اونی-سان).
+   - Adapt anime verbal tics naturally. For example, translate animal sounds like "nya" or "wan" into playful Persian equivalents (like adding "میو" or adjusting the tone) rather than literal transliteration ("نیا").
 3. GENDER & PRONOUN CONTEXT: Persian is gender-neutral (او). Pay strict attention to the context of previous lines to ensure male/female speakers and subjects/objects are not confused.
-4. IDIOMS, SLANG, & WORDPLAY (CRUCIAL):
+4. IDIOMS, SLANG, & EMOTIONAL ADAPTATION (CRUCIAL):
    - NEVER translate idioms, jokes, or slang literally. Find the exact natural equivalent in Persian street language or culture.
-   - Do not invent non-existent Persian words (e.g., translate "Unemployed bum" naturally as "علاف بیکار").
-   - If there is wordplay or rhyming (e.g., "pure piss / pure bliss"), recreate the comedic effect and rhyme using appropriate Persian words.
+   - Prioritize the emotional weight of the scene. If a character is angry, scared, or relieved, use Persian expressions that convey that exact feeling, even if it means changing the literal words.
+   - Do not invent non-existent Persian words.
 5. TONE & CHARACTERIZATION (NO CENSORSHIP):
    - Delinquents/Casual: Use heavy colloquial Persian, street slang, and broken words (e.g., "می‌خوام", "نمی‌تونم").
    - Royals/Historical: Use epic, polite, and formal literary Persian.
@@ -174,6 +176,7 @@ The text may contain placeholders like ___TAG_0___ representing styling, colors,
 6. INCOMPLETE SENTENCES: If a line ends with a dash (-) or ellipses (...), the Persian translation MUST also remain incomplete. Do not attempt to finish the sentence.
 7. SONG LYRICS (OP/ED): Translate lines containing musical notes (♪, ♫) or obvious song lyrics with a poetic, rhythmic, and epic tone.
 8. GRAMMAR & AGREEMENT: Ensure perfect subject-verb agreement in Persian (تطابق دقیق نهاد و فعل). Never mix different grammatical persons in a single verb phrase (e.g., NEVER write "داشتی فکر می‌کردم" instead of "داشتم فکر می‌کردم"). Pay strict attention to "I" vs "You" within the same sentence.
+9. PRONOUN AMBIGUITY RESOLUTION: Carefully resolve ambiguous pronouns in English (e.g., "what she'd do" vs "what would happen to her") based on the immediate context of the scene. Make sure the translated action reflects the correct doer and receiver of the action.
 </Localization_And_Style_Guidelines>
 
 <Output_Format>
