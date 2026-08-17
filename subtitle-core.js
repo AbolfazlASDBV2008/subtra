@@ -62,11 +62,6 @@ export function cleanAIOutput(text) {
     return text.replace(/^```[a-zA-Z]*\n?/g, '').replace(/\n?```$/g, '').trim();
 }
 
-/**
- * صحت‌سنجی خروجی AI: زمان‌بندی همیشه از فایل ورودی گرفته می‌شود، نه از
- * پاسخ AI؛ فقط متنِ هر شناسه ([ID:n]) از پاسخ خوانده می‌شود.
- */
-
 /** شمارش پلیس‌هولدرهای ___TAG_n___ داخل متن */
 export function countTagPlaceholders(text) {
     if (!text) return 0;
@@ -102,7 +97,17 @@ export function extractTranslationsFromAIResponse(fullText, targetMap = null) {
     return result;
 }
 
-/** یک ترجمه سالم است اگر: موجود باشد، متن واقعی داشته باشد، و تعداد تگ‌هایش با اصل یکی باشد */
+/** بررسی وجود هیراگانا/کاتاکانا/کانجی در متن */
+export function containsJapaneseScript(text) {
+    if (!text) return false;
+    const cleanText = text.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
+    const hiragana = /[\u3040-\u309F]/;
+    const katakana = /[\u30A0-\u30FF]/;
+    const kanji = /[\u4E00-\u9FFF]/;
+    return hiragana.test(cleanText) || katakana.test(cleanText) || kanji.test(cleanText);
+}
+
+/** یک ترجمه سالم است اگر: موجود باشد، متن واقعی داشته باشد، تعداد تگ‌هایش با اصل یکی باشد و حروف ژاپنی در آن نمانده باشد */
 export function isTranslationHealthy(id, masterTranslationMap, originalTagCountById) {
     if (!masterTranslationMap.has(id)) return { healthy: false, reason: 'missing' };
 
@@ -111,6 +116,11 @@ export function isTranslationHealthy(id, masterTranslationMap, originalTagCountB
 
     const withoutTags = text.replace(/___TAG_\d+___/g, '').trim();
     if (!withoutTags) return { healthy: false, reason: 'only-tags' };
+
+    // اگر متن نهایی هنوز شامل حروف ژاپنی است، یعنی ترجمه نشده است
+    if (containsJapaneseScript(withoutTags)) {
+        return { healthy: false, reason: 'leftover-japanese' };
+    }
 
     const expectedTags = originalTagCountById ? (originalTagCountById.get(id) || 0) : 0;
     const actualTags = countTagPlaceholders(text);
@@ -125,16 +135,6 @@ export function escapeHTML(str) {
     return str.replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m]));
 }
 
-/** بررسی وجود هیراگانا/کاتاکانا/کانجی در متن */
-export function containsJapaneseScript(text) {
-    if (!text) return false;
-    const cleanText = text.replace(/___TAG_\d+___/g, '').replace(/\{[^}]+\}/g, ' ').trim();
-    const hiragana = /[\u3040-\u309F]/;
-    const katakana = /[\u30A0-\u30FF]/;
-    const kanji = /[\u4E00-\u9FFF]/;
-    return hiragana.test(cleanText) || katakana.test(cleanText) || kanji.test(cleanText);
-}
-
 /** تشخیص متنی که کلاً انگلیسی/ژاپنی مانده (ترجمه نشده) یا نشانه‌ی آهنگ است */
 export function isRomajiOrKanji(text) {
     if (!text) return false;
@@ -145,12 +145,7 @@ export function isRomajiOrKanji(text) {
         return false; 
     }
 
-    const hiragana = /[\u3040-\u309F]/;
-    const katakana = /[\u30A0-\u30FF]/;
-    const kanji = /[\u4E00-\u9FFF]/;
-    const hasJapanese = hiragana.test(cleanText) || katakana.test(cleanText) || kanji.test(cleanText);
-
-    if (hasJapanese) return true; 
+    if (containsJapaneseScript(cleanText)) return true; 
 
     const songMarkerRegex = /[♪♡]/; 
     if (songMarkerRegex.test(cleanText)) return true;
@@ -240,7 +235,6 @@ export function parseSRT(data) {
                 index = parseInt(currentTrimmed, 10);
                 i++;
             } else {
-                // بدون شماره‌ی خط (SRT غیراستاندارد)
                 index = autoIndex;
             }
 
@@ -338,9 +332,6 @@ export function parseASS(data) {
             if (!textWithoutTags) continue;
             if (rawText.trim().endsWith('{\\p0}')) continue;
             if (drawingCommandRegex.test(textWithoutTags)) continue; 
-            if (rawText.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) {
-                continue;
-            }
 
             blocks.push({
                 index: blocks.length + 1,
@@ -390,9 +381,6 @@ export function cleanAssToSrt(assContent) {
             if (!textWithoutTags) continue;
             if (rawText.trim().endsWith('{\\p0}')) continue;
             if (drawingCommandRegex.test(textWithoutTags)) continue; 
-            if (rawText.includes('{') && textWithoutTags.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && textWithoutTags.length > 0) {
-                continue;
-            }
 
             const cleanedText = textWithoutTags.replace(/\\h/g, ' ').replace(/\\n/g, '\r\n').replace(/\\N/g, '\r\n');
 
@@ -457,7 +445,6 @@ export function processAssForTranslationAndMapping(assContent, fps) {
             if (!pureTextForCheck) return;
             if (dialoguePart.trim().endsWith('{\\p0}')) return;
             if (drawingCommandRegex.test(pureTextForCheck)) return; 
-            if (dialoguePart.includes('{') && pureTextForCheck.replace(/\\N/g, '').replace(/\\h/g, ' ').length <= 2 && pureTextForCheck.length > 0) return;
 
             const { maskedText, tags } = maskTags(dialoguePart);
 
@@ -470,7 +457,6 @@ export function processAssForTranslationAndMapping(assContent, fps) {
                 const endFrame = msToFrames(endTimeMs, fps);
                 const microdvdTime = `{${startFrame}}{${endFrame}}`;
 
-                // استخراج آیدی یکتا و دقیق برای جلوگیری از شیفت زمانی هوش مصنوعی
                 const currentId = mapping.length;
 
                 mapping.push({
@@ -480,7 +466,6 @@ export function processAssForTranslationAndMapping(assContent, fps) {
                     tags: tags 
                 });
 
-                // تزریق مستقیم آیدی به متن برای جلوگیری از توهم و شماره‌گذاری خودکار هوش مصنوعی
                 microdvdLines.push(`[ID:${currentId}]${microdvdTime}${textForAI}`);
             }
         }
@@ -596,7 +581,6 @@ export function rebuildAssFromTranslation(originalAssContent, mapping, translate
         const aiLine = translatedArray[index];
         
         if (aiLine) {
-            // حذف [ID:n] و زمان‌بندی در صورت وجود، برای استخراج متن خالص ترجمه‌شده
             let cleanLine = aiLine.replace(/^\s*\[ID:\s*\d+\]\s*/i, '');
             cleanLine = cleanLine.replace(/^\{\d+\}\{\d+\}/, '');
             translatedText = cleanLine.replace(/\|/g, '\\N');
@@ -693,7 +677,6 @@ export function sortAssDialogueLines(assContent) {
         }
     }
 
-    // مرتب‌سازی بر اساس زمان شروع
     dialogues.sort((a, b) => a.startMs - b.startMs);
 
     let sortedEvents = dialogues.map(d => d.line).join('\r\n');
