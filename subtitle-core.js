@@ -470,6 +470,9 @@ export function processAssForTranslationAndMapping(assContent, fps) {
                 const endFrame = msToFrames(endTimeMs, fps);
                 const microdvdTime = `{${startFrame}}{${endFrame}}`;
 
+                // استخراج آیدی یکتا و دقیق برای جلوگیری از شیفت زمانی هوش مصنوعی
+                const currentId = mapping.length;
+
                 mapping.push({
                     lineNumber: index,
                     microdvdTime: microdvdTime,
@@ -477,7 +480,8 @@ export function processAssForTranslationAndMapping(assContent, fps) {
                     tags: tags 
                 });
 
-                microdvdLines.push(`${microdvdTime}${textForAI}`);
+                // تزریق مستقیم آیدی به متن برای جلوگیری از توهم و شماره‌گذاری خودکار هوش مصنوعی
+                microdvdLines.push(`[ID:${currentId}]${microdvdTime}${textForAI}`);
             }
         }
     });
@@ -590,11 +594,12 @@ export function rebuildAssFromTranslation(originalAssContent, mapping, translate
 
         let translatedText = "";
         const aiLine = translatedArray[index];
+        
         if (aiLine) {
-            const match = aiLine.match(/^{(\d+)}{(\d+)}(.*)$/);
-            if (match) {
-                translatedText = match[3].replace(/\|/g, '\\N');
-            }
+            // حذف [ID:n] و زمان‌بندی در صورت وجود، برای استخراج متن خالص ترجمه‌شده
+            let cleanLine = aiLine.replace(/^\s*\[ID:\s*\d+\]\s*/i, '');
+            cleanLine = cleanLine.replace(/^\{\d+\}\{\d+\}/, '');
+            translatedText = cleanLine.replace(/\|/g, '\\N');
         }
 
         if (translatedText) {
