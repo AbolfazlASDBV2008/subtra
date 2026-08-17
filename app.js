@@ -1407,11 +1407,8 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     const translatedText = await new Promise((resolve, reject) => {
                         let isFirstChunk = true;
 
-                        const TIMEOUT_DURATION = 250 * 1000;
-                        const timeoutController = new AbortController();
-                        const timeoutId = setTimeout(() => {
-                            timeoutController.abort(new Error(`ترجمه بیش از ${TIMEOUT_DURATION / 1000} ثانیه طول کشید (Timeout).`));
-                        }, TIMEOUT_DURATION);
+                                                const timeoutController = new AbortController();
+                        const timeoutId = null; // تایم‌اوت کلاً غیرفعال شد تا برنامه برای دریافت ترجمه بی‌نهایت منتظر بماند
 
                         const onMainAbort = () => {
                             timeoutController.abort(new Error("عملیات لغو شد"));
