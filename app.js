@@ -1509,7 +1509,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                                       errorMessage.includes('networkerror');
 
                     if (isRetryable && attempt <= MAX_ATTEMPTS) {
-                         addLog(`خطای شلوغی در ترجمه اصلی (تلاش ${attempt} از ${MAX_ATTEMPTS}). ${RETRY_DELAY/1000} ثانیه صبر می‌کنیم...`, false, "yellow");
+                         addLog(`خطای شلوغی سرور  در ترجمه اصلی (تلاش ${attempt} از ${MAX_ATTEMPTS}). ${RETRY_DELAY/1000} ثانیه صبر می‌کنیم...`, false, "yellow");
                          updateFileStatus(fileIndex, `تلاش مجدد ${attempt}...`, progressStart);
                          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
 
@@ -1800,7 +1800,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     }
                 }
                 if (timingIntegrityOK) {
-                    addLog("بررسی نهایی: ترجمه کامل است، خطای نگارشی یافت نشد و زمان‌بندی ۱۰۰٪ با فایل ورودی مطابقت دارد.", false, "green");
+                    addLog("بررسی نهایی: ترجمه کامل است و خطای نگارشی یافت نشد.", false, "green");
                 } else {
                     // این حالت نباید هرگز رخ دهد؛ اگر رخ دهد یعنی یک باگ ساختاری وجود دارد
                     // و باید بلافاصله بررسی شود.
