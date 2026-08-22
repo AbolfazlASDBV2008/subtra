@@ -1056,25 +1056,40 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.text })))}`;
                     correctedChunk = JSON.parse(jsonStr); 
                 } catch(e) { continue; }
 
-                if (Array.isArray(correctedChunk)) {
-                    for (let j = 0; j < correctedChunk.length; j++) {
-                        const resObj = correctedChunk[j];
-                        if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
-                            const originalIndex = chunk[resObj.id]?.index;
-                            if (originalIndex !== undefined) {
-                                const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                                if (timePartMatch) {
-                                    texts[originalIndex] = `${timePartMatch[0]}${resObj.text}`; 
-                                    if (chunk[resObj.id].originalId !== -1) {
-                                        masterTranslationMap.set(chunk[resObj.id].originalId, resObj.text);
-                                    }
-                                    correctedCount++;
+                                if (!Array.isArray(correctedChunk)) {
+                    addLog(`خطای اعتبارسنجی: پاسخ هوش مصنوعی آرایه نیست (بخش اصلاحی ${i + 1}).`, true);
+                    continue;
+                }
+
+                // اعتبارسنجی قطعیِ ID ها (Validation)
+                const expectedIds = Array.from({ length: chunk.length }, (_, k) => k);
+                const returnedIds = correctedChunk.filter(item => item && typeof item.id === 'number').map(item => item.id).sort((a, b) => a - b);
+                
+                const isIdsValid = expectedIds.length === returnedIds.length && expectedIds.every((val, index) => val === returnedIds[index]);
+
+                if (!isIdsValid) {
+                    addLog(`خطای اعتبارسنجی: هوش مصنوعی IDهای بخش اصلاح نگارشی ${i + 1} را دستکاری کرده است (رد کردن کل بخش).`, true);
+                    continue; // Fail fast: رد کردن کل چانک
+                }
+
+                // اعمال تغییرات پس از تأیید اعتبار
+                for (let j = 0; j < correctedChunk.length; j++) {
+                    const resObj = correctedChunk[j];
+                    if (resObj && typeof resObj.text === 'string') {
+                        const originalIndex = chunk[resObj.id]?.index;
+                        if (originalIndex !== undefined) {
+                            const timePartMatch = texts[originalIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                            if (timePartMatch) {
+                                texts[originalIndex] = `${timePartMatch[0]}${resObj.text}`; 
+                                if (chunk[resObj.id].originalId !== -1) {
+                                    masterTranslationMap.set(chunk[resObj.id].originalId, resObj.text);
                                 }
+                                correctedCount++;
                             }
                         }
                     }
-                    saveProgress(fileId, masterTranslationMap);
                 }
+                saveProgress(fileId, masterTranslationMap);
             } catch (error) { 
                 addLog(`خطا در API هنگام اصلاح بخش ${i + 1}: ${error.message}`, true); 
                 break;
@@ -1201,24 +1216,39 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     continue; 
                 }
 
-                if (Array.isArray(correctedChunk)) {
-                    for (let j = 0; j < correctedChunk.length; j++) {
-                        const resObj = correctedChunk[j];
-                        if (resObj && typeof resObj.id === 'number' && typeof resObj.text === 'string') {
-                            const originalData = chunk[resObj.id];
-                            if (originalData) {
-                                const originalLineIndex = originalData.indexInMerged;
-                                const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
-                                if (timePartMatch) {
-                                    mergedLinesArray[originalLineIndex] = `${timePartMatch[0]}${resObj.text}`; 
-                                    masterTranslationMap.set(originalData.originalId, resObj.text);
-                                    correctedCount++;
-                                }
+                                if (!Array.isArray(correctedChunk)) {
+                    addLog(`خطای اعتبارسنجی: پاسخ هوش مصنوعی آرایه نیست (بخش ${chunkIndex + 1}).`, true);
+                    continue;
+                }
+
+                // اعتبارسنجی قطعیِ ID ها (Validation)
+                const expectedIds = Array.from({ length: chunk.length }, (_, k) => k);
+                const returnedIds = correctedChunk.filter(item => item && typeof item.id === 'number').map(item => item.id).sort((a, b) => a - b);
+                
+                const isIdsValid = expectedIds.length === returnedIds.length && expectedIds.every((val, index) => val === returnedIds[index]);
+
+                if (!isIdsValid) {
+                    addLog(`خطای اعتبارسنجی: هوش مصنوعی IDهای بخش جاافتاده ${chunkIndex + 1} را دستکاری کرده است (رد کردن کل بخش برای جلوگیری از تخریب).`, true);
+                    continue; // Fail fast: رد کردن کل چانک
+                }
+
+                // در صورت معتبر بودن، حالا تغییرات را با خیال راحت اعمال می‌کنیم
+                for (let j = 0; j < correctedChunk.length; j++) {
+                    const resObj = correctedChunk[j];
+                    if (resObj && typeof resObj.text === 'string') {
+                        const originalData = chunk[resObj.id];
+                        if (originalData) {
+                            const originalLineIndex = originalData.indexInMerged;
+                            const timePartMatch = mergedLinesArray[originalLineIndex].match(/\{(\d+)\}\{(\d+)\}/);
+                            if (timePartMatch) {
+                                mergedLinesArray[originalLineIndex] = `${timePartMatch[0]}${resObj.text}`; 
+                                masterTranslationMap.set(originalData.originalId, resObj.text);
+                                correctedCount++;
                             }
                         }
                     }
-                    saveProgress(fileId, masterTranslationMap);
                 }
+                saveProgress(fileId, masterTranslationMap);
             } catch (error) { 
                 addLog(`خطا در API هنگام ترجمه جا افتاده: ${error.message}`, true); 
                 break;
