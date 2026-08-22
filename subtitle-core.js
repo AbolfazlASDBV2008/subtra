@@ -5,7 +5,7 @@
  * و صحت‌سنجی خروجی AI. توسط app.js با import مصرف می‌شود.
  */
 
-export let assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
+const DEFAULT_ASS_FORMAT = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
 export const drawingCommandRegex = /^\s*m\s+-?\d+/i;
 
 /** حذف BOM از ابتدای متن */
@@ -308,7 +308,7 @@ export function parseVTT(data) {
 /** پارس بخش [Events] فایل ASS؛ ترتیب فیلدها از خط Format خود فایل خوانده می‌شود */
 export function parseASS(data) {
     data = stripBOM(data);
-    assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
+    let currentAssFormatFields = [...DEFAULT_ASS_FORMAT];
 
     const blocks = [];
     const lines = data.split(/\r?\n/);
@@ -320,16 +320,16 @@ export function parseASS(data) {
         if (!eventsSection) continue;
 
         if (trimmedLine.toLowerCase().startsWith('format:')) { 
-            assFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
+            currentAssFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
             continue; 
         }
 
         if (trimmedLine.toLowerCase().startsWith('dialogue:')) {
-            const parts = robustAssSplit(trimmedLine.substring(9).trim(), assFormatFields);
-            if (parts.length < assFormatFields.length) continue; 
+            const parts = robustAssSplit(trimmedLine.substring(9).trim(), currentAssFormatFields);
+            if (parts.length < currentAssFormatFields.length) continue; 
 
             const dialogueObj = {};
-            assFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
+            currentAssFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
 
             const rawText = dialogueObj.Text || "";
             const textWithoutTags = rawText.replace(/\{[^}]*\}/g, '').trim();
@@ -353,7 +353,7 @@ export function parseASS(data) {
 
 /** تبدیل مستقیم فایل ASS به متن SRT (بدون مرحله‌ی ترجمه) */
 export function cleanAssToSrt(assContent) {
-    assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
+    let currentAssFormatFields = [...DEFAULT_ASS_FORMAT];
 
     const lines = assContent.split('\n');
     const dialogues = [];
@@ -366,16 +366,16 @@ export function cleanAssToSrt(assContent) {
         if (!eventsSection) continue;
 
         if (trimmedLine.toLowerCase().startsWith('format:')) { 
-            assFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
+            currentAssFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
             continue; 
         }
 
         if (trimmedLine.toLowerCase().startsWith('dialogue:')) {
-            const parts = robustAssSplit(trimmedLine.substring(9).trim(), assFormatFields);
-            if (parts.length < assFormatFields.length) continue;
+            const parts = robustAssSplit(trimmedLine.substring(9).trim(), currentAssFormatFields);
+            if (parts.length < currentAssFormatFields.length) continue;
 
             const dialogueObj = {};
-            assFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
+            currentAssFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
 
             const startTimeStr = dialogueObj.Start;
             const endTimeStr = dialogueObj.End;
@@ -414,7 +414,7 @@ export function cleanAssToSrt(assContent) {
 
 /** آماده‌سازی خطوط ASS برای ارسال به AI (ماسک تگ + فرمت MicroDVD) و ساخت نقشه‌ی بازگشت */
 export function processAssForTranslationAndMapping(assContent, fps) {
-    assFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
+    let currentAssFormatFields = [...DEFAULT_ASS_FORMAT];
 
     const lines = assContent.split(/\r?\n/);
     const mapping = [];
@@ -432,16 +432,16 @@ export function processAssForTranslationAndMapping(assContent, fps) {
         if (!eventsSection) return;
 
         if (trimmedLine.toLowerCase().startsWith('format:')) { 
-            assFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
+            currentAssFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
             return; 
         }
 
         if (trimmedLine.toLowerCase().startsWith('dialogue:')) {
-            const parts = robustAssSplit(trimmedLine.substring(9).trim(), assFormatFields);
-            if (parts.length < assFormatFields.length) return;
+            const parts = robustAssSplit(trimmedLine.substring(9).trim(), currentAssFormatFields);
+            if (parts.length < currentAssFormatFields.length) return;
 
             const dialogueObj = {};
-            assFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
+            currentAssFormatFields.forEach((field, i) => { dialogueObj[field] = parts[i]; });
 
             const dialoguePart = dialogueObj.Text || "";
             
@@ -484,7 +484,7 @@ export function processAssForTranslationAndMapping(assContent, fps) {
 
 /** بازسازی فایل ASS اصلی با متن ترجمه‌شده؛ زمان‌بندی و بقیه‌ی فیلدها دست‌نخورده می‌مانند */
 export function rebuildAssFromTranslation(originalAssContent, mapping, translatedArray) {
-    let currentAssFormatFields = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text'];
+    let currentAssFormatFields = [...DEFAULT_ASS_FORMAT];
 
     const originalLines = originalAssContent.split(/\r?\n/);
     let untranslatedInRebuild = 0;
@@ -585,7 +585,7 @@ export function rebuildAssFromTranslation(originalAssContent, mapping, translate
         let translatedText = "";
         const aiLine = translatedArray[index];
         
-                if (aiLine) {
+        if (aiLine) {
             let cleanLine = aiLine.replace(/^\s*\[ID:\s*\d+\]\s*/i, '');
             // پاکسازی تهاجمیِ تمام فریم‌های زمانی (حتی اگر هوش مصنوعی چند بار تکرار کرده باشد)
             cleanLine = cleanLine.replace(/^(?:\{\d+\}\s*)+/g, '');
