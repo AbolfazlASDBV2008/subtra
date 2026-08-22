@@ -29,21 +29,26 @@ export function maskTags(text) {
 /** بازگردانی تگ‌های ماسک‌شده به متن؛ تگ جاافتاده به‌جای حذف، به ابتدا اضافه می‌شود */
 export function unmaskTags(text, tags) {
     if (!tags || tags.length === 0) {
-        return text;
+        // پاکسازی تگ‌های اضافی در صورتی که خط استایل نداشته اما هوش مصنوعی توهم زده باشد
+        return text.replace(/[_\[\-]*TAG[_e\-\s]*\d+[_\]\-]*/gi, '');
     }
 
     let unmaskedText = text;
     let usedTags = new Set();
 
     tags.forEach((tag, index) => {
-        const placeholder = `___TAG_${index}___`;
-        if (unmaskedText.includes(placeholder)) {
-            unmaskedText = unmaskedText.replace(new RegExp(placeholder, 'g'), tag);
+        // پشتیبانی از اعداد فارسی و حالت‌های به هم ریخته تگ (مثل _TAG_0 یا [TAG_0])
+        const persianIndex = index.toString().replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+        const regex = new RegExp(`[_\\-\\[]*TAG[_\\-\\s]*(${index}|${persianIndex})[_\\-\\]]*`, 'gi');
+        
+        if (regex.test(unmaskedText)) {
+            unmaskedText = unmaskedText.replace(regex, tag);
             usedTags.add(index);
         }
     });
 
-    unmaskedText = unmaskedText.replace(/___TAG_\d+___/g, '');
+    // پاکسازی هرگونه تگ مخدوشِ باقی‌مانده که جایگزین نشده است
+    unmaskedText = unmaskedText.replace(/[_\\-\\[]*TAG[_\\-\\s]*\d+[_\\-\\]]*/gi, '');
 
     let unusedTags = tags.filter((_, i) => !usedTags.has(i));
     if (unusedTags.length > 0) {
@@ -580,9 +585,12 @@ export function rebuildAssFromTranslation(originalAssContent, mapping, translate
         let translatedText = "";
         const aiLine = translatedArray[index];
         
-        if (aiLine) {
+                if (aiLine) {
             let cleanLine = aiLine.replace(/^\s*\[ID:\s*\d+\]\s*/i, '');
-            cleanLine = cleanLine.replace(/^\{\d+\}\{\d+\}/, '');
+            // پاکسازی تهاجمیِ تمام فریم‌های زمانی (حتی اگر هوش مصنوعی چند بار تکرار کرده باشد)
+            cleanLine = cleanLine.replace(/^(?:\{\d+\}\s*)+/g, '');
+            // پاکسازی کاراکترهای سرگردان و اضافه‌ای که از فریم‌ها جا مانده‌اند مثل } یا < یا ]
+            cleanLine = cleanLine.replace(/^[><\]\}\)]+\s*/g, '');
             translatedText = cleanLine.replace(/\|/g, '\\N');
         }
 
