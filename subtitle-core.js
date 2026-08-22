@@ -308,6 +308,8 @@ export function parseVTT(data) {
 /** پارس بخش [Events] فایل ASS؛ ترتیب فیلدها از خط Format خود فایل خوانده می‌شود */
 export function parseASS(data) {
     data = stripBOM(data);
+    
+    // تعریف متغیر به صورت محلی برای جلوگیری از تداخل بین فایل‌ها
     let currentAssFormatFields = [...DEFAULT_ASS_FORMAT];
 
     const blocks = [];
@@ -320,6 +322,7 @@ export function parseASS(data) {
         if (!eventsSection) continue;
 
         if (trimmedLine.toLowerCase().startsWith('format:')) { 
+            // آپدیت کردن فرمت محلی
             currentAssFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
             continue; 
         }
@@ -353,6 +356,7 @@ export function parseASS(data) {
 
 /** تبدیل مستقیم فایل ASS به متن SRT (بدون مرحله‌ی ترجمه) */
 export function cleanAssToSrt(assContent) {
+    // تعریف متغیر به صورت محلی برای جلوگیری از تداخل بین فایل‌ها
     let currentAssFormatFields = [...DEFAULT_ASS_FORMAT];
 
     const lines = assContent.split('\n');
@@ -366,6 +370,7 @@ export function cleanAssToSrt(assContent) {
         if (!eventsSection) continue;
 
         if (trimmedLine.toLowerCase().startsWith('format:')) { 
+            // آپدیت کردن فرمت محلی
             currentAssFormatFields = trimmedLine.substring(7).trim().split(',').map(f => f.trim()); 
             continue; 
         }
