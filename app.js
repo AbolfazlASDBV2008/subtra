@@ -1541,7 +1541,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
             let originalDialogueBlocks = [];
             let originalLastEndFrame = 0;
 
-            let useAssPath = false;
+                        let isAssInput = false;
             let originalAssContentForFile = '';
             let assMapping = [];
 
@@ -1555,22 +1555,18 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 const outputFormatRadio = document.querySelector('input[name="output-format"]:checked');
                 let outputFormatChoice = outputFormatRadio ? outputFormatRadio.value : 'ass';
 
-                useAssPath = file.name.toLowerCase().endsWith('.ass') && outputFormatChoice === 'ass';
+                isAssInput = file.name.toLowerCase().endsWith('.ass');
 
-                if (useAssPath) {
-                    addLog(`فایل ${file.name} به عنوان ASS (با حفظ استایل) پردازش می‌شود.`);
+                if (isAssInput) {
+                    addLog(`فایل ${file.name} با پردازشگر پیشرفته ASS پردازش می‌شود.`);
                     originalAssContentForFile = content; 
                     originalDialogueBlocks = parseASS(content);
                     const processResult = processAssForTranslationAndMapping(content, fps);
                     assMapping = processResult.map;
                 } else {
-                    if (file.name.endsWith('.srt')) {
+                    if (file.name.toLowerCase().endsWith('.srt')) {
                         originalDialogueBlocks = parseSRT(content);
-                    } else if (file.name.endsWith('.ass')) {
-                        addLog(`فایل ${file.name} به عنوان SRT (ساده) پردازش می‌شود.`);
-                        const cleanSrt = cleanAssToSrt(content);
-                        originalDialogueBlocks = parseSRT(cleanSrt); 
-                    } else if (file.name.endsWith('.vtt')) {
+                    } else if (file.name.toLowerCase().endsWith('.vtt')) {
                         originalDialogueBlocks = parseVTT(content);
                     }
                 }
@@ -1592,7 +1588,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     
                     let cleanText = block.text;
 
-                    if (!useAssPath) {
+                                       if (!isAssInput) {
                         cleanText = block.text.replace(/\{[^}]+\}/g, ' ').trim();
                     }
 
@@ -1675,7 +1671,7 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                 let fullMicroDVD = '';
                 let linesObjArray = [];
 
-                if (useAssPath) {
+                                if (isAssInput) {
                      linesObjArray = assMapping.map(m => {
                          return { 
                              id: m.lineNumber, 
@@ -1833,10 +1829,10 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     });
                 }                
 
-                if (useAssPath) {
+                               if (isAssInput) {
                     addLog(`بازسازی فایل ${file.name} با حفظ استایل...`);
                     const rebuildResult = rebuildAssFromTranslation(originalAssContentForFile, assMapping, microDVDSplitted);
-                    finalContent = rebuildResult.rebuiltAss;
+                    let finalAss = rebuildResult.rebuiltAss;
 
                     if (rebuildResult.untranslatedCount > 0) {
                         addLog(`هشدار: ${rebuildResult.untranslatedCount} خط در بازسازی ASS یافت نشد.`, false, "yellow");
@@ -1844,7 +1840,25 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                     
                     if (extraBlocks.length > 0) {
                         let eventsLines = extraBlocks.map(b => `Dialogue: 0,${b.start},${b.end},Default,,0,0,0,,{\\an8}${b.text.replace(/\r?\n/g, '\\N')}`);
-                        finalContent += '\r\n' + eventsLines.join('\r\n');
+                        finalAss += '\r\n' + eventsLines.join('\r\n');
+                    }
+
+                    // مرتب‌سازی و جاسازی فونت
+                    finalAss = sortAssDialogueLines(finalAss);
+                    addLog(`در حال جاسازی فونت در فایل ${file.name}...`);
+                    finalAss = await finalizeAssFile(finalAss);
+                    
+                    if (/^Title:\s*.*$/im.test(finalAss)) {
+                        finalAss = finalAss.replace(/^Title:\s*.*$/im, 'Title: Persian (Farsi)');
+                    } else if (/\[Script Info\]/i.test(finalAss)) {
+                        finalAss = finalAss.replace(/\[Script Info\]/i, '[Script Info]\r\nTitle: Persian (Farsi)');
+                    }
+
+                    // حالا تصمیم می‌گیریم خروجی نهایی کاربر چه باشد
+                    if (outputFormatChoice === 'srt') {
+                        finalContent = cleanAssToSrt(finalAss);
+                    } else {
+                        finalContent = finalAss;
                     }
 
                 } else {
@@ -1868,25 +1882,14 @@ ${JSON.stringify(chunk.map((item, idx) => ({ id: idx, text: item.originalText })
                         finalContent = buildSRT(originalDialogueBlocks, correctedTexts, extraBlocks);
                     } else {
                         finalContent = buildASS(originalDialogueBlocks, correctedTexts, file.name, dialogueData, extraBlocks);
-                    }
-                }
-
-                // [!!!] FIX: مرتب‌سازی زمانی دیالوگ‌ها برای رفع مشکل به هم ریختگی پلیرها [!!!]
-                if (outputFormatChoice === 'ass') {
-                    finalContent = sortAssDialogueLines(finalContent);
-                }
-
-                                if (outputFormatChoice === 'ass') {
-                    addLog(`در حال جاسازی فونت در فایل ${file.name}...`);
-                    finalContent = await finalizeAssFile(finalContent);
-                    
-                    // --- اضافه کردن این بخش برای تغییر قطعی تایتل ---
-                    if (/^Title:\s*.*$/im.test(finalContent)) {
-                        // اگر تایتل از قبل وجود داشت، آن را جایگزین کن
-                        finalContent = finalContent.replace(/^Title:\s*.*$/im, 'Title: Persian (Farsi)');
-                    } else if (/\[Script Info\]/i.test(finalContent)) {
-                        // اگر تایتل کلاً وجود نداشت، آن را زیر Script Info اضافه کن
-                        finalContent = finalContent.replace(/\[Script Info\]/i, '[Script Info]\r\nTitle: Persian (Farsi)');
+                        finalContent = sortAssDialogueLines(finalContent);
+                        finalContent = await finalizeAssFile(finalContent);
+                        
+                        if (/^Title:\s*.*$/im.test(finalContent)) {
+                            finalContent = finalContent.replace(/^Title:\s*.*$/im, 'Title: Persian (Farsi)');
+                        } else if (/\[Script Info\]/i.test(finalContent)) {
+                            finalContent = finalContent.replace(/\[Script Info\]/i, '[Script Info]\r\nTitle: Persian (Farsi)');
+                        }
                     }
                 }
 
